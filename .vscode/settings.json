@@ -1,0 +1,18 @@
+{
+    "editor.acceptSuggestionOnEnter": "off",
+    "editor.autoClosingBrackets": "never",
+    "editor.autoClosingQuotes": "never",
+    "editor.autoIndent": "none",
+    "editor.autoSurround": "never",
+    "editor.detectIndentation": false,
+    "editor.formatOnType": false,
+    "editor.insertSpaces": true,
+    "editor.quickSuggestions": {
+        "comments": "off",
+        "strings": "off",
+        "other": "off"
+    },
+    "editor.snippetSuggestions": "none",
+    "editor.suggestOnTriggerCharacters": false,
+    "editor.tabSize": 4
+}
