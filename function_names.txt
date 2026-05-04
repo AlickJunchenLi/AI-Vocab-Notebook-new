@@ -1,0 +1,16 @@
+# AI-Vocab-Notebook-new
+
+
+main.py:
+
+show_menu()
+# Prints all the options
+
+main()
+# Receives users' commands
+
+
+
+
+database.py:
+

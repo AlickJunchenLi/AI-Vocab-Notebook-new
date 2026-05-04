@@ -34,7 +34,7 @@ def split_words(a_string):
 
     if new_string == "":
         return []
-
+    new_string = new_string.replace("，", ",")
     words = new_string.split(",")
     clean_words = []
 
@@ -96,9 +96,7 @@ def find_entry(target_word):
     cur = conn.cursor()
     row = find_entry_with_cursor(cur, target_word)
     if row is None:
-        print("There is no word found named", target_word);
-    else:
-        print("Entry found", row);
+        print("There is no word found named", target_word)
     conn.close()
     return row
     
@@ -145,7 +143,12 @@ def update_entry(word, kind, update):
         SET {kind} = ?
         WHERE word = ?;
     """
-    cur.execute(sql, (update, word,))
+    if (kind == "synonym" or kind == "translation"):
+        new_update = split_words(update)
+        print("new_word: ", new_update)
+        cur.execute(sql, (json.dumps(new_update, ensure_ascii = False), word,))
+    else:
+        cur.execute(sql, (update, word))
     print("Successfully updated:)")
     conn.commit()
     conn.close()
