@@ -579,17 +579,26 @@ Implementation notes:
 2.10 update_entry_v2(language, word, column, new_value)
 ------------------------------------------------------------
 
-Function signature:
-
-    update_entry_v2(language, word, column, new_value)
+2.10 update_entry_v2(language, word, column, new_value, operation="replace")
 
 What this function is:
 
-    A CRUD Update function. It updates one field of an existing vocabulary entry.
+    A CRUD Update function. It updates an existing vocabulary entry.
+
+    It supports three update modes:
+
+        replace
+            Replace the whole value of a column.
+
+        add
+            Add one value into a list-style column.
+
+        delete
+            Delete one value from a list-style column.
 
 What it is used for:
 
-    When the user wants to edit a word, translation, language, or notes.
+    It allows the user to edit normal entry fields, and also manage list-style synonym/translation fields.
 
 Parameters:
 
@@ -600,30 +609,83 @@ Parameters:
         The current word of the entry to find.
 
     column: str
-        The field to update.
+        The column to update.
 
     new_value: str
-        The new value to save in that field.
+        The new value to replace, add, or delete.
+
+    operation: str
+        The update mode.
+
+        Allowed values:
+            "replace"
+            "add"
+            "delete"
 
 Allowed columns:
 
     language
     word
+    synonym
     translation
     notes
 
-How it works:
+List-style columns:
 
-    1. Clean language.
-    2. Normalize word.
-    3. Validate column using an allowed-column whitelist.
-    4. If column is not allowed, return an error.
-    5. If updating the word, normalize new_value.
+    synonym
+    translation
+
+Rules:
+
+    1. operation="replace" can be used for:
+           language
+           word
+           synonym
+           translation
+           notes
+
+    2. operation="add" can only be used for:
+           synonym
+           translation
+
+    3. operation="delete" can only be used for:
+           synonym
+           translation
+
+How it works for replace:
+
+    1. Validate the column name using a whitelist.
+    2. Find the entry by current language and current word.
+    3. If the column is synonym or translation, convert new_value into a clean list using split_words().
+    4. Store the list as JSON text using json.dumps(..., ensure_ascii=False).
+    5. If the column is word, normalize the new word.
     6. Run UPDATE entries_v2 SET column = ? WHERE language = ? AND word = ?.
-    7. Also update updated_at if that column exists.
-    8. Commit the transaction.
-    9. Use cur.rowcount to check whether any row was updated.
-    10. Return success or not-found result.
+    7. Update updated_at.
+    8. Commit and return success/failure.
+
+How it works for add:
+
+    1. Only allow column to be synonym or translation.
+    2. Find the entry.
+    3. Read the current JSON list text from the column.
+    4. Convert it into a Python list using split_words().
+    5. If new_value already exists in the list, return duplicate result.
+    6. Otherwise append new_value.
+    7. Convert the updated list back to JSON text.
+    8. Save it into SQLite.
+    9. Commit and return success/failure.
+
+How it works for delete:
+
+    1. Only allow column to be synonym or translation.
+    2. Find the entry.
+    3. Read the current JSON list text from the column.
+    4. Convert it into a Python list using split_words().
+    5. If new_value does not exist in the list, return not-found result.
+    6. Otherwise remove new_value.
+    7. Convert the updated list back to JSON text.
+    8. Save it into SQLite.
+    9. Commit and return success/failure.
 
 Expected return:
 
@@ -632,35 +694,43 @@ Expected return:
         {
             "ok": True,
             "message": "Entry updated successfully.",
-            "rows_updated": 1
+            "operation": "add",
+            "column": "synonym",
+            "value": "glad"
         }
 
-    If not found:
+    Error example:
 
         {
             "ok": False,
-            "error": "Entry not found."
+            "error": "Add/delete operations are only allowed for synonym and translation."
         }
 
-Use case:
+Use cases:
 
-    update_entry_v2("English", "happy", "notes", "common adjective for positive feeling")
+    Replace notes:
+
+        update_entry_v2("English", "happy", "notes", "A common positive adjective.", "replace")
+
+    Replace the whole synonym list:
+
+        update_entry_v2("English", "happy", "synonym", "joyful, cheerful, pleased", "replace")
+
+    Add one synonym:
+
+        update_entry_v2("English", "happy", "synonym", "glad", "add")
+
+    Delete one synonym:
+
+        update_entry_v2("English", "happy", "synonym", "joyful", "delete")
 
 Implementation notes:
 
-    Important safety issue:
+    SQL placeholders cannot protect column names, so column must be checked with a whitelist before using f-string SQL.
 
-    SQL placeholders can protect values, but not column names. Therefore this is unsafe:
+    The synonym and translation fields are stored as TEXT in SQLite, but they represent JSON lists.
 
-        cur.execute("UPDATE entries_v2 SET ? = ?", (column, new_value))
-
-    Correct design:
-
-        allowed_columns = {"language", "word", "translation", "notes"}
-        if column not in allowed_columns:
-            return error
-
-        sql = f"UPDATE entries_v2 SET {column} = ? WHERE language = ? AND word = ?"
+    This design is acceptable for the current MVP learning version. In the final graph-based version, synonym and translation relationships should eventually move to relations_v2.
 
 ------------------------------------------------------------
 2.11 delete_entry_v2(language, word)

@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 conn = sqlite3.connect("notebook.db")
+conn.execute("PRAGMA foreign_keys = ON;")
 cur = conn.cursor()
 
 
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS entries_v2 (
     word TEXT NOT NULL,
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(language, word)
 );
 """)
@@ -43,6 +45,115 @@ CREATE TABLE IF NOT EXISTS relations_v2 (
     UNIQUE(from_entry_id, to_entry_id, relation_type)
 );
 """)
+
+
+
+
+#related_synonyms = ["joyful", "pleased", "cheerful"]
+#cur.execute("""
+#INSERT INTO entries_new (language, word, synonym, translation, notes)
+#VALUES (?, ?, ?, ?, ?);
+#""", ("English", "happy", json.dumps(related_synonyms), "开心", "positive emotion"))
+
+conn.commit()
+
+conn.close()
+
+
+
+def normalize_word(word):
+    if word is None:
+        return ""
+    
+    word = word.strip()
+    
+    word = word.lower()
+    
+    return word
+
+
+
+def split_words(text):
+    if text is None:
+        return []
+
+    if isinstance(text, list):
+        clean_words = []
+        for item in text:
+            item = str(item).strip()
+            if item != "":
+                clean_words.append(item)
+        return clean_words
+
+    text = str(text).strip()
+
+    if text == "":
+        return []
+
+    # If the text is already JSON, try to read it first.
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            clean_words = []
+            for item in parsed:
+                item = str(item).strip()
+                if item != "":
+                    clean_words.append(item)
+            return clean_words
+    except json.JSONDecodeError:
+        pass
+
+    # Support both English comma and Chinese comma.
+    text = text.replace("，", ",")
+    parts = text.split(",")
+
+    clean_words = []
+    for part in parts:
+        part = part.strip()
+        if part != "":
+            clean_words.append(part)
+
+    return clean_words
+
+def entry_exists(cur, language, word):
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+    
+    cur.execute("""
+    SELECT 1 FROM entries_v2
+    WHERE language = ? AND word = ?
+    """, (language, word,))
+    
+    row = cur.fetchone()
+    conn.close()
+    if row is None:
+        print(f"The word {word} in {language} does not exist")
+        return False
+    print(f"The word {word} in {language} exists")
+    return True
+
+
+
+def get_entry_id(language, word):
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+    
+    cur.execute("""
+    SELECT id FROM entries_v2
+    WHERE language = ? AND word = ?
+    """, (language, word))
+    
+    id = cur.fetchone()
+    conn.close()
+    if id is None:
+        print(f"Didn't find the word {word} in {language}")
+        return None
+    else:
+        print(f"The id of {word} in {language} is: {id}")
+        return id
+
 
 
 def add_entry_v2(language, word, notes = ""):
@@ -94,7 +205,7 @@ def list_entries_v2():
     print("entries data:")
     
     cur.execute("""
-    SELECT id, language, word, notes, created_at
+    SELECT id, language, word, notes, created_at, updated_at
     FROM entries_v2
     ORDER BY id;
     """)
@@ -102,7 +213,7 @@ def list_entries_v2():
     rows = cur.fetchall()
     
     for row in rows:
-        print(f"id: {row[0]} | language: {row[1]} | word: {row[2]} | notes: {row[3]} | created at: {row[4]}")
+        print(f"id: {row[0]} | language: {row[1]} | word: {row[2]} | notes: {row[3]} | created at: {row[4]} | updated at: {row[5]}")
         
     conn.close()
     return rows
@@ -184,32 +295,125 @@ def list_relations_v2(language, word):
 
     return rows
 
-#related_synonyms = ["joyful", "pleased", "cheerful"]
-#cur.execute("""
-#INSERT INTO entries_new (language, word, synonym, translation, notes)
-#VALUES (?, ?, ?, ?, ?);
-#""", ("English", "happy", json.dumps(related_synonyms), "开心", "positive emotion"))
 
-conn.commit()
 
-conn.close()
 
-def split_words(a_string):
-    new_string = a_string.strip()
 
-    if new_string == "":
-        return []
-    new_string = new_string.replace("，", ",")
-    words = new_string.split(",")
-    clean_words = []
+def update_entry_v2(language, word, column, new_value, operation="replace"):
+    allowed_columns = ["language", "word", "synonym", "translation", "notes"]
+    list_columns = ["synonym", "translation"]
+    allowed_operations = ["replace", "add", "delete"]
 
-    for word in words:
-        clean_word = word.strip()
+    if column not in allowed_columns:
+        print(f"Invalid column: {column}")
+        return False
 
-        if clean_word != "":
-            clean_words.append(clean_word)
+    if operation not in allowed_operations:
+        print(f"Invalid operation: {operation}")
+        return False
 
-    return clean_words
+    # add/delete are only allowed for list-style columns.
+    if operation in ["add", "delete"] and column not in list_columns:
+        print(f"You can only use '{operation}' for synonym or translation.")
+        return False
+
+    language = str(language).strip()
+    word = normalize_word(word)
+
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+
+    # 1. Replace the whole column value
+    if operation == "replace":
+        if column in list_columns:
+            new_list = split_words(new_value)
+            stored_value = json.dumps(new_list, ensure_ascii=False)
+        else:
+            stored_value = str(new_value).strip()
+
+            if column == "word":
+                stored_value = normalize_word(stored_value)
+
+        sql = f"""
+        UPDATE entries_v2
+        SET {column} = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE language = ? AND word = ?;
+        """
+
+        cur.execute(sql, (stored_value, language, word))
+
+        changed_rows = cur.rowcount
+        conn.commit()
+        conn.close()
+
+        if changed_rows == 0:
+            print(f"No entry found for {word} in {language}.")
+            return False
+
+        print(f"Successfully replaced {column}.")
+        return True
+
+    # 2. Add/delete one item from synonym/translation
+    cur.execute(f"""
+    SELECT {column}
+    FROM entries_v2
+    WHERE language = ? AND word = ?;
+    """, (language, word))
+
+    row = cur.fetchone()
+
+    if row is None:
+        print(f"No entry found for {word} in {language}.")
+        conn.close()
+        return False
+
+    current_value = row[0]
+    current_list = split_words(current_value)
+
+    item = str(new_value).strip()
+
+    if item == "":
+        print("New value cannot be empty.")
+        conn.close()
+        return False
+
+    if operation == "add":
+        if item in current_list:
+            print(f"{item} already exists in {column}.")
+            conn.close()
+            return False
+
+        current_list.append(item)
+
+    elif operation == "delete":
+        if item not in current_list:
+            print(f"{item} does not exist in {column}.")
+            conn.close()
+            return False
+
+        current_list.remove(item)
+
+    updated_json = json.dumps(current_list, ensure_ascii=False)
+
+    cur.execute(f"""
+    UPDATE entries_v2
+    SET {column} = ?,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE language = ? AND word = ?;
+    """, (updated_json, language, word))
+
+    conn.commit()
+    conn.close()
+
+    print(f"Successfully {operation}ed {item} in {column}.")
+    return True
+
+
+
+
+
 
 def find_entry_with_cursor(cur, word):
     cur.execute("""
