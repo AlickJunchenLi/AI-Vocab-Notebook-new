@@ -45,6 +45,119 @@ CREATE TABLE IF NOT EXISTS relations_v2 (
 """)
 
 
+def add_entry_v2(language, word, notes = ""):
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+        INSERT INTO entries_v2 (language, word, notes)
+        VALUES (?, ?, ?);
+        """, (language, word, notes))
+
+        conn.commit()
+        print("Entry added successfully.")
+    except sqlite3.IntegrityError:
+        print("This word already exists in this language.")
+    conn.close()
+    
+
+def find_entry_v2(language, word):
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT id, language, word, notes, created_at
+    FROM entries_v2
+    WHERE language = ? AND word = ?;
+    """, (language, word))
+
+    row = cur.fetchone()
+    conn.close()
+
+    if row:
+        return row
+    else:
+        return None
+
+def add_relation_v2(from_language, from_word, to_language, to_word, relation_type):
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+    
+    from_entry = find_entry_v2(from_language, from_word)
+    to_entry = find_entry_v2(to_language, to_word)
+    
+    if from_entry == None:
+        print("Starting word does not exist.")
+        conn.close()
+        return
+    
+    if to_entry == None:
+        print("Starting word does not exist.")
+        conn.close()
+        return
+    
+    from_entry_id = from_entry[0]
+    to_entry_id = to_entry[0]
+    
+    try:
+        cur.execute("""
+        INSERT INTO relations_v2 (from_entry_id, to_entry_id, relation_type)
+        VALUES (?, ?, ?);
+        """, (from_entry_id, to_entry_id, relation_type))
+        
+        conn.commit()
+        print("Relation added successfully.")
+    
+    except sqlite3.IntegrityError:
+        print("This relation already exists.")
+
+    conn.close()
+    
+def list_relations_v2(language, word):
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+
+    entry = find_entry_v2(language, word)
+    
+    if entry is None:
+        print("Entry does not exist.")
+        conn.close()
+        return []
+    
+    entry_id = entry[0]
+    
+    cur.execute("""
+    SELECT
+        e1.language
+        e1.word
+        r.relation_type
+        e2.language
+        e2.word
+    FROM
+        relations_v2 r
+        JOIN entries_v2 e1 ON r.from_entry_id = e1.id
+        JOIN entries_v2 e2 ON r.to_entry_id = e2.id
+        WHERE r.from_entry_id = ?;
+    """, (entry_id,))
+    
+    rows = cur.fetchall()
+    conn.close()
+    
+    for row in rows:
+        from_language = row[0]
+        from_word = row[1]
+        relation_type = row[2]
+        to_language = row[3]
+        to_word = row[4]
+
+        print(f"{from_language}: {from_word} → {to_language}: {to_word} ({relation_type})")
+
+    return rows
+
 #related_synonyms = ["joyful", "pleased", "cheerful"]
 #cur.execute("""
 #INSERT INTO entries_new (language, word, synonym, translation, notes)
