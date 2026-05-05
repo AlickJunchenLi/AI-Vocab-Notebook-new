@@ -299,7 +299,7 @@ def list_relations_v2(language, word):
 
 
 
-def update_entry_v2(language, word, column, new_value, operation="replace"):
+def update_entry_v2(language, word, column, old_value=None, new_value=None, operation="replace"):
     allowed_columns = ["language", "word", "synonym", "translation", "notes"]
     list_columns = ["synonym", "translation"]
     allowed_operations = ["replace", "add", "delete"]
@@ -312,11 +312,6 @@ def update_entry_v2(language, word, column, new_value, operation="replace"):
         print(f"Invalid operation: {operation}")
         return False
 
-    # add/delete are only allowed for list-style columns.
-    if operation in ["add", "delete"] and column not in list_columns:
-        print(f"You can only use '{operation}' for synonym or translation.")
-        return False
-
     language = str(language).strip()
     word = normalize_word(word)
 
@@ -324,16 +319,23 @@ def update_entry_v2(language, word, column, new_value, operation="replace"):
     conn.execute("PRAGMA foreign_keys = ON;")
     cur = conn.cursor()
 
-    # 1. Replace the whole column value
-    if operation == "replace":
-        if column in list_columns:
-            new_list = split_words(new_value)
-            stored_value = json.dumps(new_list, ensure_ascii=False)
-        else:
-            stored_value = str(new_value).strip()
+    # Case 1: normal columns
+    # For language, word, and notes, only replace is allowed.
+    if column not in list_columns:
+        if operation != "replace":
+            print(f"You can only use replace for {column}.")
+            conn.close()
+            return False
 
-            if column == "word":
-                stored_value = normalize_word(stored_value)
+        if new_value is None:
+            print("new_value cannot be empty.")
+            conn.close()
+            return False
+
+        stored_value = str(new_value).strip()
+
+        if column == "word":
+            stored_value = normalize_word(stored_value)
 
         sql = f"""
         UPDATE entries_v2
@@ -343,8 +345,8 @@ def update_entry_v2(language, word, column, new_value, operation="replace"):
         """
 
         cur.execute(sql, (stored_value, language, word))
-
         changed_rows = cur.rowcount
+
         conn.commit()
         conn.close()
 
@@ -352,10 +354,10 @@ def update_entry_v2(language, word, column, new_value, operation="replace"):
             print(f"No entry found for {word} in {language}.")
             return False
 
-        print(f"Successfully replaced {column}.")
+        print(f"Successfully updated {column}.")
         return True
 
-    # 2. Add/delete one item from synonym/translation
+    # Case 2: list columns: synonym / translation
     cur.execute(f"""
     SELECT {column}
     FROM entries_v2
@@ -372,14 +374,20 @@ def update_entry_v2(language, word, column, new_value, operation="replace"):
     current_value = row[0]
     current_list = split_words(current_value)
 
-    item = str(new_value).strip()
-
-    if item == "":
-        print("New value cannot be empty.")
-        conn.close()
-        return False
-
+    # Add one item
     if operation == "add":
+        if new_value is None:
+            print("new_value cannot be empty.")
+            conn.close()
+            return False
+
+        item = str(new_value).strip()
+
+        if item == "":
+            print("new_value cannot be empty.")
+            conn.close()
+            return False
+
         if item in current_list:
             print(f"{item} already exists in {column}.")
             conn.close()
@@ -387,13 +395,49 @@ def update_entry_v2(language, word, column, new_value, operation="replace"):
 
         current_list.append(item)
 
+    # Delete one item
     elif operation == "delete":
+        if old_value is None:
+            print("old_value cannot be empty for delete operation.")
+            conn.close()
+            return False
+
+        item = str(old_value).strip()
+
         if item not in current_list:
             print(f"{item} does not exist in {column}.")
             conn.close()
             return False
 
         current_list.remove(item)
+
+    # Replace one item
+    elif operation == "replace":
+        if old_value is None or new_value is None:
+            print("old_value and new_value are both required for replace operation.")
+            conn.close()
+            return False
+
+        old_item = str(old_value).strip()
+        new_item = str(new_value).strip()
+
+        if old_item == "" or new_item == "":
+            print("old_value and new_value cannot be empty.")
+            conn.close()
+            return False
+
+        if old_item not in current_list:
+            print(f"{old_item} does not exist in {column}.")
+            conn.close()
+            return False
+
+        if new_item in current_list:
+            print(f"{new_item} already exists in {column}.")
+            conn.close()
+            return False
+
+        index = current_list.index(old_item)
+        current_list[index] = new_item
 
     updated_json = json.dumps(current_list, ensure_ascii=False)
 
@@ -407,7 +451,7 @@ def update_entry_v2(language, word, column, new_value, operation="replace"):
     conn.commit()
     conn.close()
 
-    print(f"Successfully {operation}ed {item} in {column}.")
+    print(f"Successfully performed {operation} on {column}.")
     return True
 
 
