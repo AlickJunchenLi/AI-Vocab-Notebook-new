@@ -1,4 +1,4 @@
-from database import add_entry, list_entries, find_entry, delete_entry, update_entry, split_words
+from database import add_entry, list_entries, find_entry, delete_entry, update_entry, add_relation_v2, list_relations_v2
 
 def show_menu():
     print()
@@ -74,6 +74,22 @@ def handle_update_entry():
     update_entry(word, column, new_value)
     print("Update process finished")
 
+def handle_add_relation():
+    from_language = input("Enter starting word language: ")
+    from_word = input("Enter starting word: ")
+
+    to_language = input("Enter target word language: ")
+    to_word = input("Enter target word: ")
+
+    relation_type = input("Enter relation type, such as synonym or translation: ")
+
+    add_relation_v2(from_language, from_word, to_language, to_word, relation_type)
+    
+def handle_list_relations():
+    language = input("Enter language: ")
+    word = input("Enter word: ")
+
+    list_relations_v2(language, word)
 
 def main():
     while True:
@@ -96,13 +112,18 @@ def main():
             handle_delete_entry()
 
         elif choice == "6":
+            handle_add_relation()
+
+        elif choice == "7":
+            handle_list_relations()
+
+        elif choice == "8":
             print("Goodbye!")
             break
 
         else:
-            print("Invalid choice. Please choose 1-6.")
+            print("Invalid choice. Please choose 1-8.")
 
 if __name__ == "__main__":
     main()
     
-
