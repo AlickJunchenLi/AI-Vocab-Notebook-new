@@ -1,16 +1,1223 @@
-# AI-Vocab-Notebook-new
+AI Vocabulary Notebook - database.py Function Handoff
+Prepared for: Senior Software Developer Partner
+Purpose: Explain the expected behavior, parameters, use cases, and implementation logic for the core database.py functions.
 
+============================================================
+0. OVERALL CONTEXT
+============================================================
 
-main.py:
+The project is an AI Vocabulary Notebook. The database.py file should act as the data layer of the app.
 
-show_menu()
-# Prints all the options
+In simple terms:
 
-main()
-# Receives users' commands
+    main.py / UI layer collects user input
+    database.py handles SQLite operations
+    SQLite stores vocabulary entries and word relations
 
+The database.py file should NOT control the terminal menu or UI flow. It should provide clean reusable functions that other files can call.
 
+Core tables expected for the MVP:
 
+1. entries_v2
+   Stores vocabulary entries.
 
-database.py:
+   Suggested columns:
+       id INTEGER PRIMARY KEY AUTOINCREMENT
+       language TEXT NOT NULL
+       word TEXT NOT NULL
+       translation TEXT
+       notes TEXT
+       created_at TEXT DEFAULT CURRENT_TIMESTAMP
+       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 
+   Suggested uniqueness rule:
+       UNIQUE(language, word)
+
+2. relations_v2
+   Stores relationships between vocabulary entries.
+
+   Suggested columns:
+       id INTEGER PRIMARY KEY AUTOINCREMENT
+       source_entry_id INTEGER NOT NULL
+       target_entry_id INTEGER NOT NULL
+       relation_type TEXT NOT NULL
+       created_at TEXT DEFAULT CURRENT_TIMESTAMP
+
+   Suggested uniqueness rule:
+       UNIQUE(source_entry_id, target_entry_id, relation_type)
+
+   Suggested foreign keys:
+       source_entry_id references entries_v2(id)
+       target_entry_id references entries_v2(id)
+
+3. records_v2
+   Optional for later. It can store learning history, notes, examples, or review records.
+
+============================================================
+1. GENERAL DESIGN PRINCIPLES
+============================================================
+
+1. Keep database.py independent from UI.
+   It should return useful values instead of only printing.
+
+2. Prefer structured return values.
+   For example, return dictionaries, lists of dictionaries, True/False, or clear success/error objects.
+
+3. Avoid duplicate data.
+   Use entry_exists(), get_entry_id(), and relation_exists() before inserting.
+
+4. Use SQL placeholders for values.
+   Example:
+       cur.execute("SELECT * FROM entries_v2 WHERE language = ? AND word = ?", (language, word))
+
+5. Use a whitelist for dynamic column names.
+   SQL placeholders cannot safely replace column names, so update_entry_v2() must validate the column name first.
+
+6. Normalize user input before storing or searching.
+   For example:
+       " Happy " -> "happy"
+       " 开心 " -> "开心"
+
+7. Close database connections safely.
+   Use context managers where possible:
+       with get_connection() as conn:
+           ...
+
+============================================================
+2. FUNCTION DETAILS
+============================================================
+
+------------------------------------------------------------
+2.1 get_connection()
+------------------------------------------------------------
+
+Function signature:
+
+    get_connection()
+
+What this function is:
+
+    A helper function that opens and returns a SQLite database connection.
+
+What it is used for:
+
+    Every database operation needs a connection. Instead of writing sqlite3.connect("notebook.db") in every function, all functions should call get_connection().
+
+Parameters:
+
+    None in the MVP version.
+
+Optional future parameter:
+
+    db_path: str or Path
+        Allows testing with a different database file.
+
+How it works:
+
+    1. Import sqlite3.
+    2. Connect to notebook.db.
+    3. Optionally enable foreign keys with PRAGMA foreign_keys = ON.
+    4. Optionally set row_factory so rows can be converted to dictionaries.
+    5. Return the connection object.
+
+Expected return:
+
+    sqlite3.Connection
+
+Example use:
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+Implementation notes:
+
+    If relations_v2 uses foreign keys, this function should enable:
+
+        PRAGMA foreign_keys = ON;
+
+    This makes SQLite enforce relation integrity.
+
+------------------------------------------------------------
+2.2 create_tables()
+------------------------------------------------------------
+
+Function signature:
+
+    create_tables()
+
+What this function is:
+
+    A setup function that creates required database tables if they do not already exist.
+
+What it is used for:
+
+    It prepares the database before the app starts using it.
+
+Parameters:
+
+    None.
+
+How it works:
+
+    1. Open a database connection using get_connection().
+    2. Create entries_v2 table if it does not exist.
+    3. Create relations_v2 table if it does not exist.
+    4. Optionally create records_v2 table if needed.
+    5. Commit the changes.
+    6. Close the connection.
+
+Expected return:
+
+    Recommended:
+        True if setup succeeds.
+
+    Alternative:
+        None, if the function only performs setup.
+
+Use case:
+
+    main.py can call this once when the program starts:
+
+        create_tables()
+
+Implementation notes:
+
+    The function should be safe to run multiple times. Using CREATE TABLE IF NOT EXISTS prevents duplicate-table errors.
+
+------------------------------------------------------------
+2.3 split_words(text)
+------------------------------------------------------------
+
+Function signature:
+
+    split_words(text)
+
+What this function is:
+
+    A helper function that converts comma-separated text into a clean Python list.
+
+What it is used for:
+
+    It helps handle fields where the user may type several words at once, such as synonyms or tags.
+
+Parameters:
+
+    text: str
+        The raw input string from the user.
+
+Example input:
+
+    "happy, joyful，cheerful"
+
+Expected output:
+
+    ["happy", "joyful", "cheerful"]
+
+How it works:
+
+    1. If text is None or empty, return an empty list.
+    2. Replace Chinese commas with English commas.
+       "，" -> ","
+    3. Split the text by English comma.
+    4. Strip spaces around each item.
+    5. Remove empty items.
+    6. Return the clean list.
+
+Expected return:
+
+    list[str]
+
+Use case:
+
+    User types:
+        happy, joyful，cheerful
+
+    The function returns:
+        ["happy", "joyful", "cheerful"]
+
+Implementation notes:
+
+    Python str.split() only accepts one separator at a time. This is why we should first replace "，" with "," and then call split(",").
+
+------------------------------------------------------------
+2.4 normalize_word(word)
+------------------------------------------------------------
+
+Function signature:
+
+    normalize_word(word)
+
+What this function is:
+
+    A helper function that cleans a word before saving, searching, comparing, or linking it.
+
+What it is used for:
+
+    It makes duplicate checking and searching more reliable.
+
+Parameters:
+
+    word: str
+        The raw word input from the user.
+
+How it works:
+
+    1. If word is None, return an empty string or None depending on chosen design.
+    2. Strip spaces from the beginning and end.
+    3. For English words, optionally convert to lowercase.
+    4. For Chinese words, keep the characters unchanged.
+    5. Return the cleaned word.
+
+Expected return:
+
+    str
+
+Example:
+
+    normalize_word(" Happy ") -> "happy"
+    normalize_word(" 开心 ") -> "开心"
+
+Use case:
+
+    Without normalization, the database may treat these as different entries:
+        "Happy"
+        " happy"
+        "happy "
+        "happy"
+
+    Normalization helps make all of them become:
+        "happy"
+
+Implementation notes:
+
+    Be careful with lowercasing all languages. For MVP, a simple design is acceptable:
+        word.strip().lower()
+
+    But for a more precise version, only lowercase alphabetic English text.
+
+------------------------------------------------------------
+2.5 entry_exists(language, word)
+------------------------------------------------------------
+
+Function signature:
+
+    entry_exists(language, word)
+
+What this function is:
+
+    A helper function that checks whether a vocabulary entry already exists.
+
+What it is used for:
+
+    It prevents duplicate entries.
+
+Parameters:
+
+    language: str
+        The language of the entry, such as "English" or "Chinese".
+
+    word: str
+        The vocabulary word, such as "happy" or "开心".
+
+How it works:
+
+    1. Normalize the word.
+    2. Clean the language.
+    3. Query entries_v2 for a row matching language and word.
+    4. If a row exists, return True.
+    5. Otherwise, return False.
+
+Expected return:
+
+    bool
+
+Example:
+
+    entry_exists("English", "happy") -> True
+    entry_exists("English", "unknownword") -> False
+
+Use case:
+
+    add_entry_v2() should call entry_exists() before inserting a new row.
+
+Implementation notes:
+
+    This function should not print too much. It should return True or False so other functions can decide what to do.
+
+------------------------------------------------------------
+2.6 get_entry_id(language, word)
+------------------------------------------------------------
+
+Function signature:
+
+    get_entry_id(language, word)
+
+What this function is:
+
+    A helper function that returns the database id for a specific entry.
+
+What it is used for:
+
+    relations_v2 should link entries by id, not by raw text. Therefore relation functions need this helper.
+
+Parameters:
+
+    language: str
+        The language of the entry.
+
+    word: str
+        The vocabulary word.
+
+How it works:
+
+    1. Normalize the word.
+    2. Clean the language.
+    3. Query entries_v2 where language and word match.
+    4. If found, return the id.
+    5. If not found, return None.
+
+Expected return:
+
+    int | None
+
+Example:
+
+    get_entry_id("English", "happy") -> 3
+    get_entry_id("English", "unknownword") -> None
+
+Use case:
+
+    add_relation_v2() needs source_entry_id and target_entry_id.
+
+Implementation notes:
+
+    Do not create a new entry inside this function. This function should only find an existing id.
+
+------------------------------------------------------------
+2.7 add_entry_v2(language, word, translation=None, notes=None)
+------------------------------------------------------------
+
+Function signature:
+
+    add_entry_v2(language, word, translation=None, notes=None)
+
+What this function is:
+
+    A CRUD Create function. It adds a new vocabulary entry to entries_v2.
+
+What it is used for:
+
+    When the user wants to save a new word in the notebook.
+
+Parameters:
+
+    language: str
+        Required. The language of the word.
+
+    word: str
+        Required. The vocabulary word.
+
+    translation: str | None
+        Optional. A simple translation or meaning.
+
+    notes: str | None
+        Optional. User notes, usage notes, or explanation.
+
+How it works:
+
+    1. Clean language.
+    2. Normalize word.
+    3. Validate that language and word are not empty.
+    4. Call entry_exists(language, word).
+    5. If the entry already exists, return a duplicate message or result.
+    6. Insert the new row into entries_v2.
+    7. Commit the transaction.
+    8. Return success information.
+
+Expected return:
+
+    Recommended structured result:
+
+        {
+            "ok": True,
+            "message": "Entry added successfully.",
+            "entry_id": 3
+        }
+
+    For duplicate:
+
+        {
+            "ok": False,
+            "error": "Entry already exists."
+        }
+
+Use case:
+
+    add_entry_v2("English", "happy", "开心", "positive emotion")
+
+Implementation notes:
+
+    The database should also have UNIQUE(language, word) as a second layer of duplicate protection.
+
+------------------------------------------------------------
+2.8 list_entries_v2(language=None)
+------------------------------------------------------------
+
+Function signature:
+
+    list_entries_v2(language=None)
+
+What this function is:
+
+    A CRUD Read function. It lists vocabulary entries.
+
+What it is used for:
+
+    When the user wants to view saved words.
+
+Parameters:
+
+    language: str | None
+        Optional. If provided, list only entries in that language. If None, list all entries.
+
+How it works:
+
+    1. Open database connection.
+    2. If language is provided, query entries_v2 where language matches.
+    3. If language is not provided, query all entries.
+    4. Order results by id, created_at, or word.
+    5. Convert rows into a list of dictionaries.
+    6. Return the list.
+
+Expected return:
+
+    list[dict]
+
+Example return:
+
+    [
+        {
+            "id": 1,
+            "language": "English",
+            "word": "happy",
+            "translation": "开心",
+            "notes": "positive emotion"
+        },
+        {
+            "id": 2,
+            "language": "Chinese",
+            "word": "开心",
+            "translation": "happy",
+            "notes": "positive emotion"
+        }
+    ]
+
+Use case:
+
+    list_entries_v2()
+    list_entries_v2("English")
+
+Implementation notes:
+
+    This function should return data, not only print it. main.py can handle display formatting.
+
+------------------------------------------------------------
+2.9 find_entry_v2(language, word)
+------------------------------------------------------------
+
+Function signature:
+
+    find_entry_v2(language, word)
+
+What this function is:
+
+    A CRUD Read function. It finds one exact vocabulary entry.
+
+What it is used for:
+
+    When the user searches for a specific word in a specific language.
+
+Parameters:
+
+    language: str
+        Required. The language of the entry.
+
+    word: str
+        Required. The exact word to find.
+
+How it works:
+
+    1. Clean language.
+    2. Normalize word.
+    3. Query entries_v2 by language and word.
+    4. If found, return the entry as a dictionary.
+    5. If not found, return None.
+
+Expected return:
+
+    dict | None
+
+Example return:
+
+    {
+        "id": 1,
+        "language": "English",
+        "word": "happy",
+        "translation": "开心",
+        "notes": "positive emotion"
+    }
+
+Use case:
+
+    find_entry_v2("English", "happy")
+
+Implementation notes:
+
+    This function is for exact lookup. For partial lookup, use search_entries_v2().
+
+------------------------------------------------------------
+2.10 update_entry_v2(language, word, column, new_value)
+------------------------------------------------------------
+
+Function signature:
+
+    update_entry_v2(language, word, column, new_value)
+
+What this function is:
+
+    A CRUD Update function. It updates one field of an existing vocabulary entry.
+
+What it is used for:
+
+    When the user wants to edit a word, translation, language, or notes.
+
+Parameters:
+
+    language: str
+        The current language of the entry to find.
+
+    word: str
+        The current word of the entry to find.
+
+    column: str
+        The field to update.
+
+    new_value: str
+        The new value to save in that field.
+
+Allowed columns:
+
+    language
+    word
+    translation
+    notes
+
+How it works:
+
+    1. Clean language.
+    2. Normalize word.
+    3. Validate column using an allowed-column whitelist.
+    4. If column is not allowed, return an error.
+    5. If updating the word, normalize new_value.
+    6. Run UPDATE entries_v2 SET column = ? WHERE language = ? AND word = ?.
+    7. Also update updated_at if that column exists.
+    8. Commit the transaction.
+    9. Use cur.rowcount to check whether any row was updated.
+    10. Return success or not-found result.
+
+Expected return:
+
+    Recommended:
+
+        {
+            "ok": True,
+            "message": "Entry updated successfully.",
+            "rows_updated": 1
+        }
+
+    If not found:
+
+        {
+            "ok": False,
+            "error": "Entry not found."
+        }
+
+Use case:
+
+    update_entry_v2("English", "happy", "notes", "common adjective for positive feeling")
+
+Implementation notes:
+
+    Important safety issue:
+
+    SQL placeholders can protect values, but not column names. Therefore this is unsafe:
+
+        cur.execute("UPDATE entries_v2 SET ? = ?", (column, new_value))
+
+    Correct design:
+
+        allowed_columns = {"language", "word", "translation", "notes"}
+        if column not in allowed_columns:
+            return error
+
+        sql = f"UPDATE entries_v2 SET {column} = ? WHERE language = ? AND word = ?"
+
+------------------------------------------------------------
+2.11 delete_entry_v2(language, word)
+------------------------------------------------------------
+
+Function signature:
+
+    delete_entry_v2(language, word)
+
+What this function is:
+
+    A CRUD Delete function. It removes one vocabulary entry from entries_v2.
+
+What it is used for:
+
+    When the user wants to delete a word from the notebook.
+
+Parameters:
+
+    language: str
+        The language of the entry.
+
+    word: str
+        The word to delete.
+
+How it works:
+
+    1. Clean language.
+    2. Normalize word.
+    3. Find the entry id using get_entry_id().
+    4. If the entry does not exist, return an error.
+    5. Delete relations where this id is the source_entry_id or target_entry_id.
+    6. Delete the entry itself.
+    7. Commit the transaction.
+    8. Use rowcount to confirm deletion.
+    9. Return success result.
+
+Expected return:
+
+    Recommended:
+
+        {
+            "ok": True,
+            "message": "Entry deleted successfully.",
+            "relations_deleted": 2
+        }
+
+Use case:
+
+    delete_entry_v2("English", "happy")
+
+Implementation notes:
+
+    There are two possible designs:
+
+    Option A: Manual cleanup
+        Delete relations first, then delete the entry.
+
+    Option B: Foreign key cascade
+        Define relations_v2 foreign keys with ON DELETE CASCADE.
+
+    For learning clarity, manual cleanup is easier to understand.
+
+------------------------------------------------------------
+2.12 relation_exists(source_id, target_id, relation_type)
+------------------------------------------------------------
+
+Function signature:
+
+    relation_exists(source_id, target_id, relation_type)
+
+What this function is:
+
+    A helper function that checks whether a relation already exists.
+
+What it is used for:
+
+    It prevents duplicate relation rows.
+
+Parameters:
+
+    source_id: int
+        The id of the source entry.
+
+    target_id: int
+        The id of the target entry.
+
+    relation_type: str
+        The type of relation, such as "synonym", "translation", "antonym", or "related".
+
+How it works:
+
+    1. Query relations_v2 where source_entry_id, target_entry_id, and relation_type all match.
+    2. If a row exists, return True.
+    3. Otherwise, return False.
+
+Expected return:
+
+    bool
+
+Example:
+
+    relation_exists(1, 2, "translation") -> True
+
+Use case:
+
+    add_relation_v2() should call this before inserting a new relation.
+
+Implementation notes:
+
+    For symmetric relation types like synonym, the team needs to decide whether A -> B and B -> A are both stored, or whether list_relations_v2() handles both directions by query.
+
+------------------------------------------------------------
+2.13 add_relation_v2(source_language, source_word, target_language, target_word, relation_type)
+------------------------------------------------------------
+
+Function signature:
+
+    add_relation_v2(source_language, source_word, target_language, target_word, relation_type)
+
+What this function is:
+
+    A relation Create function. It creates a link between two vocabulary entries.
+
+What it is used for:
+
+    It allows the notebook to understand that two words are connected.
+
+Parameters:
+
+    source_language: str
+        Language of the first/source word.
+
+    source_word: str
+        First/source word.
+
+    target_language: str
+        Language of the second/target word.
+
+    target_word: str
+        Second/target word.
+
+    relation_type: str
+        Type of relationship.
+
+Suggested relation_type values:
+
+    synonym
+    translation
+    antonym
+    related
+    example_of
+    form_of
+
+How it works:
+
+    1. Normalize source_word and target_word.
+    2. Clean source_language and target_language.
+    3. Find source_entry_id using get_entry_id().
+    4. Find target_entry_id using get_entry_id().
+    5. If either entry does not exist, return an error.
+    6. Validate relation_type.
+    7. Check relation_exists(source_id, target_id, relation_type).
+    8. If duplicate, return a duplicate relation result.
+    9. Insert the relation into relations_v2.
+    10. Commit the transaction.
+    11. Return success result.
+
+Expected return:
+
+    Recommended:
+
+        {
+            "ok": True,
+            "message": "Relation added successfully.",
+            "relation_id": 5
+        }
+
+Use case:
+
+    add_relation_v2("English", "happy", "Chinese", "开心", "translation")
+
+Implementation notes:
+
+    The function should not silently create missing entries unless the team intentionally chooses that design. For MVP, missing entries should return an error.
+
+------------------------------------------------------------
+2.14 list_relations_v2(language, word)
+------------------------------------------------------------
+
+Function signature:
+
+    list_relations_v2(language, word)
+
+What this function is:
+
+    A relation Read function. It lists all relations connected to one entry.
+
+What it is used for:
+
+    When the user wants to see all words related to a given word.
+
+Parameters:
+
+    language: str
+        The language of the word being searched.
+
+    word: str
+        The word being searched.
+
+How it works:
+
+    1. Normalize word.
+    2. Clean language.
+    3. Get the entry id using get_entry_id().
+    4. If the entry does not exist, return an empty list or an error.
+    5. Query relations_v2 where:
+           source_entry_id = entry_id
+       OR  target_entry_id = entry_id
+    6. Join relations_v2 with entries_v2 to get the connected word details.
+    7. Return a list of relation dictionaries.
+
+Expected return:
+
+    list[dict]
+
+Example return:
+
+    [
+        {
+            "source_language": "English",
+            "source_word": "happy",
+            "target_language": "Chinese",
+            "target_word": "开心",
+            "relation_type": "translation",
+            "direction": "outgoing"
+        },
+        {
+            "source_language": "English",
+            "source_word": "joyful",
+            "target_language": "English",
+            "target_word": "happy",
+            "relation_type": "synonym",
+            "direction": "incoming"
+        }
+    ]
+
+Use case:
+
+    list_relations_v2("English", "happy")
+
+Implementation notes:
+
+    This function is one of the most important functions for the app. It turns the database from a simple word list into a connected vocabulary graph.
+
+    It should ideally show both outgoing and incoming relations, because the user probably cares about the connection regardless of direction.
+
+------------------------------------------------------------
+2.15 delete_relation_v2(source_language, source_word, target_language, target_word, relation_type)
+------------------------------------------------------------
+
+Function signature:
+
+    delete_relation_v2(source_language, source_word, target_language, target_word, relation_type)
+
+What this function is:
+
+    A relation Delete function. It deletes one specific relationship between two entries.
+
+What it is used for:
+
+    When the user accidentally creates a wrong relation and wants to remove it.
+
+Parameters:
+
+    source_language: str
+        Language of the source word.
+
+    source_word: str
+        Source word.
+
+    target_language: str
+        Language of the target word.
+
+    target_word: str
+        Target word.
+
+    relation_type: str
+        Type of relation to delete.
+
+How it works:
+
+    1. Normalize source_word and target_word.
+    2. Clean source_language and target_language.
+    3. Get source_entry_id.
+    4. Get target_entry_id.
+    5. If either entry is missing, return an error.
+    6. Run DELETE on relations_v2 where source_entry_id, target_entry_id, and relation_type match.
+    7. Commit the transaction.
+    8. Use cur.rowcount to check whether anything was deleted.
+    9. Return success or not-found result.
+
+Expected return:
+
+    Recommended:
+
+        {
+            "ok": True,
+            "message": "Relation deleted successfully.",
+            "rows_deleted": 1
+        }
+
+    If relation does not exist:
+
+        {
+            "ok": False,
+            "error": "Relation not found."
+        }
+
+Use case:
+
+    delete_relation_v2("English", "happy", "English", "joyful", "synonym")
+
+Implementation notes:
+
+    If the app treats synonym as symmetric, deleting A -> B may also need to delete B -> A, depending on the chosen storage design.
+
+------------------------------------------------------------
+2.16 search_entries_v2(query, language=None)
+------------------------------------------------------------
+
+Function signature:
+
+    search_entries_v2(query, language=None)
+
+What this function is:
+
+    A search function that finds entries by partial text match.
+
+What it is used for:
+
+    When the user does not remember the full word or wants to search by part of a word.
+
+Parameters:
+
+    query: str
+        The search text.
+
+    language: str | None
+        Optional language filter.
+
+How it works:
+
+    1. Clean the query.
+    2. If query is empty, return an empty list.
+    3. Build a LIKE search pattern.
+       Example: "%hap%"
+    4. If language is provided, search only that language.
+    5. If language is not provided, search all entries.
+    6. Return matching entries as a list of dictionaries.
+
+Expected return:
+
+    list[dict]
+
+Example:
+
+    search_entries_v2("hap")
+
+Possible result:
+
+    [
+        {"language": "English", "word": "happy"},
+        {"language": "English", "word": "happiness"},
+        {"language": "English", "word": "unhappy"}
+    ]
+
+Use case:
+
+    This supports normal app search.
+
+Implementation notes:
+
+    For MVP, SQL LIKE is enough.
+
+    Later improvements can include:
+        FTS5 full-text search
+        fuzzy search
+        semantic search with embeddings
+
+------------------------------------------------------------
+2.17 get_related_words_v2(language, word, relation_type=None)
+------------------------------------------------------------
+
+Function signature:
+
+    get_related_words_v2(language, word, relation_type=None)
+
+What this function is:
+
+    A relation query function that returns connected words in a clean, UI-friendly format.
+
+What it is used for:
+
+    It gives the app an easy way to show synonyms, translations, antonyms, or other related words.
+
+Parameters:
+
+    language: str
+        Language of the starting word.
+
+    word: str
+        Starting word.
+
+    relation_type: str | None
+        Optional filter. If provided, return only that relation type. If None, return all relation types.
+
+How it works:
+
+    1. Normalize word.
+    2. Clean language.
+    3. Get the entry id using get_entry_id().
+    4. If entry does not exist, return an empty list or error.
+    5. Query relations where this entry appears as source or target.
+    6. If relation_type is provided, filter by it.
+    7. For each relation, identify the other connected entry.
+    8. Return only the related words in a clean list.
+
+Expected return:
+
+    list[dict]
+
+Example return:
+
+    [
+        {
+            "language": "English",
+            "word": "joyful",
+            "relation_type": "synonym"
+        },
+        {
+            "language": "Chinese",
+            "word": "开心",
+            "relation_type": "translation"
+        }
+    ]
+
+Use case:
+
+    get_related_words_v2("English", "happy")
+    get_related_words_v2("English", "happy", "synonym")
+
+Difference from list_relations_v2():
+
+    list_relations_v2() returns detailed relation information including source, target, and direction.
+
+    get_related_words_v2() returns a simpler list of the connected words, which is easier for UI display and future AI features.
+
+Implementation notes:
+
+    This function is useful for the future vocabulary graph and AI recommendation system.
+
+============================================================
+3. MVP IMPLEMENTATION ORDER
+============================================================
+
+Recommended build order:
+
+1. get_connection()
+2. create_tables()
+3. normalize_word()
+4. split_words()
+5. entry_exists()
+6. get_entry_id()
+7. add_entry_v2()
+8. find_entry_v2()
+9. list_entries_v2()
+10. update_entry_v2()
+11. delete_entry_v2()
+12. relation_exists()
+13. add_relation_v2()
+14. list_relations_v2()
+15. delete_relation_v2()
+16. search_entries_v2()
+17. get_related_words_v2()
+
+Reason for this order:
+
+    Helper functions should be built before larger CRUD functions.
+    Entry functions should be stable before relation functions.
+    Relation functions require entry ids, so entries must work first.
+    Search and related-word functions are easier after CRUD and relations are complete.
+
+============================================================
+4. SUGGESTED RETURN STYLE
+============================================================
+
+For simple helper checks:
+
+    entry_exists() -> True or False
+    relation_exists() -> True or False
+    get_entry_id() -> int or None
+
+For data retrieval:
+
+    find_entry_v2() -> dict or None
+    list_entries_v2() -> list[dict]
+    list_relations_v2() -> list[dict]
+    search_entries_v2() -> list[dict]
+    get_related_words_v2() -> list[dict]
+
+For create/update/delete operations:
+
+    Use a structured result:
+
+        {
+            "ok": True,
+            "message": "Operation completed successfully."
+        }
+
+    Or for errors:
+
+        {
+            "ok": False,
+            "error": "Reason for failure."
+        }
+
+This style is helpful because main.py or a future React/Electron UI can display the result clearly.
+
+============================================================
+5. FINAL PRODUCT MANAGER NOTES
+============================================================
+
+The goal for this version is not to build the AI system yet. The goal is to create a strong database foundation.
+
+The database layer should support:
+
+1. Clean vocabulary entry storage.
+2. Safe duplicate checking.
+3. Reliable update and delete behavior.
+4. Word-to-word relations.
+5. Simple search.
+6. UI-friendly return values.
+
+Once this version is stable, future work can add:
+
+1. records_v2 for learning history.
+2. FTS5 for better full-text search.
+3. fuzzy search for typo tolerance.
+4. embeddings for AI semantic search.
+5. graph traversal for multi-hop related words.
+6. import/export for backup.
+
+The most important engineering standard is this:
+
+    database.py should be predictable, safe, and reusable.
+
+It should not depend on terminal input, print-based UI, or hardcoded menu behavior. It should provide clean functions that can later be used by CLI, React, Electron, or API layers.
+
+END OF FILE

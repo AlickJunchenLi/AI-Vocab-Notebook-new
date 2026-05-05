@@ -1,14 +1,13 @@
 from database import add_entry, list_entries, find_entry, delete_entry, update_entry, add_relation_v2, list_relations_v2
+from database import add_entry_v2, find_entry_v2, list_entries_v2
 
 def show_menu():
-    print("1. Add entry")
-    print("2. List entries")
-    print("3. Find entry")
-    print("4. Delete entry")
-    print("5. Update entry")
-    print("6. Add relation")
-    print("7. List relations")
-    print("8. Quit")
+    print("1. Add entry v2")
+    print("2. List entries v2")
+    print("3. Find entry v2")
+    print("4. Add relation")
+    print("5. List relations")
+    print("6. Quit")
     print("Please type in the correspond number of the operation :)")
     
 def handle_add_entry():
@@ -24,7 +23,6 @@ def handle_add_entry():
 def handle_list_entries():
     list_entries()
     
-
 
 def handle_find_entry():
     word = input("Word to find: ").strip()
@@ -90,6 +88,28 @@ def handle_list_relations():
     word = input("Enter word: ")
 
     list_relations_v2(language, word)
+    
+
+def handle_add_entry_v2():
+    language = input("Enter language: ")
+    word = input("Enter word: ")
+    notes = input("Enter notes: ")
+
+    add_entry_v2(language, word, notes)
+    
+def handle_list_entries_v2():
+    list_entries_v2()
+    
+def handle_find_entry_v2():
+    language = input("Enter language: ")
+    word = input("Enter word: ")
+
+    entry = find_entry_v2(language, word)
+
+    if entry:
+        print(entry)
+    else:
+        print("Entry not found.")
 
 def main():
     while True:
@@ -97,32 +117,26 @@ def main():
         choice = input("Choose an option: ").strip()
 
         if choice == "1":
-            handle_add_entry()
+            handle_add_entry_v2()
 
         elif choice == "2":
-            handle_list_entries()
+            handle_list_entries_v2()
 
         elif choice == "3":
-            handle_find_entry()
+            handle_find_entry_v2()
 
         elif choice == "4":
-            handle_update_entry()
-
-        elif choice == "5":
-            handle_delete_entry()
-
-        elif choice == "6":
             handle_add_relation()
 
-        elif choice == "7":
+        elif choice == "5":
             handle_list_relations()
 
-        elif choice == "8":
+        elif choice == "6":
             print("Goodbye!")
             break
 
         else:
-            print("Invalid choice. Please choose 1-8.")
+            print("Invalid choice. Please choose 1-6.")
 
 if __name__ == "__main__":
     main()

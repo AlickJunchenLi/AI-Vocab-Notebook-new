@@ -80,6 +80,32 @@ def find_entry_v2(language, word):
         return row
     else:
         return None
+    
+def list_entries_v2():
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+    
+    cur.execute("PRAGMA table_info(entries_v2)")
+    
+    for row in cur.fetchall():
+        print(row)
+    
+    print("entries data:")
+    
+    cur.execute("""
+    SELECT id, language, word, notes, created_at
+    FROM entries_v2
+    ORDER BY id;
+    """)
+    
+    rows = cur.fetchall()
+    
+    for row in rows:
+        print(f"id: {row[0]} | language: {row[1]} | word: {row[2]} | notes: {row[3]} | created at: {row[4]}")
+        
+    conn.close()
+    return rows
 
 def add_relation_v2(from_language, from_word, to_language, to_word, relation_type):
     conn = sqlite3.connect("notebook.db")
@@ -132,10 +158,10 @@ def list_relations_v2(language, word):
     
     cur.execute("""
     SELECT
-        e1.language
-        e1.word
-        r.relation_type
-        e2.language
+        e1.language,
+        e1.word,
+        r.relation_type,
+        e2.language,
         e2.word
     FROM
         relations_v2 r
