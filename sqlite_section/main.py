@@ -1,14 +1,14 @@
 from database import add_entry, list_entries, find_entry, delete_entry, update_entry, add_relation_v2, list_relations_v2
 
 def show_menu():
-    print()
-    print("AI note book")
     print("1. Add entry")
     print("2. List entries")
     print("3. Find entry")
-    print("4. Update entry")
-    print("5. Delete entry")
-    print("6. Quit")
+    print("4. Delete entry")
+    print("5. Update entry")
+    print("6. Add relation")
+    print("7. List relations")
+    print("8. Quit")
     print("Please type in the correspond number of the operation :)")
     
 def handle_add_entry():
