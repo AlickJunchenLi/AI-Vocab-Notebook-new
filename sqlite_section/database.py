@@ -18,6 +18,32 @@ CREATE TABLE IF NOT EXISTS entries_new (
             
 """)
 
+cur.execute("""
+CREATE TABLE IF NOT EXISTS entries_v2 (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    language TEXT NOT NULL,
+    word TEXT NOT NULL,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(language, word)
+);
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS relations_v2 (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_entry_id INTEGER NOT NULL,
+    to_entry_id INTEGER NOT NULL,
+    relation_type TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (from_entry_id) REFERENCES entries_v2(id),
+    FOREIGN KEY (to_entry_id) REFERENCES entries_v2(id),
+
+    UNIQUE(from_entry_id, to_entry_id, relation_type)
+);
+""")
+
 
 #related_synonyms = ["joyful", "pleased", "cheerful"]
 #cur.execute("""
