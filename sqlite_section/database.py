@@ -439,19 +439,68 @@ def update_entry_v2(language, word, column, old_value=None, new_value=None, oper
 
 def delete_entry(language, word):
     conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
     cur = conn.cursor()
+
+    # 1. Find the entry first
     cur.execute("""
-        DELETE FROM entries_new
-        WHERE word = ?;
+        SELECT id
+        FROM entries_v2
+        WHERE language = ? AND word = ?;
     """, (language, word))
 
-    if cur.rowcount == 0:
-        print("No entries called ", word, " is found")
-    else:
-        print("Entry deleted:", word)
+    row = cur.fetchone()
+
+    if row is None:
+        print("No entry called", word, "is found")
+        conn.close()
+        return
+
+    entry_id = row[0]
+
+    # 2. Delete relations connected to this entry
+    cur.execute("""
+        DELETE FROM relations_v2
+        WHERE from_entry_id = ? OR to_entry_id = ?;
+    """, (entry_id, entry_id))
+
+    # 3. Delete the entry itself
+    cur.execute("""
+        DELETE FROM entries_v2
+        WHERE id = ?;
+    """, (entry_id,))
+
     conn.commit()
     conn.close()
-    
+
+    print("Entry deleted:", word)
+
+# cur.execute("""
+# CREATE TABLE IF NOT EXISTS entries_v2 (
+#     id INTEGER PRIMARY KEY AUTOINCREMENT,
+#     language TEXT NOT NULL,
+#     word TEXT NOT NULL,
+#     notes TEXT,
+#     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+#     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+#     UNIQUE(language, word)
+# );
+# """)
+
+# cur.execute("""
+# CREATE TABLE IF NOT EXISTS relations_v2 (
+#     id INTEGER PRIMARY KEY AUTOINCREMENT,
+#     from_entry_id INTEGER NOT NULL,
+#     to_entry_id INTEGER NOT NULL,
+#     relation_type TEXT NOT NULL,
+#     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+#     FOREIGN KEY (from_entry_id) REFERENCES entries_v2(id),
+#     FOREIGN KEY (to_entry_id) REFERENCES entries_v2(id),
+
+#     UNIQUE(from_entry_id, to_entry_id, relation_type)
+# );
+# """)
 def relation_exists(source_id, target_id, relation_type):
     conn = sqlite3.connect("notebook.db")
     cur = conn.cursor()
