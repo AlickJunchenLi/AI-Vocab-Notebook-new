@@ -1059,7 +1059,8 @@ Implementation notes:
     If the app treats synonym as symmetric, deleting A -> B may also need to delete B -> A, depending on the chosen storage design.
 
 ------------------------------------------------------------
-2.16 search_entries_v2(query, language=None)
+
+
 ------------------------------------------------------------
 
 Function signature:
