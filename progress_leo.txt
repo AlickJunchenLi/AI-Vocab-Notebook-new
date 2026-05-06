@@ -1,0 +1,5 @@
+2.3 split_words(text)
+list entries not working
+lowercase all language type input (Chinese -> chinese)
+for the split words added : eg. one eng to multiple chi, the chinese words should be registered as synonyms
+461 update

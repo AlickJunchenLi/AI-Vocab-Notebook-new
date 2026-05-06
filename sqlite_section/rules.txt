@@ -1,0 +1,2 @@
+1. extract information from sql database: find_entry()
+2. input words into sql databse: add_entry()
