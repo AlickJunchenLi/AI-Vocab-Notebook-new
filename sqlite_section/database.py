@@ -125,20 +125,20 @@ def get_entry_id(language, word):
     conn = sqlite3.connect("notebook.db")
     conn.execute("PRAGMA foreign_keys = ON;")
     cur = conn.cursor()
-    
+
     cur.execute("""
-    SELECT id FROM entries_v2
-    WHERE language = ? AND word = ?
+        SELECT id
+        FROM entries_v2
+        WHERE language = ? AND word = ?;
     """, (language, word))
-    
-    id = cur.fetchone()
+
+    row = cur.fetchone()
     conn.close()
-    if id is None:
-        print(f"Didn't find the word {word} in {language}")
+
+    if row is None:
         return None
-    else:
-        print(f"The id of {word} in {language} is: {id}")
-        return id
+
+    return row[0]
 
 
 
@@ -488,3 +488,5 @@ def relation_exists(source_id, target_id, relation_type):
     conn = sqlite3.connect("notebook.db")
     cur = conn.cursor()
     cur.execute()
+    
+
