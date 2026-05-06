@@ -437,7 +437,7 @@ def update_entry_v2(language, word, column, old_value=None, new_value=None, oper
     print(f"Successfully performed {operation} on {column}.")
     return True
 
-def delete_entry(language, word):
+def delete_entry_v2(language, word):
     conn = sqlite3.connect("notebook.db")
     conn.execute("PRAGMA foreign_keys = ON;")
     cur = conn.cursor()
@@ -469,6 +469,12 @@ def delete_entry(language, word):
         DELETE FROM entries_v2
         WHERE id = ?;
     """, (entry_id,))
+
+    if cur.rowcount == 0:
+        print("Entry was found, but deletion failed:", word)
+        conn.rollback()
+        conn.close()
+        return
 
     conn.commit()
     conn.close()
