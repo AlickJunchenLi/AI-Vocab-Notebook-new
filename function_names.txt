@@ -1194,6 +1194,378 @@ Implementation notes:
 
     This function is useful for the future vocabulary graph and AI recommendation system.
 
+
+------------------------------------------------------------
+2.18 get_entry_id_v2(language, word)
+------------------------------------------------------------
+
+Function signature:
+
+    get_entry_id_v2(language, word)
+
+What this function is:
+
+    A helper function that returns the database id of a specific vocabulary entry.
+
+What it is used for:
+
+    records_v2 should link learning records to entries by entry_id, not by raw word text.
+    Therefore, record functions need this helper before inserting or counting records.
+
+Parameters:
+
+    language: str
+        The language of the entry, such as "English" or "Chinese".
+
+    word: str
+        The vocabulary word, such as "happy" or "开心".
+
+How it works:
+
+    1. Clean the language.
+    2. Normalize the word.
+    3. Query entries_v2 for a row where language and word match.
+    4. If the entry exists, return its id.
+    5. If the entry does not exist, return None.
+
+Expected return:
+
+    int | None
+
+Example:
+
+    get_entry_id_v2("English", "happy") -> 3
+    get_entry_id_v2("English", "unknownword") -> None
+
+Use case:
+
+    add_record_v2() needs entry_id before it can insert a new record into records_v2.
+
+Implementation notes:
+
+    This function should only find an existing entry.
+    It should not create a new entry automatically.
+
+    Returning None is useful because other functions can check whether the word exists before continuing.
+
+    If the project already uses get_entry_id(language, word), the team should choose one naming style and use it consistently.
+    For the current v2 function list, get_entry_id_v2(language, word) is the clearer name.
+
+------------------------------------------------------------
+2.19 add_record_v2(language, word, record_type, detail="")
+------------------------------------------------------------
+
+Function signature:
+
+    add_record_v2(language, word, record_type, detail="")
+
+What this function is:
+
+    A Create function for the records_v2 table.
+    It adds a learning, review, quiz, or note record for a vocabulary entry.
+
+What it is used for:
+
+    When the user learns, reviews, quizzes, or writes a note for a word, this function stores that action in the database.
+
+Parameters:
+
+    language: str
+        The language of the vocabulary entry.
+
+    word: str
+        The vocabulary word.
+
+    record_type: str
+        The type of learning record.
+
+        Suggested allowed values:
+            learn
+            review
+            quiz_correct
+            quiz_wrong
+            note
+
+    detail: str
+        Optional extra information about the record.
+
+        Example:
+            "Reviewed this word today."
+            "Got this word correct in quiz."
+            "This word is used in positive emotion contexts."
+
+How it works:
+
+    1. Check whether record_type is valid.
+    2. Use get_entry_id_v2(language, word) to find the entry id.
+    3. If the entry does not exist, return an error or print a not-found message.
+    4. Open a database connection.
+    5. Insert a new row into records_v2 with entry_id, record_type, and detail.
+    6. Let SQLite automatically create id and created_at.
+    7. Commit the transaction.
+    8. Close the connection.
+    9. Return or print a success message.
+
+Expected return:
+
+    Recommended structured result:
+
+        {
+            "ok": True,
+            "message": "Record added successfully.",
+            "entry_id": 3,
+            "record_type": "review"
+        }
+
+    Simple MVP version:
+
+        None, with print messages.
+
+Use case:
+
+    add_record_v2("English", "happy", "learn", "First learned this word.")
+    add_record_v2("English", "happy", "review", "Reviewed today.")
+    add_record_v2("English", "happy", "quiz_correct", "Answered correctly.")
+
+Implementation notes:
+
+    This function depends on get_entry_id_v2().
+
+    records_v2 should store entry_id instead of storing language and word again.
+    This avoids duplicate data and keeps the record connected to the correct entry.
+
+    The function should validate record_type so random values like "abc" are not stored.
+
+------------------------------------------------------------
+2.20 list_records_v2(language=None, word=None)
+------------------------------------------------------------
+
+Function signature:
+
+    list_records_v2(language=None, word=None)
+
+What this function is:
+
+    A Read function for the records_v2 table.
+    It lists learning records stored in the database.
+
+What it is used for:
+
+    When the user wants to see learning history, review history, quiz history, or notes.
+
+Parameters:
+
+    language: str | None
+        Optional. If provided without word, list records for that language.
+
+    word: str | None
+        Optional. If provided with language, list records for one specific word.
+
+Supported behavior:
+
+    list_records_v2()
+        Lists all records.
+
+    list_records_v2("English")
+        Lists all records for English words.
+
+    list_records_v2("English", "happy")
+        Lists all records for the English word "happy".
+
+How it works:
+
+    1. Open a database connection.
+    2. Join records_v2 with entries_v2 using entry_id.
+    3. If both language and word are provided, filter by that exact entry.
+    4. If only language is provided, filter by language.
+    5. If neither is provided, return all records.
+    6. Order records by created_at, usually newest first.
+    7. Convert results into a list of dictionaries or print each record.
+    8. Close the connection.
+    9. Return the records.
+
+Expected return:
+
+    Recommended:
+
+        list[dict]
+
+Example return:
+
+        [
+            {
+                "record_id": 1,
+                "language": "English",
+                "word": "happy",
+                "record_type": "learn",
+                "detail": "First learned this word.",
+                "created_at": "2026-05-06 20:15:00"
+            },
+            {
+                "record_id": 2,
+                "language": "English",
+                "word": "happy",
+                "record_type": "review",
+                "detail": "Reviewed today.",
+                "created_at": "2026-05-06 20:20:00"
+            }
+        ]
+
+Use case:
+
+    list_records_v2()
+    list_records_v2("English")
+    list_records_v2("English", "happy")
+
+Implementation notes:
+
+    This function should use JOIN because records_v2 only stores entry_id.
+    The JOIN allows the function to display language and word from entries_v2.
+
+    This function is useful for future UI pages such as:
+        learning history page
+        word detail page
+        review progress page
+
+------------------------------------------------------------
+2.21 delete_record_v2(record_id)
+------------------------------------------------------------
+
+Function signature:
+
+    delete_record_v2(record_id)
+
+What this function is:
+
+    A Delete function for the records_v2 table.
+    It deletes one specific learning record by its record id.
+
+What it is used for:
+
+    When the user wants to remove an incorrect or unnecessary learning history record.
+
+Parameters:
+
+    record_id: int
+        The id of the record in records_v2.
+
+How it works:
+
+    1. Open a database connection.
+    2. Run DELETE on records_v2 where id equals record_id.
+    3. Use cur.rowcount to check whether anything was deleted.
+    4. If rowcount is 0, the record was not found.
+    5. If rowcount is greater than 0, the record was deleted.
+    6. Commit the transaction.
+    7. Close the connection.
+    8. Return or print the result.
+
+Expected return:
+
+    Recommended:
+
+        {
+            "ok": True,
+            "message": "Record deleted successfully.",
+            "record_id": 5
+        }
+
+    If record does not exist:
+
+        {
+            "ok": False,
+            "error": "Record not found."
+        }
+
+Use case:
+
+    delete_record_v2(5)
+
+Implementation notes:
+
+    This function deletes only the learning record.
+    It should not delete the vocabulary entry itself.
+
+    This is different from delete_entry_v2().
+    delete_entry_v2() removes a word, while delete_record_v2() only removes one history item.
+
+------------------------------------------------------------
+2.22 count_records_v2(language, word)
+------------------------------------------------------------
+
+Function signature:
+
+    count_records_v2(language, word)
+
+What this function is:
+
+    A statistics/helper function that counts learning records for one vocabulary entry.
+
+What it is used for:
+
+    It helps the app understand how often a word has been learned, reviewed, answered correctly, answered wrongly, or noted.
+
+Parameters:
+
+    language: str
+        The language of the vocabulary entry.
+
+    word: str
+        The vocabulary word.
+
+How it works:
+
+    1. Use get_entry_id_v2(language, word) to find the entry id.
+    2. If the entry does not exist, return an error or empty result.
+    3. Query records_v2 for all records connected to that entry_id.
+    4. Group the records by record_type.
+    5. Count how many records exist for each record_type.
+    6. Return the result as a dictionary or list of dictionaries.
+
+Expected return:
+
+    Recommended:
+
+        {
+            "learn": 1,
+            "review": 3,
+            "quiz_correct": 2,
+            "quiz_wrong": 1,
+            "note": 2
+        }
+
+    Alternative list format:
+
+        [
+            {"record_type": "learn", "count": 1},
+            {"record_type": "review", "count": 3},
+            {"record_type": "quiz_correct", "count": 2}
+        ]
+
+Use case:
+
+    count_records_v2("English", "happy")
+
+Possible output:
+
+    review: 5
+    quiz_correct: 3
+    quiz_wrong: 1
+    note: 2
+
+Implementation notes:
+
+    This function is useful for future review and quiz features.
+
+    Later, this function can help calculate:
+        how often a word was reviewed
+        whether the user often gets the word wrong
+        which words need more practice
+        basic spaced repetition priority
+
+    For the MVP version, simple COUNT and GROUP BY are enough.
+
+
 ============================================================
 3. MVP IMPLEMENTATION ORDER
 ============================================================
@@ -1217,6 +1589,11 @@ Recommended build order:
 15. delete_relation_v2()
 16. search_entries_v2()
 17. get_related_words_v2()
+18. get_entry_id_v2()
+19. add_record_v2()
+20. list_records_v2()
+21. delete_record_v2()
+22. count_records_v2()
 
 Reason for this order:
 
@@ -1224,6 +1601,7 @@ Reason for this order:
     Entry functions should be stable before relation functions.
     Relation functions require entry ids, so entries must work first.
     Search and related-word functions are easier after CRUD and relations are complete.
+    Record functions should come after entries are stable, because each record must connect to an existing entry.
 
 ============================================================
 4. SUGGESTED RETURN STYLE
@@ -1234,6 +1612,7 @@ For simple helper checks:
     entry_exists() -> True or False
     relation_exists() -> True or False
     get_entry_id() -> int or None
+    get_entry_id_v2() -> int or None
 
 For data retrieval:
 
@@ -1242,6 +1621,8 @@ For data retrieval:
     list_relations_v2() -> list[dict]
     search_entries_v2() -> list[dict]
     get_related_words_v2() -> list[dict]
+    list_records_v2() -> list[dict]
+    count_records_v2() -> dict or list[dict]
 
 For create/update/delete operations:
 
@@ -1276,9 +1657,9 @@ The database layer should support:
 5. Simple search.
 6. UI-friendly return values.
 
-Once this version is stable, future work can add:
+Once this version is stable, future work can add or improve:
 
-1. records_v2 for learning history.
+1. records_v2 for learning history, review history, quiz history, and notes.
 2. FTS5 for better full-text search.
 3. fuzzy search for typo tolerance.
 4. embeddings for AI semantic search.
@@ -1290,5 +1671,15 @@ The most important engineering standard is this:
     database.py should be predictable, safe, and reusable.
 
 It should not depend on terminal input, print-based UI, or hardcoded menu behavior. It should provide clean functions that can later be used by CLI, React, Electron, or API layers.
+
+
+
+
+
+
+
+
+
+
 
 END OF FILE

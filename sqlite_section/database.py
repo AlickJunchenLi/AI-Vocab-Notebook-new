@@ -35,6 +35,19 @@ CREATE TABLE IF NOT EXISTS relations_v2 (
 );
 """)
 
+cur.execute("""
+CREATE TABLE IF NOT EXISTS records_v2 (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_id INTEGER NOT NULL,
+    record_type TEXT NOT NULL,
+    detail TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (entry_id) REFERENCES entries_v2(id)
+    ON DELETE CASCADE
+);
+""")
+
 #related_synonyms = ["joyful", "pleased", "cheerful"]
 #cur.execute("""
 #INSERT INTO entries_new (language, word, synonym, translation, notes)
@@ -121,7 +134,7 @@ def entry_exists(cur, language, word):
 
 
 
-def get_entry_id(language, word):
+def get_entry_id_v2(language, word):
     conn = sqlite3.connect("notebook.db")
     conn.execute("PRAGMA foreign_keys = ON;")
     cur = conn.cursor()
@@ -282,7 +295,7 @@ def list_relations_v2(language, word):
     return rows
 
 
-def update_entry_v2(language, word, column, old_value=None, new_value=None, operation="replace"):
+def update_entry_v2(language, word, column, new_value=None, operation="replace", old_value=None):
     allowed_columns = ["language", "word", "synonym", "translation", "notes"]
     list_columns = ["synonym", "translation"]
     allowed_operations = ["replace", "add", "delete"]
@@ -486,7 +499,51 @@ def delete_entry_v2(language, word):
 
 def relation_exists(source_id, target_id, relation_type):
     conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
     cur = conn.cursor()
-    cur.execute()
+
+    cur.execute("""
+        SELECT id
+        FROM relations_v2
+        WHERE from_entry_id = ?
+          AND to_entry_id = ?
+          AND relation_type = ?;
+    """, (source_id, target_id, relation_type))
+
+    row = cur.fetchone()
+    conn.close()
+
+    if row is None:
+        return False
+
+    return True
+    
+def add_record_v2(language, word, record_type, detail=""):
+    allowed_types = ["learn", "review", "quiz_correct", "quiz_wrong", "note"]
+
+    if record_type not in allowed_types:
+        print("Invalid record type.")
+        print("Allowed types:", allowed_types)
+        return
+
+    entry_id = get_entry_id_v2(language, word)
+
+    if entry_id is None:
+        print("No entry called", word, "is found.")
+        return
+    
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+
+    cur.execute("""
+    INSERT INTO records_v2 (entry_id, record_type, detail)
+    VALUES (?, ?, ?);
+    """, (entry_id, record_type, detail))
+    
+    conn.commit()
+    conn.close()
+
+    print("Record added for:", word)
     
 
