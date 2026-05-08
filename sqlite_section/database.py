@@ -547,3 +547,43 @@ def add_record_v2(language, word, record_type, detail=""):
     print("Record added for:", word)
     
 
+def list_records_v2(language, word):
+    entry_id = get_entry_id_v2(language, word)
+
+    if entry_id is None:
+        print("No entry called", word, "is found.")
+        return
+
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT id, record_type, detail, created_at
+        FROM records_v2
+        WHERE entry_id = ?
+        ORDER BY id ASC;
+    """, (entry_id,))
+
+    rows = cur.fetchall()
+
+    conn.close()
+
+    if len(rows) == 0:
+        print("No records found for:", word)
+        return
+
+    print("Records for:", word)
+
+    for row in rows:
+        record_id = row[0]
+        record_type = row[1]
+        detail = row[2]
+        created_at = row[3]
+
+        if detail is None or detail.strip() == "":
+            detail = "(no detail)"
+
+        print(record_id, "|", created_at, "|", record_type, "|", detail)
+        
+
