@@ -587,3 +587,100 @@ def list_records_v2(language, word):
         print(record_id, "|", created_at, "|", record_type, "|", detail)
         
 
+def delete_record_v2(record_id):
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+
+    cur.execute("""
+        DELETE FROM records_v2
+        WHERE id = ?;
+    """, (record_id,))
+
+    if cur.rowcount == 0:
+        print("No record found with id:", record_id)
+    else:
+        print("Record deleted:", record_id)
+
+    conn.commit()
+    conn.close()
+    
+
+def count_records_v2(language, word):
+    entry_id = get_entry_id_v2(language, word)
+
+    if entry_id is None:
+        print("No entry called", word, "is found.")
+        return {}
+    
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+
+    cur.execute("""
+    SELECT record_type, COUNT(*)
+    FROM records_v2
+    WHERE entry_id = ?
+    GROUP BY record_type;
+    """, (entry_id,))
+    
+    rows = cur.fetchall()
+    conn.close()
+    
+
+    result = {}
+
+    for row in rows:
+        record_type = row[0]
+        count = row[1]
+        result[record_type] = count
+
+    print(result)
+    return result
+    
+
+def get_related_words_v2(language, word):
+    entry_id = get_entry_id_v2(language, word)
+
+    if entry_id is None:
+        print("No entry called", word, "is found.")
+        return []
+
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+    
+    cur.execute("""
+    SELECT e.language, e.word, r.relation_type
+    FROM relations_v2 r
+    JOIN entries_v2 e
+        ON r.to_entry_id = e.id
+    WHERE r.from_entry_id = ?
+
+    UNION
+
+    SELECT e.language, e.word, r.relation_type
+    FROM relations_v2 r
+    JOIN entries_v2 e
+        ON r.from_entry_id = e.id
+    WHERE r.to_entry_id = ?
+
+    ORDER BY language, word;
+    """, (entry_id, entry_id,))
+    
+    rows = cur.fetchall()
+    conn.close()
+    
+    if len(rows) == 0:
+        print("No related words found for:", word)
+        return []
+    
+    for row in rows:
+        related_language = row[0]
+        related_word = row[1]
+        relation_type = row[2]
+
+        print(related_language, "|", related_word, "|", relation_type)
+        
+    return rows
+
