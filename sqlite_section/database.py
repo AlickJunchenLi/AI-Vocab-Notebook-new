@@ -494,8 +494,55 @@ def delete_entry_v2(language, word):
 
     conn.commit()
     conn.close()
-
     #print("Entry deleted:", word)
+
+def search_entries_v2(word, language=None):
+    conn = sqlite3.connect("notebook.db")
+    conn.execute("PRAGMA foreign_keys = ON;")
+    cur = conn.cursor()
+
+    # 1. Clean and lowercase the word
+    word = word.strip().lower()
+
+    # 2. If word is empty, return empty list
+    if word == "":
+        conn.close()
+        return []
+
+    # 3. Build LIKE search pattern
+    search_pattern = f"%{word}%"
+
+    if language is not None:
+        language = language.strip()
+
+        cur.execute("""
+            SELECT id, language, word, notes, created_at, updated_at
+            FROM entries_v2
+            WHERE language = ? AND LOWER(word) LIKE ?;
+        """, (language, search_pattern))
+    else:
+        cur.execute("""
+            SELECT id, language, word, notes, created_at, updated_at
+            FROM entries_v2
+            WHERE LOWER(word) LIKE ?;
+        """, (search_pattern,))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    results = []
+
+    for row in rows:
+        results.append({
+            "id": row[0],
+            "language": row[1],
+            "word": row[2],
+            "notes": row[3],
+            "created_at": row[4],
+            "updated_at": row[5]
+        })
+
+    return results
 
 def relation_exists(source_id, target_id, relation_type):
     conn = sqlite3.connect("notebook.db")
