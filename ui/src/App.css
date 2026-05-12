@@ -1,0 +1,217 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin:0;
+    font-family: Arial, Helvetica, sans-serif;
+    background:
+        radial-gradient(circle at top, #e0f2fe 0, transparent 32%), 
+        #f4f7fb;
+    color: #1f2937;
+
+}
+
+button, 
+input, 
+select {
+    font: inherit;
+}
+
+.app {
+    min-height: 100vh;
+    padding: 80px 0 48px;
+}
+
+.top-menu {
+    position: fixed;
+    top: 6px;
+    left:50;
+    transform: translateX(-50%);
+    z-index: 20;
+
+    padding: 10px 26px;
+    border: 0;
+    border-radius: 14px;
+
+    background: #111827;
+    color: white;
+    font-weight: 700;
+    cursor:pointer;
+
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25)
+
+}
+
+
+.page {
+    width: min(1120px, 92%);
+    margin: 0 auto;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.eyebrow {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #2563eb;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size:42px;
+    letter-spacing: -0.04em;
+}
+
+.page-description {
+    margin: 12px auto 0;
+    max-width: 560px;
+    color: #64748b;
+    line-height: 1.6;
+}
+
+.controls {
+    display: grid;
+    grid-template-columns: 1fr 170px 150px 150px;
+    gap: 12px;
+
+    padding: 14px;
+    margin-bottom: 24px;
+
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid #e5e7eb;
+    border-radius: 22px;
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(12px);
+}
+
+.controls input,
+.controls select,
+.controls button {
+    height: 44px;
+    border-radius: 13px;
+    border: 1px solid #d1d5db;
+    padding: 0 14px;
+    background: white;
+    color: #111827;
+}
+
+.controls input:focus, 
+.controls select:focus {
+    outline: 3px solid rgba(37, 99, 235, 0.18);
+    border-color: #2563eb;
+}
+
+.add-button {
+    border: 0 !important;
+    background: #2563eb !important;
+    border-radius: 4px;
+    color: white !important;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.add-button:hover {
+    background: #1d4ed8 !important;
+}
+
+.word-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap:18px;
+}
+
+.word-card {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #e5e7eb;
+    border-radius: 24px;
+    padding: 22px;
+    box-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+}
+
+.word-card-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.word-card h2 {
+    margin: 0;
+    font-size: 28px;
+    letter-spacing: -0.03em;
+}
+
+.word-subtitle {
+    margin: 5px 0 0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.language-tag {
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.word-card-body {
+  display: grid;
+  gap: 8px;
+}
+
+.word-card-body p {
+  margin: 0;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.word-card-body strong {
+  color: #111827;
+}
+
+.word-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 18px;
+    margin-top: 18px;
+    border-top: 1px solid #e5e7eb;
+}
+
+
+.word-card-actions button {
+  padding: 8px 14px;
+  border-radius: 11px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+}
+
+.word-card-actions button:hover {
+  background: #f8fafc;
+}
+
+@media (max-width: 850px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  .word-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header h1 {
+    font-size: 34px;
+  }
+}
