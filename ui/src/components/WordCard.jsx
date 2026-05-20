@@ -1,37 +1,54 @@
-function WordCard( { entry }) {
-    return (
-        <article className="word-card">
-            <div className="word-card-header">
-                <div>
-                    <h2>{entry.word}</h2>
-                    <p className="word-subtitle"> Vocabulary entry</p>
-                </div>
+function getListText(arrayValue, singleValue, emptyText) {
+  if (Array.isArray(arrayValue) && arrayValue.length > 0) {
+    return arrayValue.join(", ");
+  }
 
-                <span className="language-tag">{entry.language}</span>
+  if (typeof singleValue === "string" && singleValue.trim() !== "") {
+    return singleValue;
+  }
 
-            </div>
+  return emptyText;
+}
 
-            <div className="word-card-body">
-                <p>
-                    <strong>Translations: </strong> {entry.translations.join(", ")}
-                </p>
+function WordCard({ entry, onSelect, isSelected }) {
+  const synonymsText = getListText(
+    entry.synonyms,
+    entry.synonym,
+    "No synonyms yet"
+  );
+  const translationsText = getListText(
+    entry.translations,
+    entry.translation,
+    "No translations yet"
+  );
 
-                <p>
-                    <strong>Synonyms: </strong> {entry.synonyms.join(", ")}
-                </p>
+  return (
+    <article className={`word-card ${isSelected ? "selected-card" : ""}`}>
+      <div className="word-card-header">
+        <div>
+          <h2>{entry.word}</h2>
+          <p className="word-subtitle">{entry.notes || "No notes yet"}</p>
+        </div>
 
-                <p>
-                    <strong>Notes: </strong> {entry.notes}
-                </p>
-            </div>
+        <span className="language-tag">{entry.language}</span>
+      </div>
 
-            <div className="word-card-actions">
-                <button>Edit</button>
-                <button>Delete</button>
-            </div>
-                
-        </article>);
+      <div className="word-card-body">
+        <p>
+          <strong>Synonyms:</strong> {synonymsText}
+        </p>
+        <p>
+          <strong>Translations:</strong> {translationsText}
+        </p>
+      </div>
 
+      <div className="word-card-actions">
+        <button type="button" onClick={() => onSelect(entry)}>
+          View Details
+        </button>
+      </div>
+    </article>
+  );
 }
 
 export default WordCard;

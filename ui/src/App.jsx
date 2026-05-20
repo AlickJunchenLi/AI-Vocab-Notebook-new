@@ -1,47 +1,124 @@
-import "./App.css"
-import TopMenu from "./components/Topmenu.jsx"
+import { useState } from "react";
+import "./App.css";
+import TopMenu from "./components/TopMenu.jsx";
 import WordCard from "./components/WordCard";
 import { mockEntries } from "./data/mockEntries";
+import DetailPanel from "./components/DetailPanel";
+import AddWordModal from "./components/AddWordModal";
 
 function App() {
-    return (
-        <div className="app">
-            <TopMenu />
+  const [searchText, setSearchText] = useState("");
+  const [languageFilter, setLanguageFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("az");
+  const [entries, setEntries] = useState(mockEntries);
+  const [selectedEntry, setSelectedEntry] = useState(mockEntries[0]);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-            <main className="page">
-                <header className="page-header">
-                    <p className="eyebrow">AI Vocabulary Notebook</p>
-                    <h1>Vocabulary</h1>
-                    <p className="page-description">
-                        Search, review, and manage bilingual entries
-                    </p>
-                </header>
+  const filteredEntries = entries
+    .filter((entry) => {
+      const searchTarget = [
+        entry.word,
+        entry.language,
+        Array.isArray(entry.synonyms) ? entry.synonyms.join(" ") : entry.synonym,
+        Array.isArray(entry.translations)
+          ? entry.translations.join(" ")
+          : entry.translation,
+        entry.notes,
+      ]
+        .join(" ")
+        .toLowerCase();
 
-                <section className="controls">
-                    <input type="text" placeholder="Search words..." />
-                    
-                    <select defaultValue="all">
-                        <option value="all"> Language: All</option>
-                        <option value="English">English</option>
-                        <option value="Chinese">Chinese</option>
-                    </select>
+      const matchesSearch = searchTarget.includes(searchText.toLowerCase());
 
-                    <select defaultValue="az">
-                        <option value="az">Sort: A → Z</option>
-                        <option value="za">Sort: Z → A</option>
-                    </select>
+      const matchesLanguage =
+        languageFilter === "all" || entry.language === languageFilter;
 
-                    <button className="add-button">+ Add Word</button>
-                </section>
+      return matchesSearch && matchesLanguage;
+    })
+    .sort((a, b) => {
+      if (sortOrder === "az") {
+        return a.word.localeCompare(b.word);
+      }
 
-                <section className="word-grid">
-                    {mockEntries.map((entry)=>(
-                        <WordCard key={entry.id} entry={entry} />
-                        ))}
-                </section>
-            </main>
-        </div>
-    );
+      return b.word.localeCompare(a.word);
+    });
+
+  function handleAddEntry(newEntry) {
+    setEntries((previousEntries) => [newEntry, ...previousEntries]);
+    setSelectedEntry(newEntry);
+    setIsAddModalOpen(false);
+  }
+
+  return (
+    <div className="app">
+      <TopMenu />
+
+      <main className="page">
+        <header className="page-header">
+          <p className="eyebrow">AI Vocabulary Notebook</p>
+          <h1>Vocabulary</h1>
+          <p className="page-description">
+            Search, review, and manage bilingual entries
+          </p>
+        </header>
+
+        <section className="controls">
+          <input
+            type="text"
+            placeholder="Search words..."
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+          />
+
+          <select
+            value={languageFilter}
+            onChange={(event) => setLanguageFilter(event.target.value)}
+          >
+            <option value="all">Language: All</option>
+            <option value="English">English</option>
+            <option value="Chinese">Chinese</option>
+          </select>
+
+          <select
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value)}
+          >
+            <option value="az">Sort: A → Z</option>
+            <option value="za">Sort: Z → A</option>
+          </select>
+
+          <button className="add-button" onClick={() => setIsAddModalOpen(true)}>
+            + Add Word
+          </button>
+        </section>
+
+        <section className="content-layout">
+          <section className="word-grid">
+            {filteredEntries.map((entry) => (
+              <WordCard
+                key={entry.id}
+                entry={entry}
+                onSelect={setSelectedEntry}
+                isSelected={selectedEntry?.id === entry.id}
+              />
+            ))}
+          </section>
+
+          <DetailPanel entry={selectedEntry} />
+        </section>
+
+        {filteredEntries.length === 0 && (
+          <p className="empty-state">No matching words found.</p>
+        )}
+      </main>
+      {isAddModalOpen && (
+        <AddWordModal
+          onClose={() => setIsAddModalOpen(false)}
+          onAdd={handleAddEntry}
+        />
+      )}
+    </div>
+  );
 }
 
 export default App;
