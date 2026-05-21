@@ -10,7 +10,7 @@ function getListText(arrayValue, singleValue, emptyText) {
   return emptyText;
 }
 
-function DetailPanel({ entry }) {
+function DetailPanel({ entry, onDelete }) {
   if (!entry) {
     return (
       <aside className="detail-panel">
@@ -46,6 +46,12 @@ function DetailPanel({ entry }) {
         <strong>Notes</strong>
         <p>{entry.notes || "No notes yet"}</p>
       </div>
+      <button
+        className="delete-button"
+        onClick={() => onDelete(entry)}
+      >
+        Delete Word
+      </button>
     </aside>
   );
 }

@@ -44,10 +44,35 @@ function App() {
     });
 
   function handleAddEntry(newEntry) {
-    setEntries((previousEntries) => [newEntry, ...previousEntries]);
-    setSelectedEntry(newEntry);
+    const entryWithId = {
+        ...newEntry,
+        id: newEntry.id ?? Date.now(),
+    };
+
+    setEntries((previousEntries) => [entryWithId, ...previousEntries]);
+    setSelectedEntry(entryWithId);
     setIsAddModalOpen(false);
   }
+
+  function handleDeleteEntry(entryToDelete) {
+    if (!entryToDelete) return;
+
+    const updatedEntries = entries.filter(
+        (entry) => entry.id !== entryToDelete.id
+    );
+
+    setEntries(updatedEntries);
+
+    setSelectedEntry((previousSelectedEntry) => {
+        if (previousSelectedEntry?.id === entryToDelete.id) {
+        return updatedEntries[0] || null;
+        }
+
+        return previousSelectedEntry;
+    });
+  }
+
+
 
   return (
     <div className="app">
@@ -104,7 +129,9 @@ function App() {
             ))}
           </section>
 
-          <DetailPanel entry={selectedEntry} />
+          <DetailPanel entry={selectedEntry}
+            onDelete={handleDeleteEntry} />
+          
         </section>
 
         {filteredEntries.length === 0 && (
