@@ -5,6 +5,7 @@ import WordCard from "./components/WordCard";
 import { mockEntries } from "./data/mockEntries";
 import DetailPanel from "./components/DetailPanel";
 import AddWordModal from "./components/AddWordModal";
+import EditWordModal from "./components/EditWordModal";
 
 function App() {
   const [searchText, setSearchText] = useState("");
@@ -13,6 +14,7 @@ function App() {
   const [entries, setEntries] = useState(mockEntries);
   const [selectedEntry, setSelectedEntry] = useState(mockEntries[0]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);
 
   const filteredEntries = entries
     .filter((entry) => {
@@ -72,7 +74,20 @@ function App() {
     });
   }
 
+  function handleStartEdit(entry) {
+    setEditingEntry(entry);
+  }
 
+  function handleSaveEdit(updatedEntry) {
+    setEntries((previousEntries) =>
+    previousEntries.map((entry) =>
+        entry.id === updatedEntry.id ? updatedEntry : entry
+    )
+    );
+
+    setSelectedEntry(updatedEntry);
+    setEditingEntry(null);
+  }
 
   return (
     <div className="app">
@@ -129,8 +144,11 @@ function App() {
             ))}
           </section>
 
-          <DetailPanel entry={selectedEntry}
-            onDelete={handleDeleteEntry} />
+          <DetailPanel
+            entry={selectedEntry}
+            onDelete={handleDeleteEntry}
+            onEdit={handleStartEdit}
+          />
           
         </section>
 
@@ -142,6 +160,14 @@ function App() {
         <AddWordModal
           onClose={() => setIsAddModalOpen(false)}
           onAdd={handleAddEntry}
+        />
+      )}
+
+      {editingEntry && (
+        <EditWordModal
+            entry={editingEntry}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditingEntry(null)}
         />
       )}
     </div>

@@ -28,7 +28,8 @@ function AddWordModal({ onClose, onAdd }) {
   function handleSubmit(event) {
     event.preventDefault();
 
-    if (formData.word.trim() === "") {
+    if (formData.word.trim() === "" || formData.language.trim() === "") {
+      alert("Word and language are required.");
       return;
     }
 
