@@ -1,4 +1,4 @@
-import LiquidGlassSurface from "./LiquidGlassSurface";
+import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 
 function getListText(arrayValue, singleValue, emptyText) {
   if (Array.isArray(arrayValue) && arrayValue.length > 0) {
@@ -27,6 +27,7 @@ function WordCard({ entry, onSelect, isSelected }) {
   return (
     <LiquidGlassSurface
       as="article"
+      id={`word-card-${entry.id}`}
       className={`word-card ${isSelected ? "selected-card" : ""}`}
       variant="card"
       radius={28}

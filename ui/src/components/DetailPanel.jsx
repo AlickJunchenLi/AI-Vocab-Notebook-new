@@ -1,4 +1,4 @@
-import LiquidGlassSurface from "./LiquidGlassSurface";
+import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 
 function getListText(arrayValue, singleValue, emptyText) {
   if (Array.isArray(arrayValue) && arrayValue.length > 0) {
@@ -17,6 +17,7 @@ function DetailPanel({ entry, onDelete, onEdit }) {
     return (
       <LiquidGlassSurface
         as="aside"
+        id="detail-panel-empty"
         className="detail-panel"
         variant="panel"
         radius={30}
@@ -30,6 +31,7 @@ function DetailPanel({ entry, onDelete, onEdit }) {
   return (
     <LiquidGlassSurface
       as="aside"
+      id="detail-panel"
       className="detail-panel"
       variant="panel"
       radius={30}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./App.css";
-import "./styles/liquidGlass.css";
+import "./glass/liquidGlass.css";
+import LiquidGlassGroup from "./glass/LiquidGlassGroup.jsx";
 import TopMenu from "./components/TopMenu.jsx";
 import WordCard from "./components/WordCard";
 import { mockEntries } from "./data/mockEntries";
@@ -105,7 +106,12 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <LiquidGlassGroup
+      className="app"
+      overscan={140}
+      spillRadius={210}
+      maxActiveSurfaces={6}
+    >
       <TopMenu />
 
       <main className="page">
@@ -193,7 +199,7 @@ function App() {
           onCancel={() => setEntryToDelete(null)}
         />
       )}
-    </div>
+    </LiquidGlassGroup>
   );
 }
 
