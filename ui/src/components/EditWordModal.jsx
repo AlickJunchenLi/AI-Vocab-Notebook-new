@@ -91,7 +91,11 @@ function EditWordModal({ entry, onSave, onCancel }) {
           />
         </label>
             <div className="modal-actions">
-                <button type="button" className="secondary-button" onClick={onCancel}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={onCancel}
+                >
                   Cancel
                 </button>
 

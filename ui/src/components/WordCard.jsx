@@ -1,3 +1,5 @@
+import LiquidGlassSurface from "./LiquidGlassSurface";
+
 function getListText(arrayValue, singleValue, emptyText) {
   if (Array.isArray(arrayValue) && arrayValue.length > 0) {
     return arrayValue.join(", ");
@@ -23,7 +25,13 @@ function WordCard({ entry, onSelect, isSelected }) {
   );
 
   return (
-    <article className={`word-card ${isSelected ? "selected-card" : ""}`}>
+    <LiquidGlassSurface
+      as="article"
+      className={`word-card ${isSelected ? "selected-card" : ""}`}
+      variant="card"
+      radius={28}
+      intensity={isSelected ? 1.28 : 1.12}
+    >
       <div className="word-card-header">
         <div>
           <h2>{entry.word}</h2>
@@ -47,7 +55,7 @@ function WordCard({ entry, onSelect, isSelected }) {
           View Details
         </button>
       </div>
-    </article>
+    </LiquidGlassSurface>
   );
 }
 

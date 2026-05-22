@@ -1,11 +1,13 @@
 import { useState } from "react";
 import "./App.css";
+import "./styles/liquidGlass.css";
 import TopMenu from "./components/TopMenu.jsx";
 import WordCard from "./components/WordCard";
 import { mockEntries } from "./data/mockEntries";
 import DetailPanel from "./components/DetailPanel";
 import AddWordModal from "./components/AddWordModal";
 import EditWordModal from "./components/EditWordModal";
+import DeleteConfirmModal from "./components/DeleteConfirmModal";
 
 function App() {
   const [searchText, setSearchText] = useState("");
@@ -15,6 +17,7 @@ function App() {
   const [selectedEntry, setSelectedEntry] = useState(mockEntries[0]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
+  const [entryToDelete, setEntryToDelete] = useState(null);
 
   const filteredEntries = entries
     .filter((entry) => {
@@ -56,24 +59,6 @@ function App() {
     setIsAddModalOpen(false);
   }
 
-  function handleDeleteEntry(entryToDelete) {
-    if (!entryToDelete) return;
-
-    const updatedEntries = entries.filter(
-        (entry) => entry.id !== entryToDelete.id
-    );
-
-    setEntries(updatedEntries);
-
-    setSelectedEntry((previousSelectedEntry) => {
-        if (previousSelectedEntry?.id === entryToDelete.id) {
-        return updatedEntries[0] || null;
-        }
-
-        return previousSelectedEntry;
-    });
-  }
-
   function handleStartEdit(entry) {
     setEditingEntry(entry);
   }
@@ -87,6 +72,36 @@ function App() {
 
     setSelectedEntry(updatedEntry);
     setEditingEntry(null);
+  }
+
+  function handleStartDelete(entry) {
+    setEntryToDelete(entry);
+  }
+
+  function handleConfirmDelete() {
+    if (!entryToDelete) {
+      return;
+    }
+
+    const deleteId = entryToDelete.id;
+
+    setEntries((previousEntries) => {
+      const remainingEntries = previousEntries.filter(
+        (entry) => entry.id !== deleteId
+      );
+
+      setSelectedEntry((currentSelectedEntry) => {
+        if (currentSelectedEntry?.id === deleteId) {
+          return remainingEntries[0] ?? null;
+        }
+
+        return currentSelectedEntry;
+      });
+
+      return remainingEntries;
+    });
+
+    setEntryToDelete(null);
   }
 
   return (
@@ -146,7 +161,7 @@ function App() {
 
           <DetailPanel
             entry={selectedEntry}
-            onDelete={handleDeleteEntry}
+            onDelete={handleStartDelete}
             onEdit={handleStartEdit}
           />
           
@@ -168,6 +183,14 @@ function App() {
             entry={editingEntry}
             onSave={handleSaveEdit}
             onCancel={() => setEditingEntry(null)}
+        />
+      )}
+
+      {entryToDelete && (
+        <DeleteConfirmModal
+          entry={entryToDelete}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setEntryToDelete(null)}
         />
       )}
     </div>

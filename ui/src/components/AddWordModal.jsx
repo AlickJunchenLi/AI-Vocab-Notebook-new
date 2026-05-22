@@ -54,7 +54,11 @@ function AddWordModal({ onClose, onAdd }) {
             <h2>Add Word</h2>
           </div>
 
-          <button type="button" className="close-button" onClick={onClose}>
+          <button
+            type="button"
+            className="close-button"
+            onClick={onClose}
+          >
             ×
           </button>
         </div>
@@ -112,7 +116,11 @@ function AddWordModal({ onClose, onAdd }) {
         </label>
 
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={onClose}
+          >
             Cancel
           </button>
 

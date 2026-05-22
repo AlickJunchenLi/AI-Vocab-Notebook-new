@@ -1,3 +1,5 @@
+import LiquidGlassSurface from "./LiquidGlassSurface";
+
 function getListText(arrayValue, singleValue, emptyText) {
   if (Array.isArray(arrayValue) && arrayValue.length > 0) {
     return arrayValue.join(", ");
@@ -13,14 +15,26 @@ function getListText(arrayValue, singleValue, emptyText) {
 function DetailPanel({ entry, onDelete, onEdit }) {
   if (!entry) {
     return (
-      <aside className="detail-panel">
+      <LiquidGlassSurface
+        as="aside"
+        className="detail-panel"
+        variant="panel"
+        radius={30}
+        intensity={1.22}
+      >
         <p>Select a word to view details.</p>
-      </aside>
+      </LiquidGlassSurface>
     );
   }
 
   return (
-    <aside className="detail-panel">
+    <LiquidGlassSurface
+      as="aside"
+      className="detail-panel"
+      variant="panel"
+      radius={30}
+      intensity={1.22}
+    >
       <p className="eyebrow">Selected Entry</p>
 
       <h2>{entry.word}</h2>
@@ -59,7 +73,7 @@ function DetailPanel({ entry, onDelete, onEdit }) {
       >
         Delete Word
       </button>
-    </aside>
+    </LiquidGlassSurface>
   );
 }
 

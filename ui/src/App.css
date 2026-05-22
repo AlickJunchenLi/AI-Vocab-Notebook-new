@@ -19,8 +19,8 @@ select {
 }
 
 .app {
-    min-height: 100vh;
-    padding: 80px 0 48px;
+  min-height: 100vh;
+  padding: 80px 0 48px;
 }
 
 .top-menu {
@@ -427,7 +427,6 @@ select {
   min-width: 120px;
   min-height: 44px;
   border-radius: 12px;
-  border: none;
   padding: 8px 14px;
   font-size: 16px;
   margin: 0px 5px 0px;
@@ -467,3 +466,115 @@ select {
   z-index: 999;
 }
 
+.delete-confirm-modal {
+  width: min(460px, 90vw);
+  background: white;
+  border: 1px solid transparent;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.delete-word-preview {
+  margin: 18px 0 14px;
+  display: flex;
+  justify-content: center;
+}
+
+.delete-word-preview span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 160px;
+  padding: 14px 24px;
+  border-radius: 18px;
+
+  background:
+    linear-gradient(135deg, #eff6ff, #dbeafe);
+  color: #1d4ed8;
+
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+
+  box-shadow:
+    0 14px 30px rgba(37, 99, 235, 0.14),
+    inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.delete-warning-text {
+  margin: 10px 0 22px;
+  text-align: center;
+
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  color: #be123c;
+}
+
+.confirm-delete-button {
+  min-height: 44px;
+  padding: 8px 14px;
+  margin: 0px 5px 0px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+
+  background: #fff1f2;
+  color: #be123c;
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.confirm-delete-button:hover {
+  transform: translateY(-2px);
+  background: #fb7185;
+  color: white;
+  box-shadow: 0 12px 26px rgba(244, 63, 94, 0.24);
+}
+
+.confirm-delete-button:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow: 0 6px 14px rgba(244, 63, 94, 0.18);
+}
+
+
+.delete-confirm-modal .secondary-button {
+  min-height: 44px;
+  padding: 8px 30px;
+  margin: 0px 5px 0px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+
+  background: #d1fae5;
+  color: #047857;
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.delete-confirm-modal .secondary-button:hover {
+  transform: translateY(-2px);
+  background: #34d399;
+  color: white;
+  box-shadow: 0 12px 26px rgba(16, 185, 129, 0.24);
+}
+
+.delete-confirm-modal .secondary-button:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow: 0 6px 14px rgba(16, 185, 129, 0.18);
+}
