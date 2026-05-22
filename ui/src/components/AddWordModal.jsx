@@ -1,4 +1,5 @@
 import { useState } from "react";
+import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 
 function AddWordModal({ onClose, onAdd }) {
   const [formData, setFormData] = useState({
@@ -47,7 +48,15 @@ function AddWordModal({ onClose, onAdd }) {
 
   return (
     <div className="modal-overlay">
-      <form className="add-word-modal" onSubmit={handleSubmit}>
+      <LiquidGlassSurface
+        as="form"
+        id="add-word-modal"
+        className="add-word-modal add-word-form-modal"
+        variant="panel"
+        radius={30}
+        intensity={1.18}
+        onSubmit={handleSubmit}
+      >
         <div className="modal-header">
           <div>
             <p className="eyebrow">New Entry</p>
@@ -63,57 +72,59 @@ function AddWordModal({ onClose, onAdd }) {
           </button>
         </div>
 
-        <label>
-          Word
-          <input
-            name="word"
-            value={formData.word}
-            onChange={handleChange}
-            placeholder="Example: happy"
-          />
-        </label>
+        <div className="add-word-form-grid">
+          <label className="form-field">
+            Word
+            <input
+              name="word"
+              value={formData.word}
+              onChange={handleChange}
+              placeholder="Example: happy"
+            />
+          </label>
 
-        <label>
-          Language
-          <select
-            name="language"
-            value={formData.language}
-            onChange={handleChange}
-          >
-            <option value="English">English</option>
-            <option value="Chinese">Chinese</option>
-          </select>
-        </label>
+          <label className="form-field">
+            Language
+            <select
+              name="language"
+              value={formData.language}
+              onChange={handleChange}
+            >
+              <option value="English">English</option>
+              <option value="Chinese">Chinese</option>
+            </select>
+          </label>
 
-        <label>
-          Synonyms
-          <input
-            name="synonyms"
-            value={formData.synonyms}
-            onChange={handleChange}
-            placeholder="Example: joyful, cheerful"
-          />
-        </label>
+          <label className="form-field">
+            Synonyms
+            <input
+              name="synonyms"
+              value={formData.synonyms}
+              onChange={handleChange}
+              placeholder="Example: joyful, cheerful"
+            />
+          </label>
 
-        <label>
-          Translations
-          <input
-            name="translations"
-            value={formData.translations}
-            onChange={handleChange}
-            placeholder="Example: 开心, 快乐"
-          />
-        </label>
+          <label className="form-field">
+            Translations
+            <input
+              name="translations"
+              value={formData.translations}
+              onChange={handleChange}
+              placeholder="Example: 开心, 快乐"
+            />
+          </label>
 
-        <label>
-          Notes
-          <textarea
-            name="notes"
-            value={formData.notes}
-            onChange={handleChange}
-            placeholder="Write a short note..."
-          />
-        </label>
+          <label className="form-field form-field-wide">
+            Notes
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleChange}
+              placeholder="Write a short note..."
+            />
+          </label>
+        </div>
 
         <div className="modal-actions">
           <button
@@ -124,11 +135,19 @@ function AddWordModal({ onClose, onAdd }) {
             Cancel
           </button>
 
-          <button type="submit" className="add-button">
+          <LiquidGlassSurface
+            as="button"
+            type="submit"
+            id="submit-add-word-button"
+            className="add-button liquid-add-button submit-add-word-button"
+            variant="button"
+            radius={18}
+            intensity={1.1}
+          >
             Save Word
-          </button>
+          </LiquidGlassSurface>
         </div>
-      </form>
+      </LiquidGlassSurface>
     </div>
   );
 }

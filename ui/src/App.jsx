@@ -160,12 +160,19 @@ function App() {
             <option value="za">Sort: Z → A</option>
           </select>
 
-          <button
-            className="add-button top-add-word-button"
+          <LiquidGlassSurface
+            as="button"
+            id="top-add-word-button"
+            type="button"
+            className="add-button liquid-add-button top-add-word-button"
+            variant="button"
+            radius={18}
+            intensity={1.08}
             onClick={() => setIsAddModalOpen(true)}
           >
-            <span className="top-add-word-button-label">+ Add Word</span>
-          </button>
+            <span className="top-add-word-button-icon">+</span>
+            <span className="top-add-word-button-label">Add Word</span>
+          </LiquidGlassSurface>
         </LiquidGlassSurface>
 
         <section className="content-layout">
