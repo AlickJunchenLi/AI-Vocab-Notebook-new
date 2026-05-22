@@ -64,13 +64,15 @@ function DetailPanel({ entry, onDelete, onEdit }) {
       </div>
 
       <button
-        className="edit-button"
+        type="button"
+        className="edit-word-button"
         onClick={() => onEdit(entry)}
       >
         Edit Word
       </button>
       <button
-        className="delete-button"
+        type="button"
+        className="delete-word-button"
         onClick={() => onDelete(entry)}
       >
         Delete Word

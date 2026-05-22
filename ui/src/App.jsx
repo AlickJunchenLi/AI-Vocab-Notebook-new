@@ -1,7 +1,8 @@
 import { useState } from "react";
-import "./App.css";
 import "./glass/liquidGlass.css";
+import "./App.css";
 import LiquidGlassGroup from "./glass/LiquidGlassGroup.jsx";
+import LiquidGlassSurface from "./glass/LiquidGlassSurface.jsx";
 import TopMenu from "./components/TopMenu.jsx";
 import WordCard from "./components/WordCard";
 import { mockEntries } from "./data/mockEntries";
@@ -64,6 +65,10 @@ function App() {
     setEditingEntry(entry);
   }
 
+  function handleSelectEntry(entry) {
+    setSelectedEntry(entry);
+  }
+
   function handleSaveEdit(updatedEntry) {
     setEntries((previousEntries) =>
     previousEntries.map((entry) =>
@@ -123,7 +128,14 @@ function App() {
           </p>
         </header>
 
-        <section className="controls">
+        <LiquidGlassSurface
+          as="section"
+          id="controls-bar"
+          className="controls"
+          variant="panel"
+          radius={24}
+          intensity={0.86}
+        >
           <input
             type="text"
             placeholder="Search words..."
@@ -148,10 +160,13 @@ function App() {
             <option value="za">Sort: Z → A</option>
           </select>
 
-          <button className="add-button" onClick={() => setIsAddModalOpen(true)}>
-            + Add Word
+          <button
+            className="add-button top-add-word-button"
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            <span className="top-add-word-button-label">+ Add Word</span>
           </button>
-        </section>
+        </LiquidGlassSurface>
 
         <section className="content-layout">
           <section className="word-grid">
@@ -159,7 +174,7 @@ function App() {
               <WordCard
                 key={entry.id}
                 entry={entry}
-                onSelect={setSelectedEntry}
+                onSelect={handleSelectEntry}
                 isSelected={selectedEntry?.id === entry.id}
               />
             ))}

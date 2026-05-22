@@ -66,6 +66,7 @@ function LiquidGlassSurface({
   return (
     <Element
       ref={surfaceRef}
+      id={id}
       className={getClassName(className, resolvedVariant)}
       data-liquid-glass-id={surfaceId}
       data-liquid-glass-variant={resolvedVariant}

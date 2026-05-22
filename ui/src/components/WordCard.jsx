@@ -28,10 +28,12 @@ function WordCard({ entry, onSelect, isSelected }) {
     <LiquidGlassSurface
       as="article"
       id={`word-card-${entry.id}`}
-      className={`word-card ${isSelected ? "selected-card" : ""}`}
+      className={["word-card", isSelected ? "selected" : ""]
+        .filter(Boolean)
+        .join(" ")}
       variant="card"
       radius={28}
-      intensity={isSelected ? 1.28 : 1.12}
+      intensity={1.12}
     >
       <div className="word-card-header">
         <div>
@@ -53,7 +55,7 @@ function WordCard({ entry, onSelect, isSelected }) {
 
       <div className="word-card-actions">
         <button type="button" onClick={() => onSelect(entry)}>
-          View Details
+          View Detail
         </button>
       </div>
     </LiquidGlassSurface>
