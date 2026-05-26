@@ -10,6 +10,7 @@ import DetailPanel from "./components/DetailPanel";
 import AddWordModal from "./components/AddWordModal";
 import EditWordModal from "./components/EditWordModal";
 import DeleteConfirmModal from "./components/DeleteConfirmModal";
+//sdd
 
 function App() {
   const [searchText, setSearchText] = useState("");
