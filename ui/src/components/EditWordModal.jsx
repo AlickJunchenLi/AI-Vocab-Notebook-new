@@ -1,7 +1,11 @@
 import { useState } from "react";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import Icon from "./Icon.jsx";
+import { useDialogFocus } from "../hooks/useDialogFocus.js";
 
 function EditWordModal({ entry, onSave, onCancel }) {
+  const dialogRef = useDialogFocus(onCancel);
+  const [formError, setFormError] = useState("");
   const [word, setWord] = useState(entry.word);
   const [language, setLanguage] = useState(entry.language);
 
@@ -31,7 +35,7 @@ function EditWordModal({ entry, onSave, onCancel }) {
     event.preventDefault();
 
     if (word.trim() === "" || language.trim() === "") {
-      alert("Word and language are required.");
+      setFormError("A word and language are required before saving.");
       return;
     }
 
@@ -48,20 +52,32 @@ function EditWordModal({ entry, onSave, onCancel }) {
   }
 
   return (
-    <div className="modal-overlay">
+    <div
+      className="modal-overlay"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onCancel();
+        }
+      }}
+    >
       <LiquidGlassSurface
         as="form"
+        ref={dialogRef}
         id="edit-word-modal"
         className="add-word-modal add-word-form-modal edit-word-modal"
         variant="panel"
         radius={30}
         intensity={1.18}
         onSubmit={handleSubmit}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-word-title"
+        tabIndex={-1}
       >
         <div className="modal-header">
           <div>
-            <p className="eyebrow">Selected Entry</p>
-            <h2>Edit Word</h2>
+            <h2 id="edit-word-title">Edit word</h2>
+            <p>Keep the details clear and useful for your next review.</p>
           </div>
 
           <button
@@ -70,7 +86,7 @@ function EditWordModal({ entry, onSave, onCancel }) {
             aria-label="Close edit word dialog"
             onClick={onCancel}
           >
-            &times;
+            <Icon name="plus" size={18} />
           </button>
         </div>
 
@@ -80,6 +96,7 @@ function EditWordModal({ entry, onSave, onCancel }) {
             <input
               value={word}
               onChange={(event) => setWord(event.target.value)}
+              data-autofocus
             />
           </label>
 
@@ -115,6 +132,12 @@ function EditWordModal({ entry, onSave, onCancel }) {
             />
           </label>
         </div>
+
+        {formError ? (
+          <p className="form-error" role="alert">
+            {formError}
+          </p>
+        ) : null}
 
         <div className="modal-actions">
           <button

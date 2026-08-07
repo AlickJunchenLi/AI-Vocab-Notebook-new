@@ -1,7 +1,11 @@
 import { useState } from "react";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import Icon from "./Icon.jsx";
+import { useDialogFocus } from "../hooks/useDialogFocus.js";
 
 function AddWordModal({ onClose, onAdd }) {
+  const dialogRef = useDialogFocus(onClose);
+  const [formError, setFormError] = useState("");
   const [formData, setFormData] = useState({
     word: "",
     language: "English",
@@ -30,7 +34,7 @@ function AddWordModal({ onClose, onAdd }) {
     event.preventDefault();
 
     if (formData.word.trim() === "" || formData.language.trim() === "") {
-      alert("Word and language are required.");
+      setFormError("Add a word and choose its language before saving.");
       return;
     }
 
@@ -47,28 +51,41 @@ function AddWordModal({ onClose, onAdd }) {
   }
 
   return (
-    <div className="modal-overlay">
+    <div
+      className="modal-overlay"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <LiquidGlassSurface
         as="form"
+        ref={dialogRef}
         id="add-word-modal"
         className="add-word-modal add-word-form-modal"
         variant="panel"
         radius={30}
         intensity={1.18}
         onSubmit={handleSubmit}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-word-title"
+        tabIndex={-1}
       >
         <div className="modal-header">
           <div>
-            <p className="eyebrow">New Entry</p>
-            <h2>Add Word</h2>
+            <h2 id="add-word-title">Add a new word</h2>
+            <p>Capture it now, then strengthen it through practice.</p>
           </div>
 
           <button
             type="button"
             className="close-button"
+            aria-label="Close add word dialog"
             onClick={onClose}
           >
-            ×
+            <Icon name="plus" size={18} />
           </button>
         </div>
 
@@ -80,6 +97,7 @@ function AddWordModal({ onClose, onAdd }) {
               value={formData.word}
               onChange={handleChange}
               placeholder="Example: happy"
+              data-autofocus
             />
           </label>
 
@@ -125,6 +143,12 @@ function AddWordModal({ onClose, onAdd }) {
             />
           </label>
         </div>
+
+        {formError ? (
+          <p className="form-error" role="alert">
+            {formError}
+          </p>
+        ) : null}
 
         <div className="modal-actions">
           <button

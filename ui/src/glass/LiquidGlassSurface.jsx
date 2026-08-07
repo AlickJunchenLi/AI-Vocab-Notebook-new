@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useCallback, useEffect, useId, useRef } from "react";
 import { useLiquidGlassGroup } from "./LiquidGlassContext.js";
 
 const VALID_VARIANTS = new Set(["card", "panel", "button", "menu", "sidebar"]);
@@ -20,6 +20,7 @@ function getClassName(className, variant) {
 }
 
 function LiquidGlassSurface({
+  ref: forwardedRef,
   as: Element = "div",
   id,
   children,
@@ -37,6 +38,18 @@ function LiquidGlassSurface({
   const group = useLiquidGlassGroup();
   const Content = Element === "button" || Element === "a" ? "span" : "div";
   const resolvedVariant = getVariant(variant);
+  const setSurfaceRef = useCallback(
+    (element) => {
+      surfaceRef.current = element;
+
+      if (typeof forwardedRef === "function") {
+        forwardedRef(element);
+      } else if (forwardedRef) {
+        forwardedRef.current = element;
+      }
+    },
+    [forwardedRef],
+  );
 
   useEffect(() => {
     const element = surfaceRef.current;
@@ -65,7 +78,7 @@ function LiquidGlassSurface({
 
   return (
     <Element
-      ref={surfaceRef}
+      ref={setSurfaceRef}
       id={id}
       className={getClassName(className, resolvedVariant)}
       data-liquid-glass-id={surfaceId}

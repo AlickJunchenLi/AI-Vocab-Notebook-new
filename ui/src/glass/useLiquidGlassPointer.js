@@ -37,35 +37,50 @@ const DEFAULT_RENDER_VALUES = {
   velY: 0,
 };
 
+const ACTIVITY_EPSILON = 0.0035;
+const MAX_ACTIVE_SURFACES_CAP = 4;
+
 function createRenderValues() {
   return { ...DEFAULT_RENDER_VALUES };
 }
 
-function writeSurfaceVariables(element, values) {
-  element.style.setProperty("--lg-local-x", `${values.localX.toFixed(2)}%`);
-  element.style.setProperty("--lg-local-y", `${values.localY.toFixed(2)}%`);
-  element.style.setProperty("--lg-boundary-x", `${values.boundaryX.toFixed(2)}%`);
-  element.style.setProperty("--lg-boundary-y", `${values.boundaryY.toFixed(2)}%`);
-  element.style.setProperty("--lg-outer-x", `${values.outerX.toFixed(2)}%`);
-  element.style.setProperty("--lg-outer-y", `${values.outerY.toFixed(2)}%`);
-  element.style.setProperty("--lg-local-px-x", `${values.localPxX.toFixed(2)}px`);
-  element.style.setProperty("--lg-local-px-y", `${values.localPxY.toFixed(2)}px`);
-  element.style.setProperty("--lg-boundary-px-x", `${values.boundaryPxX.toFixed(2)}px`);
-  element.style.setProperty("--lg-boundary-px-y", `${values.boundaryPxY.toFixed(2)}px`);
-  element.style.setProperty("--lg-normal-x", values.normalX.toFixed(4));
-  element.style.setProperty("--lg-normal-y", values.normalY.toFixed(4));
-  element.style.setProperty("--lg-d", `${values.d.toFixed(2)}px`);
-  element.style.setProperty("--lg-edge", values.edge.toFixed(4));
-  element.style.setProperty("--lg-inside-edge", values.insideEdge.toFixed(4));
-  element.style.setProperty("--lg-outside-edge", values.outsideEdge.toFixed(4));
-  element.style.setProperty("--glass-inner-active", values.innerActive.toFixed(4));
-  element.style.setProperty("--glass-outside-active", values.outsideActive.toFixed(4));
-  element.style.setProperty("--lg-cross", values.cross.toFixed(4));
-  element.style.setProperty("--lg-cross-dir", values.crossDir.toFixed(4));
-  element.style.setProperty("--lg-spill", values.spill.toFixed(4));
-  element.style.setProperty("--lg-active", values.active.toFixed(4));
-  element.style.setProperty("--lg-vel-x", values.velX.toFixed(2));
-  element.style.setProperty("--lg-vel-y", values.velY.toFixed(2));
+function writeSurfaceVariable(surface, name, value) {
+  const cache = surface.styleValueCache ?? new Map();
+  surface.styleValueCache = cache;
+
+  if (cache.get(name) === value) {
+    return;
+  }
+
+  cache.set(name, value);
+  surface.element.style.setProperty(name, value);
+}
+
+function writeSurfaceVariables(surface, values) {
+  writeSurfaceVariable(surface, "--lg-local-x", `${values.localX.toFixed(2)}%`);
+  writeSurfaceVariable(surface, "--lg-local-y", `${values.localY.toFixed(2)}%`);
+  writeSurfaceVariable(surface, "--lg-boundary-x", `${values.boundaryX.toFixed(2)}%`);
+  writeSurfaceVariable(surface, "--lg-boundary-y", `${values.boundaryY.toFixed(2)}%`);
+  writeSurfaceVariable(surface, "--lg-outer-x", `${values.outerX.toFixed(2)}%`);
+  writeSurfaceVariable(surface, "--lg-outer-y", `${values.outerY.toFixed(2)}%`);
+  writeSurfaceVariable(surface, "--lg-local-px-x", `${values.localPxX.toFixed(2)}px`);
+  writeSurfaceVariable(surface, "--lg-local-px-y", `${values.localPxY.toFixed(2)}px`);
+  writeSurfaceVariable(surface, "--lg-boundary-px-x", `${values.boundaryPxX.toFixed(2)}px`);
+  writeSurfaceVariable(surface, "--lg-boundary-px-y", `${values.boundaryPxY.toFixed(2)}px`);
+  writeSurfaceVariable(surface, "--lg-normal-x", values.normalX.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-normal-y", values.normalY.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-d", `${values.d.toFixed(2)}px`);
+  writeSurfaceVariable(surface, "--lg-edge", values.edge.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-inside-edge", values.insideEdge.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-outside-edge", values.outsideEdge.toFixed(4));
+  writeSurfaceVariable(surface, "--glass-inner-active", values.innerActive.toFixed(4));
+  writeSurfaceVariable(surface, "--glass-outside-active", values.outsideActive.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-cross", values.cross.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-cross-dir", values.crossDir.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-spill", values.spill.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-active", values.active.toFixed(4));
+  writeSurfaceVariable(surface, "--lg-vel-x", values.velX.toFixed(2));
+  writeSurfaceVariable(surface, "--lg-vel-y", values.velY.toFixed(2));
 }
 
 function measureSurface(surface) {
@@ -119,13 +134,30 @@ function scoreMetrics(metrics) {
   );
 }
 
+function getVisualActivity(values) {
+  if (!values) {
+    return 0;
+  }
+
+  return Math.max(
+    values.active,
+    values.edge,
+    values.insideEdge,
+    values.outsideEdge,
+    values.innerActive,
+    values.outsideActive,
+    values.cross,
+    values.spill
+  );
+}
+
 function makeTargetValues(surface, entry) {
   const metrics = entry?.metrics;
   const isPrimary = Boolean(entry?.primary);
   const width = surface.rect?.width || 1;
   const height = surface.rect?.height || 1;
   const base = surface.render || createRenderValues();
-  const visual = isPrimary ? metrics : null;
+  const visual = metrics ?? null;
   const cross = 0;
   const crossDir = 0;
 
@@ -158,7 +190,8 @@ function makeTargetValues(surface, entry) {
           metrics.outsideEdge * 0.18
       )
     : 0;
-  const spillStrength = 0;
+  const spillStrength = saturate(entry?.spillStrength ?? 0) *
+    (isPrimary ? 0.14 : 0.2);
 
   return {
     localX: metrics?.localPercentX ?? base.localX,
@@ -176,7 +209,7 @@ function makeTargetValues(surface, entry) {
     normalX: visual.normalX,
     normalY: visual.normalY,
     d: metrics?.d ?? base.d,
-    edge: isPrimary ? metrics.edgeProximity * innerActive : spillStrength * 0.22,
+    edge: isPrimary ? metrics.edgeProximity * innerActive : spillStrength * 0.16,
     insideEdge: isPrimary ? metrics.insideEdge : 0,
     outsideEdge: isPrimary ? metrics.outsideEdge : 0,
     innerActive: isPrimary ? innerActive : 0,
@@ -184,64 +217,90 @@ function makeTargetValues(surface, entry) {
     cross,
     crossDir,
     spill: spillStrength,
-    active: primaryActive,
+    active: Math.max(primaryActive, spillStrength * 0.42),
     velX: metrics?.velocityX ?? 0,
     velY: metrics?.velocityY ?? 0,
   };
 }
 
-function advanceSurfaceRender(surface, target, reducedMotion) {
+function advanceSurfaceRender(surface, target) {
   const current = surface.render || createRenderValues();
-  const t = reducedMotion ? 0.55 : LIQUID_GLASS_CONSTANTS.HIGHLIGHT_LERP;
+  const targetActivity = getVisualActivity(target);
 
-  current.localX = lerp(current.localX, target.localX, t);
-  current.localY = lerp(current.localY, target.localY, t);
-  current.boundaryX = lerp(current.boundaryX, target.boundaryX, t);
-  current.boundaryY = lerp(current.boundaryY, target.boundaryY, t);
-  current.outerX = lerp(current.outerX, target.outerX, t);
-  current.outerY = lerp(current.outerY, target.outerY, t);
-  current.boundaryViewportX = lerp(
-    current.boundaryViewportX,
-    target.boundaryViewportX,
-    t
-  );
-  current.boundaryViewportY = lerp(
-    current.boundaryViewportY,
-    target.boundaryViewportY,
-    t
-  );
-  current.localPxX = lerp(current.localPxX, target.localPxX, t);
-  current.localPxY = lerp(current.localPxY, target.localPxY, t);
-  current.boundaryPxX = lerp(current.boundaryPxX, target.boundaryPxX, t);
-  current.boundaryPxY = lerp(current.boundaryPxY, target.boundaryPxY, t);
-  current.normalX = lerp(current.normalX, target.normalX, t);
-  current.normalY = lerp(current.normalY, target.normalY, t);
-  current.d = lerp(current.d, target.d, t);
-  current.edge = lerp(current.edge, target.edge, t);
-  current.insideEdge = lerp(current.insideEdge, target.insideEdge, t);
-  current.outsideEdge = lerp(current.outsideEdge, target.outsideEdge, t);
-  current.innerActive = lerp(current.innerActive, target.innerActive, t);
-  current.outsideActive = lerp(current.outsideActive, target.outsideActive, t);
-  current.cross = lerp(current.cross, target.cross, t);
-  current.crossDir = lerp(current.crossDir, target.crossDir, t);
-  current.spill = lerp(current.spill, target.spill, t);
-  current.active = lerp(current.active, target.active, t);
-  current.velX = lerp(current.velX, target.velX, t);
-  current.velY = lerp(current.velY, target.velY, t);
+  if (
+    surface.renderSettled &&
+    getVisualActivity(current) <= ACTIVITY_EPSILON &&
+    targetActivity <= ACTIVITY_EPSILON
+  ) {
+    return { activity: 0, unsettled: false };
+  }
+
+  const t = LIQUID_GLASS_CONSTANTS.HIGHLIGHT_LERP;
+  let unsettled = false;
+
+  function advance(key, epsilon) {
+    const previous = current[key];
+    const next = lerp(previous, target[key], t);
+
+    if (Math.abs(target[key] - next) <= epsilon) {
+      current[key] = target[key];
+    } else {
+      current[key] = next;
+      unsettled = true;
+    }
+  }
+
+  advance("localX", 0.01);
+  advance("localY", 0.01);
+  advance("boundaryX", 0.01);
+  advance("boundaryY", 0.01);
+  advance("outerX", 0.01);
+  advance("outerY", 0.01);
+  advance("boundaryViewportX", 0.05);
+  advance("boundaryViewportY", 0.05);
+  advance("localPxX", 0.05);
+  advance("localPxY", 0.05);
+  advance("boundaryPxX", 0.05);
+  advance("boundaryPxY", 0.05);
+  advance("normalX", 0.0005);
+  advance("normalY", 0.0005);
+  advance("d", 0.05);
+  advance("edge", 0.0005);
+  advance("insideEdge", 0.0005);
+  advance("outsideEdge", 0.0005);
+  advance("innerActive", 0.0005);
+  advance("outsideActive", 0.0005);
+  advance("cross", 0.0005);
+  advance("crossDir", 0.0005);
+  advance("spill", 0.0005);
+  advance("active", 0.0005);
+  advance("velX", 0.25);
+  advance("velY", 0.25);
   surface.render = current;
+  const activity = getVisualActivity(current);
 
-  writeSurfaceVariables(surface.element, current);
+  if (activity <= ACTIVITY_EPSILON && targetActivity <= ACTIVITY_EPSILON) {
+    current.edge = 0;
+    current.insideEdge = 0;
+    current.outsideEdge = 0;
+    current.innerActive = 0;
+    current.outsideActive = 0;
+    current.cross = 0;
+    current.crossDir = 0;
+    current.spill = 0;
+    current.active = 0;
+    current.velX = 0;
+    current.velY = 0;
+    surface.renderSettled = true;
+    writeSurfaceVariables(surface, current);
 
-  return Math.max(
-    current.active,
-    current.edge,
-    current.insideEdge,
-    current.outsideEdge,
-    current.innerActive,
-    current.outsideActive,
-    current.cross,
-    current.spill
-  );
+    return { activity: 0, unsettled: false };
+  }
+
+  surface.renderSettled = !unsettled;
+  writeSurfaceVariables(surface, current);
+
+  return { activity, unsettled };
 }
 
 function prepareCanvas(canvas) {
@@ -297,20 +356,38 @@ function setGradientStops(gradient, active, stops) {
   }
 }
 
-function drawOutsideFieldForSurface(ctx, surface, surfaces) {
+function getCanvasActivity(surface) {
+  const render = surface.render;
+
+  if (!render) {
+    return 0;
+  }
+
+  return saturate(
+    (render.outsideActive * 0.9 +
+      render.innerActive * 0.42 +
+      render.edge * 0.28 +
+      render.spill * 0.34) *
+      (surface.intensity ?? 1)
+  );
+}
+
+function drawOutsideFieldForSurface(ctx, surface) {
   const render = surface.render;
   const rect = surface.rect;
-  const active = saturate((render?.outsideActive ?? 0) * (surface.intensity ?? 1));
+  const active = getCanvasActivity(surface);
 
   if (!render || !rect || active <= 0.004) {
     return 0;
   }
 
-  const range = 80;
+  const range = 88;
   const boundaryX = render.boundaryViewportX;
   const boundaryY = render.boundaryViewportY;
   const normalAngle = Math.atan2(render.normalY, render.normalX);
   const tangentAngle = normalAngle + Math.PI * 0.5;
+  const tangentX = -render.normalY;
+  const tangentY = render.normalX;
   const outerRect = {
     x: rect.left - range,
     y: rect.top - range,
@@ -336,23 +413,6 @@ function drawOutsideFieldForSurface(ctx, surface, surfaces) {
     (surface.radius ?? 28) + 0.5
   );
 
-  for (const clippedSurface of surfaces) {
-    const clippedRect = clippedSurface.rect;
-
-    if (!clippedRect || clippedSurface === surface) {
-      continue;
-    }
-
-    addRoundedRect(
-      ringPath,
-      clippedRect.left - 0.5,
-      clippedRect.top - 0.5,
-      clippedRect.width + 1,
-      clippedRect.height + 1,
-      (clippedSurface.radius ?? 28) + 0.5
-    );
-  }
-
   ctx.save();
   ctx.clip(ringPath, "evenodd");
   ctx.globalCompositeOperation = "screen";
@@ -366,9 +426,9 @@ function drawOutsideFieldForSurface(ctx, surface, surfaces) {
     range * 1.15
   );
   setGradientStops(halo, active, [
-    [0, (a) => `rgba(255, 255, 255, ${0.36 * a})`],
-    [0.22, (a) => `rgba(191, 219, 254, ${0.24 * a})`],
-    [0.5, (a) => `rgba(96, 165, 250, ${0.12 * a})`],
+    [0, (a) => `rgba(255, 255, 255, ${0.44 * a})`],
+    [0.2, (a) => `rgba(219, 234, 254, ${0.3 * a})`],
+    [0.48, (a) => `rgba(96, 165, 250, ${0.14 * a})`],
     [1, () => "rgba(255, 255, 255, 0)"],
   ]);
   ctx.fillStyle = halo;
@@ -381,9 +441,9 @@ function drawOutsideFieldForSurface(ctx, surface, surfaces) {
 
   const rim = ctx.createRadialGradient(0, 0, 0, 0, 0, range * 0.74);
   setGradientStops(rim, active, [
-    [0, (a) => `rgba(255, 255, 255, ${0.5 * a})`],
-    [0.24, (a) => `rgba(219, 234, 254, ${0.26 * a})`],
-    [0.54, (a) => `rgba(56, 189, 248, ${0.12 * a})`],
+    [0, (a) => `rgba(255, 255, 255, ${0.56 * a})`],
+    [0.22, (a) => `rgba(224, 242, 254, ${0.3 * a})`],
+    [0.52, (a) => `rgba(96, 165, 250, ${0.13 * a})`],
     [1, () => "rgba(255, 255, 255, 0)"],
   ]);
   ctx.fillStyle = rim;
@@ -392,25 +452,120 @@ function drawOutsideFieldForSurface(ctx, surface, surfaces) {
   ctx.fill();
   ctx.restore();
 
+  const prismLobes = [
+    {
+      tangent: -10,
+      normal: 13,
+      inner: (a) => `rgba(167, 139, 250, ${0.13 * a})`,
+      outer: (a) => `rgba(196, 181, 253, ${0.035 * a})`,
+    },
+    {
+      tangent: 6,
+      normal: 16,
+      inner: (a) => `rgba(103, 232, 249, ${0.15 * a})`,
+      outer: (a) => `rgba(125, 211, 252, ${0.04 * a})`,
+    },
+    {
+      tangent: 17,
+      normal: 10,
+      inner: (a) => `rgba(253, 186, 116, ${0.1 * a})`,
+      outer: (a) => `rgba(254, 215, 170, ${0.025 * a})`,
+    },
+  ];
+
+  for (const lobe of prismLobes) {
+    const x = boundaryX + tangentX * lobe.tangent + render.normalX * lobe.normal;
+    const y = boundaryY + tangentY * lobe.tangent + render.normalY * lobe.normal;
+    const prism = ctx.createRadialGradient(x, y, 0, x, y, range * 0.7);
+    setGradientStops(prism, active, [
+      [0, lobe.inner],
+      [0.42, lobe.outer],
+      [1, () => "rgba(255, 255, 255, 0)"],
+    ]);
+    ctx.fillStyle = prism;
+    ctx.fillRect(outerRect.x, outerRect.y, outerRect.width, outerRect.height);
+  }
+
   ctx.restore();
 
   return active;
 }
 
-function drawOutsideFieldOverlay(canvas, surfaces) {
+function drawPointerLens(ctx, pointer, surfaceActivity) {
+  if (!pointer?.hasPointer) {
+    return 0;
+  }
+
+  const speed = Math.min(
+    1,
+    Math.hypot(pointer.velocityX, pointer.velocityY) / 900
+  );
+  const active = 0.52 + surfaceActivity * 0.28;
+  const radius = 48 + speed * 7;
+  const x = pointer.x;
+  const y = pointer.y;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "source-over";
+
+  const body = ctx.createRadialGradient(x - 8, y - 9, 2, x, y, radius);
+  body.addColorStop(0, `rgba(255, 255, 255, ${0.12 * active})`);
+  body.addColorStop(0.55, `rgba(224, 242, 254, ${0.08 * active})`);
+  body.addColorStop(0.78, `rgba(167, 139, 250, ${0.07 * active})`);
+  body.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  const rim = ctx.createLinearGradient(
+    x - radius,
+    y - radius,
+    x + radius,
+    y + radius
+  );
+  rim.addColorStop(0, `rgba(255, 255, 255, ${0.68 * active})`);
+  rim.addColorStop(0.23, `rgba(103, 232, 249, ${0.5 * active})`);
+  rim.addColorStop(0.52, `rgba(129, 140, 248, ${0.58 * active})`);
+  rim.addColorStop(0.76, `rgba(244, 114, 182, ${0.34 * active})`);
+  rim.addColorStop(1, `rgba(253, 186, 116, ${0.38 * active})`);
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = 1.35;
+  ctx.beginPath();
+  ctx.arc(x, y, radius - 1, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.72 * active})`;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.arc(x, y, radius - 4, Math.PI * 1.08, Math.PI * 1.68);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(111, 208, 255, ${0.18 * active})`;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(x + 2, y + 1, radius + 2, -0.18, Math.PI * 0.82);
+  ctx.stroke();
+
+  ctx.restore();
+
+  return active;
+}
+
+function drawOutsideFieldOverlay(canvas, surface, pointer) {
   const ctx = prepareCanvas(canvas);
 
   if (!ctx) {
     return 0;
   }
 
-  let activity = 0;
+  const surfaceActivity = surface ? getCanvasActivity(surface) : 0;
+  const pointerActivity = drawPointerLens(ctx, pointer, surfaceActivity);
+  const outsideActivity = surface
+    ? drawOutsideFieldForSurface(ctx, surface)
+    : 0;
 
-  for (const surface of surfaces) {
-    activity = Math.max(activity, drawOutsideFieldForSurface(ctx, surface, surfaces));
-  }
-
-  return activity;
+  return Math.max(pointerActivity, outsideActivity);
 }
 
 function pointerIsInsideGroup(pointer, groupRect, overscan) {
@@ -439,7 +594,6 @@ export function useLiquidGlassPointer({
   const frameRef = useRef(null);
   const measurementsDirtyRef = useRef(true);
   const groupRectRef = useRef(null);
-  const reducedMotionRef = useRef(false);
   const optionsRef = useRef({
     overscan,
     spillRadius,
@@ -470,10 +624,66 @@ export function useLiquidGlassPointer({
   useEffect(() => {
     const groupElement = groupRef.current;
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const finePointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+    let effectEnabled = false;
+    let pointerListenersAttached = false;
+
+    function cancelFrame() {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+
+      runFrame.lastNow = 0;
+    }
+
+    function clearCanvas() {
+      const canvas = overlayRef.current;
+      const ctx = canvas?.getContext("2d");
+
+      if (!canvas || !ctx) {
+        return;
+      }
+
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
+    function resetPointerState() {
+      const pointer = pointerRef.current;
+      pointer.hasPointer = false;
+      pointer.hasCurrent = false;
+      pointer.x = 0;
+      pointer.y = 0;
+      pointer.targetX = 0;
+      pointer.targetY = 0;
+      pointer.previousX = 0;
+      pointer.previousY = 0;
+      pointer.velocityX = 0;
+      pointer.velocityY = 0;
+    }
+
+    function resetSurfaceEffects() {
+      for (const surface of surfacesRef.current.values()) {
+        if (!surface.element?.isConnected) {
+          continue;
+        }
+
+        const values = createRenderValues();
+        surface.render = values;
+        surface.renderSettled = true;
+        writeSurfaceVariables(surface, values);
+      }
+    }
 
     function markMeasurementsDirty() {
       measurementsDirtyRef.current = true;
-      requestFrame();
+
+      if (effectEnabled) {
+        requestFrame();
+      }
     }
 
     function measureAll() {
@@ -499,12 +709,16 @@ export function useLiquidGlassPointer({
     }
 
     function requestFrame() {
-      if (frameRef.current === null) {
+      if (effectEnabled && frameRef.current === null) {
         frameRef.current = requestAnimationFrame(runFrame);
       }
     }
 
     function updatePointerFromEvent(event) {
+      if (!effectEnabled || event.pointerType === "touch") {
+        return;
+      }
+
       const pointer = pointerRef.current;
       pointer.hasPointer = true;
       pointer.targetX = event.clientX;
@@ -521,18 +735,82 @@ export function useLiquidGlassPointer({
       requestFrame();
     }
 
-    function clearPointer() {
-      pointerRef.current.hasPointer = false;
+    function handlePointerLeave() {
+      resetPointerState();
       requestFrame();
     }
 
-    function updateReducedMotion() {
-      reducedMotionRef.current = reducedMotionQuery.matches;
-      requestFrame();
+    function handleWindowBlur() {
+      resetPointerState();
+      cancelFrame();
+      resetSurfaceEffects();
+      clearCanvas();
+    }
+
+    function attachPointerListeners() {
+      if (!groupElement || pointerListenersAttached) {
+        return;
+      }
+
+      groupElement.addEventListener("pointerenter", updatePointerFromEvent, {
+        passive: true,
+      });
+      groupElement.addEventListener("pointermove", updatePointerFromEvent, {
+        passive: true,
+      });
+      groupElement.addEventListener("pointerleave", handlePointerLeave, {
+        passive: true,
+      });
+      groupElement.addEventListener("pointercancel", handlePointerLeave, {
+        passive: true,
+      });
+      pointerListenersAttached = true;
+    }
+
+    function detachPointerListeners() {
+      if (!groupElement || !pointerListenersAttached) {
+        return;
+      }
+
+      groupElement.removeEventListener("pointerenter", updatePointerFromEvent);
+      groupElement.removeEventListener("pointermove", updatePointerFromEvent);
+      groupElement.removeEventListener("pointerleave", handlePointerLeave);
+      groupElement.removeEventListener("pointercancel", handlePointerLeave);
+      pointerListenersAttached = false;
+    }
+
+    function syncEffectAvailability() {
+      const nextEnabled =
+        !reducedMotionQuery.matches &&
+        finePointerQuery.matches &&
+        document.visibilityState !== "hidden";
+
+      if (nextEnabled === effectEnabled) {
+        return;
+      }
+
+      effectEnabled = nextEnabled;
+
+      if (effectEnabled) {
+        attachPointerListeners();
+        measurementsDirtyRef.current = true;
+        measureAll();
+        requestFrame();
+      } else {
+        detachPointerListeners();
+        resetPointerState();
+        cancelFrame();
+        resetSurfaceEffects();
+        clearCanvas();
+      }
     }
 
     function runFrame(now) {
       frameRef.current = null;
+
+      if (!effectEnabled) {
+        return;
+      }
 
       if (measurementsDirtyRef.current) {
         measureAll();
@@ -543,18 +821,25 @@ export function useLiquidGlassPointer({
       const surfaces = [...surfacesRef.current.values()].filter(
         (surface) => surface.element?.isConnected && surface.rect
       );
-      const dtSeconds = Math.max(1 / 120, Math.min(0.064, (now - (runFrame.lastNow || now)) / 1000));
+      const dtSeconds = Math.max(
+        1 / 120,
+        Math.min(0.064, (now - (runFrame.lastNow || now)) / 1000)
+      );
       runFrame.lastNow = now;
 
       if (pointer.hasPointer) {
-        const smoothing = reducedMotionRef.current
-          ? 0.5
-          : LIQUID_GLASS_CONSTANTS.POINTER_SMOOTHING;
-
         pointer.previousX = pointer.x;
         pointer.previousY = pointer.y;
-        pointer.x = lerp(pointer.x, pointer.targetX, smoothing);
-        pointer.y = lerp(pointer.y, pointer.targetY, smoothing);
+        pointer.x = lerp(
+          pointer.x,
+          pointer.targetX,
+          LIQUID_GLASS_CONSTANTS.POINTER_SMOOTHING
+        );
+        pointer.y = lerp(
+          pointer.y,
+          pointer.targetY,
+          LIQUID_GLASS_CONSTANTS.POINTER_SMOOTHING
+        );
         pointer.velocityX = lerp(
           pointer.velocityX,
           (pointer.x - pointer.previousX) / dtSeconds,
@@ -565,20 +850,38 @@ export function useLiquidGlassPointer({
           (pointer.y - pointer.previousY) / dtSeconds,
           LIQUID_GLASS_CONSTANTS.VELOCITY_SMOOTHING
         );
-      } else {
-        pointer.velocityX = lerp(pointer.velocityX, 0, 0.24);
-        pointer.velocityY = lerp(pointer.velocityY, 0, 0.24);
       }
 
       if (!pointerIsInsideGroup(pointer, groupRectRef.current, options.overscan * 2.2)) {
-        pointer.hasPointer = false;
+        resetPointerState();
       }
 
       const entries = new Map();
       const candidateEntries = [];
 
       if (pointer.hasPointer) {
+        const resolvedOverscan = Math.max(0, Number(options.overscan) || 0);
+        const resolvedSpillRadius = Math.max(
+          0,
+          Number(options.spillRadius) || 0
+        );
+        const interactionRange = Math.max(
+          resolvedOverscan,
+          resolvedSpillRadius
+        );
+
         for (const surface of surfaces) {
+          const rect = surface.rect;
+
+          if (
+            pointer.x < rect.left - interactionRange ||
+            pointer.x > rect.right + interactionRange ||
+            pointer.y < rect.top - interactionRange ||
+            pointer.y > rect.bottom + interactionRange
+          ) {
+            continue;
+          }
+
           const metrics = computeSurfaceMetrics(
             pointer.x,
             pointer.y,
@@ -587,46 +890,75 @@ export function useLiquidGlassPointer({
             { x: pointer.velocityX, y: pointer.velocityY },
             LIQUID_GLASS_CONSTANTS
           );
-          const inSurfaceRange = metrics.d <= 0 || metrics.d <= options.overscan;
-          const score = inSurfaceRange ? scoreMetrics(metrics) : 0;
+          const outsideDistance = Math.max(metrics.d, 0);
+          const spillStrength =
+            resolvedSpillRadius > 0
+              ? 1 -
+                smoothstep(
+                  0,
+                  resolvedSpillRadius,
+                  outsideDistance
+                )
+              : 0;
+          const inSurfaceRange =
+            metrics.d <= 0 || outsideDistance <= interactionRange;
+          const score = inSurfaceRange
+            ? scoreMetrics(metrics) + spillStrength * 0.36
+            : 0;
 
           if (score > 0 && surface.interactive !== false) {
             const entry = {
               surface,
               metrics,
               score,
+              spillStrength,
               primary: false,
             };
 
-            entries.set(surface.id, entry);
             candidateEntries.push(entry);
           }
         }
 
         candidateEntries.sort((a, b) => b.score - a.score);
 
-        for (const entry of candidateEntries.slice(0, options.maxActiveSurfaces)) {
-          entry.primary = true;
+        const requestedActiveSurfaces = Number.isFinite(
+          Number(options.maxActiveSurfaces)
+        )
+          ? Math.floor(Number(options.maxActiveSurfaces))
+          : LIQUID_GLASS_CONSTANTS.MAX_ACTIVE_SURFACES;
+        const activeLimit = clamp(
+          requestedActiveSurfaces,
+          0,
+          MAX_ACTIVE_SURFACES_CAP
+        );
+        const activeEntries = candidateEntries.slice(0, activeLimit);
+
+        for (const [index, entry] of activeEntries.entries()) {
+          entry.primary = index === 0;
+          entries.set(entry.surface.id, entry);
         }
       }
 
-      let maxActivity = 0;
+      let anySurfaceUnsettled = false;
+      let causticSurface = null;
+      let causticActivity = 0;
 
       for (const surface of surfaces) {
-        const target = makeTargetValues(
-          surface,
-          entries.get(surface.id)
-        );
+        const target = makeTargetValues(surface, entries.get(surface.id));
+        const result = advanceSurfaceRender(surface, target);
+        const surfaceCausticActivity = getCanvasActivity(surface);
+        anySurfaceUnsettled = anySurfaceUnsettled || result.unsettled;
 
-        maxActivity = Math.max(
-          maxActivity,
-          advanceSurfaceRender(surface, target, reducedMotionRef.current)
-        );
+        if (surfaceCausticActivity > causticActivity) {
+          causticActivity = surfaceCausticActivity;
+          causticSurface = surface;
+        }
       }
 
-      maxActivity = Math.max(
-        maxActivity,
-        drawOutsideFieldOverlay(overlayRef.current, surfaces)
+      drawOutsideFieldOverlay(
+        overlayRef.current,
+        causticSurface,
+        pointer.hasPointer ? pointer : null
       );
 
       const pointerStillSettling =
@@ -634,13 +966,12 @@ export function useLiquidGlassPointer({
         (Math.abs(pointer.targetX - pointer.x) > 0.04 ||
           Math.abs(pointer.targetY - pointer.y) > 0.04);
 
-      if (maxActivity > 0.004 || pointerStillSettling) {
+      if (anySurfaceUnsettled || pointerStillSettling) {
         requestFrame();
       }
     }
 
     markMeasurementsDirtyRef.current = markMeasurementsDirty;
-    reducedMotionRef.current = reducedMotionQuery.matches;
 
     const resizeObserver = new ResizeObserver(markMeasurementsDirty);
     resizeObserverRef.current = resizeObserver;
@@ -651,33 +982,35 @@ export function useLiquidGlassPointer({
 
     for (const surface of surfacesRef.current.values()) {
       resizeObserver.observe(surface.element);
-      writeSurfaceVariables(surface.element, surface.render || createRenderValues());
+      surface.render = surface.render || createRenderValues();
+      surface.renderSettled = true;
+      writeSurfaceVariables(surface, surface.render);
     }
 
-    window.addEventListener("pointermove", updatePointerFromEvent, { passive: true });
-    window.addEventListener("pointercancel", clearPointer, { passive: true });
-    window.addEventListener("blur", clearPointer);
+    window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("resize", markMeasurementsDirty, { passive: true });
     window.addEventListener("scroll", markMeasurementsDirty, true);
-    reducedMotionQuery.addEventListener("change", updateReducedMotion);
-    measureAll();
-    requestFrame();
+    window.visualViewport?.addEventListener("resize", markMeasurementsDirty, {
+      passive: true,
+    });
+    document.addEventListener("visibilitychange", syncEffectAvailability);
+    reducedMotionQuery.addEventListener("change", syncEffectAvailability);
+    finePointerQuery.addEventListener("change", syncEffectAvailability);
+    syncEffectAvailability();
 
     return () => {
-      window.removeEventListener("pointermove", updatePointerFromEvent);
-      window.removeEventListener("pointercancel", clearPointer);
-      window.removeEventListener("blur", clearPointer);
+      detachPointerListeners();
+      window.removeEventListener("blur", handleWindowBlur);
       window.removeEventListener("resize", markMeasurementsDirty);
       window.removeEventListener("scroll", markMeasurementsDirty, true);
-      reducedMotionQuery.removeEventListener("change", updateReducedMotion);
+      window.visualViewport?.removeEventListener("resize", markMeasurementsDirty);
+      document.removeEventListener("visibilitychange", syncEffectAvailability);
+      reducedMotionQuery.removeEventListener("change", syncEffectAvailability);
+      finePointerQuery.removeEventListener("change", syncEffectAvailability);
       resizeObserver.disconnect();
       resizeObserverRef.current = null;
       markMeasurementsDirtyRef.current = () => {};
-
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current);
-        frameRef.current = null;
-      }
+      cancelFrame();
     };
   }, [
     groupRef,
