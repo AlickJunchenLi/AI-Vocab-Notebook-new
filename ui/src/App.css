@@ -458,6 +458,7 @@
 }
 
 .word-list {
+  position: relative;
   overflow: hidden;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -529,6 +530,22 @@
 .word-row.selected::before {
   opacity: 1;
   transform: scaleY(1);
+}
+
+/*
+ * With the glass selector mounted, the selection is drawn by the glass gliding
+ * onto the row. The row's own filled background and ring are dropped so the two
+ * do not stack into a milky double highlight - the accent bar stays, since it
+ * reads through the glass and survives if the effect is unavailable.
+ */
+.word-list.has-glass-selector .word-row.selected {
+  border-color: rgba(76, 100, 163, 0.11);
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+}
+
+.word-list.has-glass-selector .word-row:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .word-row-title {

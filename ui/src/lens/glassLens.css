@@ -1,0 +1,308 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #070a1c;
+  color: #e8ecff;
+  font-family: "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.lens-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.lens-header h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.lens-header p {
+  margin: 0;
+  color: #97a1cc;
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------------------- stage -- */
+
+.lens-stage {
+  position: relative;
+  height: min(62vh, 560px);
+  border-radius: 28px;
+  overflow: hidden;
+  touch-action: none;
+  cursor: crosshair;
+  isolation: isolate;
+}
+
+.lens-stage-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.lens-stage-content {
+  position: absolute;
+  inset: 0;
+  padding: 44px 48px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.lens-stage-kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.lens-stage-title {
+  margin: 0;
+  font-size: clamp(40px, 7vw, 82px);
+  line-height: 0.94;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  text-shadow: 0 8px 40px rgba(4, 6, 26, 0.5);
+}
+
+.lens-stage-body {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(233, 238, 255, 0.86);
+}
+
+/* ----------------------------------------------------------------- lens -- */
+
+.glass-lens {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--lens-width);
+  height: var(--lens-height);
+  border-radius: var(--lens-radius);
+  cursor: grab;
+  touch-action: none;
+  will-change: transform;
+
+  /*
+   * Step 1: position and squash. The pair of counter-rotations applies the
+   * stretch along the heading and the squash across it, so the lens deforms in
+   * the direction it is actually travelling rather than along the screen axes.
+   */
+  transform: translate3d(var(--lens-x, 0px), var(--lens-y, 0px), 0)
+    rotate(var(--lens-angle, 0deg))
+    scale(
+      calc(1 + var(--lens-stretch, 0)),
+      calc(1 - var(--lens-stretch, 0))
+    )
+    rotate(calc(-1 * var(--lens-angle, 0deg)))
+    scale(calc(1 - 0.03 * var(--lens-press, 0)));
+
+  /*
+   * Deliberately no box-shadow here. A shadow on this element paints below its
+   * own children, which puts it inside the backdrop that .glass-lens-refraction
+   * samples - the lens would refract its own shadow inward at every corner. The
+   * cast shadow lives on .glass-lens-specular instead, which paints after the
+   * refraction pass and so is never sampled.
+   */
+}
+
+.glass-lens:active {
+  cursor: grabbing;
+}
+
+.glass-lens > * {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/*
+ * Steps 2 and 3: the frosted pass and the displacement pass. The blur averages
+ * the backdrop but never moves it; the url() reference resamples it along the
+ * rounded-rectangle normals. The filter chain is set inline because it is
+ * parameterised from the controls.
+ */
+.glass-lens-refraction {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lens-warning {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(251, 146, 60, 0.12);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  color: #ffd7ac;
+  font-size: 13px;
+}
+
+.lens-warning code {
+  font-size: 12px;
+}
+
+/*
+ * Step 4a: colour infusion. --lens-tint-* is the backdrop colour sampled under
+ * the lens each frame, so the glass warms and cools with what it passes over
+ * instead of being a fixed white wash.
+ */
+.glass-lens-tint {
+  --tint: var(--lens-tint-r, 130), var(--lens-tint-g, 150),
+    var(--lens-tint-b, 230);
+
+  background:
+    radial-gradient(
+      130% 130% at var(--lens-light-x, 50%) var(--lens-light-y, 34%),
+      rgba(255, 255, 255, calc(0.16 + 0.1 * var(--lens-hover, 0))) 0%,
+      rgba(var(--tint), 0.1) 42%,
+      rgba(var(--tint), 0.26) 100%
+    );
+  mix-blend-mode: screen;
+  opacity: calc(0.68 + 0.22 * var(--lens-hover, 0));
+}
+
+/*
+ * Step 4b: specular highlight and depth. The inset shadows give the slab
+ * thickness - bright on the lit side, a soft dark bevel opposite - and the
+ * gradient blob is the moving highlight, tracked to --lens-light-*.
+ */
+.glass-lens-specular {
+  background: radial-gradient(
+    58% 46% at var(--lens-light-x, 50%) var(--lens-light-y, 34%),
+    rgba(255, 255, 255, calc(0.4 + 0.26 * var(--lens-hover, 0))) 0%,
+    rgba(255, 255, 255, 0.06) 46%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -14px 26px rgba(6, 10, 34, calc(0.2 + 0.14 * var(--lens-luma, 0.5))),
+    inset 0 22px 30px -18px rgba(255, 255, 255, 0.4),
+    /* Cast shadow, tightening as the lens is pressed towards the page. It sits
+       on this layer rather than on .glass-lens so the refraction pass beneath
+       cannot sample it. */
+      0 calc(26px - 12px * var(--lens-press, 0))
+      calc(54px - 20px * var(--lens-press, 0))
+      rgba(3, 6, 24, calc(0.34 + 0.14 * var(--lens-press, 0))),
+    0 3px 10px rgba(3, 6, 24, 0.24);
+}
+
+/*
+ * Step 4c: fresnel rim. Reflectivity climbs at grazing angles, so the very
+ * perimeter is the brightest part of the glass. Drawn as a masked ring so the
+ * hue can vary around the circumference - the faint colour shift is the same
+ * dispersion the displacement pass produces, carried into the border.
+ */
+.glass-lens-rim {
+  padding: 1.5px;
+  background: conic-gradient(
+    from calc(var(--lens-angle, 0deg) - 90deg),
+    rgba(255, 255, 255, 0.9),
+    rgba(160, 220, 255, 0.5),
+    rgba(190, 170, 255, 0.34),
+    rgba(255, 210, 190, 0.44),
+    rgba(255, 255, 255, 0.9)
+  );
+  opacity: calc(0.62 + 0.3 * var(--lens-hover, 0));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+.glass-lens-label {
+  /* Reset the inset:0 stretch applied to every direct child. */
+  inset: auto auto 14px 50%;
+  translate: -50% 0;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 1px 6px rgba(4, 8, 30, 0.6);
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------------- controls -- */
+
+.lens-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+  align-items: center;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.lens-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 190px;
+  font-size: 12px;
+}
+
+.lens-control-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #a6b0d8;
+  letter-spacing: 0.04em;
+}
+
+.lens-control-label em {
+  font-style: normal;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.lens-control input[type="range"] {
+  width: 100%;
+  accent-color: #7c8cff;
+}
+
+.lens-control-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #cdd5f5;
+}
+
+.lens-control-toggle input {
+  accent-color: #7c8cff;
+  width: 16px;
+  height: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-lens {
+    transition: none;
+  }
+}

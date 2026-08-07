@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import GlassSelector from "../lens/GlassSelector.jsx";
 
 function listText(arrayValue, fallback = "Not added yet") {
   return Array.isArray(arrayValue) && arrayValue.length > 0
@@ -44,6 +45,7 @@ function LibraryPage({
   const [language, setLanguage] = useState("all");
   const [sortOrder, setSortOrder] = useState("recent");
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const wordListRef = useRef(null);
 
   const filteredEntries = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -177,13 +179,22 @@ function LibraryPage({
             </label>
           </div>
 
-          <div className="word-list" aria-label="Vocabulary words">
+          <div
+            className="word-list has-glass-selector"
+            aria-label="Vocabulary words"
+            ref={wordListRef}
+          >
             <div className="word-list-header" aria-hidden="true">
               <span>Word</span>
               <span>Language</span>
               <span>Notes</span>
               <span>Review</span>
             </div>
+
+            <GlassSelector
+              containerRef={wordListRef}
+              activeKey={visibleSelectedEntry?.id ?? null}
+            />
 
             {filteredEntries.map((entry) => {
               const isSelected = visibleSelectedEntry?.id === entry.id;
@@ -193,6 +204,7 @@ function LibraryPage({
                   key={entry.id}
                   type="button"
                   className={isSelected ? "word-row selected" : "word-row"}
+                  data-glass-row={entry.id}
                   aria-pressed={isSelected}
                   onClick={() => {
                     onSelect(entry);

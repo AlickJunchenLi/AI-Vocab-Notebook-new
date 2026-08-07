@@ -1,0 +1,84 @@
+/*
+ * Glass selector layers. Tuned lighter than the demo lens: this one sits over
+ * readable text, so the frosted pass and the tint stay restrained and most of
+ * the glass reads through the rim and the edge refraction instead.
+ */
+
+.glass-selector {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: var(--sel-width, 0px);
+  height: var(--sel-height, 0px);
+  border-radius: var(--sel-radius, 18px);
+  pointer-events: none;
+  opacity: var(--sel-visible, 0);
+  will-change: transform;
+
+  transform: translate3d(var(--sel-x, 0px), var(--sel-y, 0px), 0)
+    rotate(var(--sel-angle, 0deg))
+    scale(
+      calc(1 + var(--sel-stretch, 0)),
+      calc(1 - var(--sel-stretch, 0))
+    )
+    rotate(calc(-1 * var(--sel-angle, 0deg)));
+
+  /*
+   * No box-shadow here: it would paint below .glass-selector-refraction and be
+   * refracted back into the glass. The cast shadow lives on the specular layer,
+   * which paints after the refraction pass.
+   */
+}
+
+.glass-selector > * {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.glass-selector-refraction {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.glass-selector-specular {
+  background: radial-gradient(
+    64% 120% at 50% calc(24% - 12% * var(--sel-speed, 0)),
+    rgba(255, 255, 255, calc(0.42 + 0.2 * var(--sel-hover, 0))) 0%,
+    rgba(255, 255, 255, 0.05) 52%,
+    rgba(255, 255, 255, 0) 78%
+  );
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.75),
+    inset 0 -10px 20px rgba(38, 54, 95, 0.09),
+    0 10px 26px rgba(57, 70, 180, calc(0.1 + 0.06 * var(--sel-hover, 0))),
+    0 2px 6px rgba(57, 70, 180, 0.08);
+}
+
+.glass-selector-rim {
+  padding: 1px;
+  background: conic-gradient(
+    from calc(var(--sel-angle, 0deg) - 90deg),
+    rgba(255, 255, 255, 0.95),
+    rgba(63, 81, 237, 0.34),
+    rgba(167, 139, 250, 0.3),
+    rgba(168, 216, 255, 0.4),
+    rgba(255, 255, 255, 0.95)
+  );
+  opacity: calc(0.66 + 0.28 * var(--sel-hover, 0));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-selector {
+    transition: none;
+  }
+}

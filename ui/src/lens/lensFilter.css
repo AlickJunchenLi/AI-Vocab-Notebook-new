@@ -1,0 +1,13 @@
+/*
+ * The filter host carries no visuals - it only holds <defs>. It must stay in
+ * the layout tree, because display:none can drop the filter reference, so it is
+ * collapsed to a zero-sized absolute box instead.
+ */
+.lens-filter-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
