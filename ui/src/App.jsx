@@ -189,12 +189,7 @@ function App() {
   }
 
   return (
-    <LiquidGlassGroup
-      className="app"
-      overscan={168}
-      spillRadius={240}
-      maxActiveSurfaces={3}
-    >
+    <LiquidGlassGroup className="app">
       <div className="ambient-field" aria-hidden="true">
         <span className="ambient-field-blue" />
         <span className="ambient-field-violet" />

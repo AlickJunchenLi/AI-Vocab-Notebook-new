@@ -6,45 +6,20 @@
   color-scheme: light;
 }
 
-.liquid-glass-field-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 2;
-  width: 100vw;
-  height: 100vh;
-  contain: strict;
-  pointer-events: none;
-  mix-blend-mode: normal;
-  opacity: 0.9;
-}
+/*
+ * The cursor pass is unwired pending a redesign, so nothing writes per-surface
+ * position vars any more. The ~20 of them that used to live here (--lg-local-*,
+ * --lg-boundary-*, --lg-outer-*, --lg-edge, --lg-spill, --lg-active, …) are
+ * gone along with the ::before sheen and the field-overlay canvas.
+ *
+ * What is left is the static half of the material: frosted background, gradient
+ * border, shadow, radius. --lg-radius and --lg-intensity are still set inline by
+ * LiquidGlassSurface, so per-surface tuning keeps working.
+ */
 
 .liquid-glass-surface {
   --lg-radius: 28px;
   --lg-intensity: 1;
-  --lg-local-x: 50%;
-  --lg-local-y: 50%;
-  --lg-boundary-x: 50%;
-  --lg-boundary-y: 50%;
-  --lg-outer-x: 50%;
-  --lg-outer-y: 50%;
-  --lg-local-px-x: 0px;
-  --lg-local-px-y: 0px;
-  --lg-boundary-px-x: 0px;
-  --lg-boundary-px-y: 0px;
-  --lg-normal-x: 0;
-  --lg-normal-y: -1;
-  --lg-d: 999px;
-  --lg-edge: 0;
-  --lg-inside-edge: 0;
-  --lg-outside-edge: 0;
-  --glass-inner-active: 0;
-  --glass-outside-active: 0;
-  --lg-cross: 0;
-  --lg-cross-dir: 0;
-  --lg-spill: 0;
-  --lg-active: 0;
-  --lg-vel-x: 0;
-  --lg-vel-y: 0;
   --lg-control-radius: max(12px, calc(var(--lg-radius) - 14px));
 
   position: relative;
@@ -76,91 +51,31 @@
   color: inherit;
 }
 
-.liquid-glass-surface::before,
+/*
+ * ::after is the 1px gradient border, drawn with the padding-box/border-box
+ * mask-composite trick below. It used to be lit from the cursor; it is now a
+ * fixed diagonal sweep. ::before was the cursor sheen and no longer exists.
+ */
+
 .liquid-glass-surface::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-}
-
-.liquid-glass-surface::before {
-  z-index: 1;
-  background:
-    radial-gradient(
-      ellipse 96px 72px at var(--lg-boundary-x) var(--lg-boundary-y),
-      rgb(255 255 255 / 0.96) 0%,
-      rgb(207 250 254 / 0.48) 18%,
-      rgb(147 197 253 / 0.26) 40%,
-      transparent 72%
-    ),
-    radial-gradient(
-      ellipse 116px 84px at var(--lg-outer-x) var(--lg-outer-y),
-      rgb(196 181 253 / 0.25) 0%,
-      rgb(125 211 252 / 0.14) 38%,
-      rgb(254 215 170 / 0.07) 56%,
-      transparent 78%
-    );
-  filter: blur(0.3px);
-  mix-blend-mode: screen;
-  opacity: min(
-    0.82,
-    calc(
-      (
-          var(--glass-inner-active) * 0.7 +
-          var(--glass-outside-active) * 0.42 +
-          var(--lg-edge) * 0.2 +
-          var(--lg-spill) * 0.54
-        ) *
-        var(--lg-intensity)
-    )
-  );
-}
-
-.liquid-glass-surface::after {
   z-index: 1;
   padding: 1px;
-  background:
-    radial-gradient(
-      circle at var(--lg-boundary-x) var(--lg-boundary-y),
-      rgb(255 255 255 / 1) 0%,
-      rgb(207 250 254 / 0.92) 12%,
-      rgb(129 140 248 / 0.62) 28%,
-      rgb(244 114 182 / 0.26) 42%,
-      transparent 62%
-    ),
-    radial-gradient(
-      circle at var(--lg-outer-x) var(--lg-outer-y),
-      rgb(255 255 255 / 0.82) 0%,
-      rgb(125 211 252 / 0.46) 24%,
-      rgb(196 181 253 / 0.28) 44%,
-      rgb(254 215 170 / 0.16) 58%,
-      transparent 74%
-    ),
-    linear-gradient(
-      135deg,
-      rgb(255 255 255 / 0.98),
-      rgb(191 219 254 / 0.48) 30%,
-      rgb(129 140 248 / 0.28) 52%,
-      rgb(254 215 170 / 0.22) 72%,
-      rgb(255 255 255 / 0.78)
-    );
-  box-shadow:
-    inset 0 0 calc(7px + var(--lg-inside-edge) * 13px)
-      rgb(255 255 255 / calc(0.18 + var(--lg-inside-edge) * 0.28)),
-    inset 0 0 calc(2px + var(--lg-edge) * 3px)
-      rgb(125 211 252 / calc(0.28 + var(--lg-edge) * 0.34));
-  opacity: min(
-    0.98,
-    calc(
-      0.54 +
-        var(--glass-inner-active) * 0.28 +
-        var(--glass-outside-active) * 0.22 +
-        var(--lg-edge) * 0.2 +
-        var(--lg-spill) * 0.18
-    )
+  background: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.96),
+    rgb(191 219 254 / 0.42) 38%,
+    rgb(196 181 253 / 0.22) 66%,
+    rgb(255 255 255 / 0.76)
   );
+  box-shadow:
+    inset 0 0 7px rgb(255 255 255 / 0.18),
+    inset 0 0 2px rgb(125 211 252 / 0.28);
+  opacity: 0.68;
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -283,51 +198,17 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .liquid-glass-field-overlay {
-    display: none;
-  }
-
-  .liquid-glass-surface::before {
-    display: none;
-  }
-
-  .liquid-glass-surface::after {
-    background: linear-gradient(
-      135deg,
-      rgb(255 255 255 / 0.96),
-      rgb(191 219 254 / 0.42) 38%,
-      rgb(196 181 253 / 0.22) 66%,
-      rgb(255 255 255 / 0.76)
-    );
-    opacity: 0.68;
-  }
-}
-
-@media (hover: none), (pointer: coarse) {
-  .liquid-glass-field-overlay {
-    display: none;
-  }
-
-  .liquid-glass-surface::before {
-    display: none;
-  }
-
-  .liquid-glass-surface::after {
-    background: linear-gradient(
-      135deg,
-      rgb(255 255 255 / 0.96),
-      rgb(191 219 254 / 0.42) 38%,
-      rgb(196 181 253 / 0.22) 66%,
-      rgb(255 255 255 / 0.76)
-    );
-    opacity: 0.68;
-  }
-}
+/*
+ * The `prefers-reduced-motion: reduce` and `(hover: none), (pointer: coarse)`
+ * blocks that used to sit here are gone: both existed to strip the cursor pass,
+ * and their static fallback is now what every surface renders by default.
+ *
+ * Put them back when the redesigned effect lands. Whatever replaces the cursor
+ * visual should stay off under reduced-motion and on touch/coarse pointers,
+ * where a pointer-following visual has nothing to follow.
+ */
 
 @media (forced-colors: active) {
-  .liquid-glass-field-overlay,
-  .liquid-glass-surface::before,
   .liquid-glass-surface::after {
     display: none;
   }

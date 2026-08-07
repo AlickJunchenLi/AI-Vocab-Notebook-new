@@ -1,8 +1,5 @@
 import { useCallback, useMemo, useRef } from "react";
-import LiquidGlassFieldOverlay from "./LiquidGlassFieldOverlay.jsx";
 import { LiquidGlassContext } from "./LiquidGlassContext.js";
-import { useLiquidGlassPointer } from "./useLiquidGlassPointer.js";
-import { LIQUID_GLASS_CONSTANTS } from "./roundedRectField.js";
 
 function normalizeSurfaceConfig(config) {
   return {
@@ -23,30 +20,28 @@ function getClassName(className) {
   return ["liquid-glass-group", className].filter(Boolean).join(" ");
 }
 
-function LiquidGlassGroup({
-  children,
-  className = "",
-  overscan = LIQUID_GLASS_CONSTANTS.GROUP_OVERSCAN,
-  spillRadius = LIQUID_GLASS_CONSTANTS.SPILL_RADIUS,
-  maxActiveSurfaces = LIQUID_GLASS_CONSTANTS.MAX_ACTIVE_SURFACES,
-  ...props
-}) {
+/*
+ * The cursor-driven pass is currently unwired, pending a redesign.
+ *
+ * What is gone: the full-viewport canvas (LiquidGlassFieldOverlay) and the
+ * pointer loop that painted it (useLiquidGlassPointer). Both files are still in
+ * this folder — nothing calls them. Surfaces now render as static frosted
+ * glass; see liquidGlass.css.
+ *
+ * What survives on purpose: the surface registry below. Every LiquidGlassSurface
+ * still reports its element, radius, intensity and variant here, so a new effect
+ * can read the live set of surfaces without re-plumbing the tree.
+ *
+ * The overscan / spillRadius / maxActiveSurfaces props are gone with the loop
+ * they tuned. Their defaults are still in LIQUID_GLASS_CONSTANTS
+ * (roundedRectField.js) if the replacement wants a starting point.
+ */
+
+function LiquidGlassGroup({ children, className = "", ...props }) {
   const groupRef = useRef(null);
-  const overlayRef = useRef(null);
   const surfacesRef = useRef(new Map());
   const resizeObserverRef = useRef(null);
   const markMeasurementsDirtyRef = useRef(() => {});
-
-  useLiquidGlassPointer({
-    groupRef,
-    overlayRef,
-    surfacesRef,
-    resizeObserverRef,
-    markMeasurementsDirtyRef,
-    overscan,
-    spillRadius,
-    maxActiveSurfaces,
-  });
 
   const registerSurface = useCallback((id, config) => {
     const surface = {
@@ -90,7 +85,6 @@ function LiquidGlassGroup({
   return (
     <LiquidGlassContext.Provider value={contextValue}>
       <div ref={groupRef} className={getClassName(className)} {...props}>
-        <LiquidGlassFieldOverlay canvasRef={overlayRef} />
         {children}
       </div>
     </LiquidGlassContext.Provider>
