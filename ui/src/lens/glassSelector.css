@@ -4,11 +4,18 @@
  * the glass reads through the rim and the edge refraction instead.
  */
 
+/*
+ * z-index 0 keeps the glass *under* the rows it travels across. Painting it on
+ * top puts the row's own text into the backdrop, and blur plus displacement
+ * then smear the very content the selection is meant to point at. Underneath,
+ * it refracts only the list surface and the page behind it, and the text rides
+ * over it sharp.
+ */
 .glass-selector {
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 3;
+  z-index: 0;
   width: var(--sel-width, 0px);
   height: var(--sel-height, 0px);
   border-radius: var(--sel-radius, 18px);

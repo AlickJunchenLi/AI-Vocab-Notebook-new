@@ -534,18 +534,22 @@
 
 /*
  * With the glass selector mounted, the selection is drawn by the glass gliding
- * onto the row. The row's own filled background and ring are dropped so the two
- * do not stack into a milky double highlight - the accent bar stays, since it
- * reads through the glass and survives if the effect is unavailable.
+ * onto the row. The rows hand their fill to the list itself and go transparent,
+ * so the glass - which sits below them - is what fills the row, and the labels
+ * stay above it unblurred. The accent bar stays: it survives if the effect is
+ * unavailable, and now reads on top of the glass rather than through it.
  */
-.word-list.has-glass-selector .word-row.selected {
-  border-color: rgba(76, 100, 163, 0.11);
+.word-list.has-glass-selector {
   background: rgba(255, 255, 255, 0.16);
-  box-shadow: none;
 }
 
-.word-list.has-glass-selector .word-row:hover {
-  background: rgba(255, 255, 255, 0.3);
+.word-list.has-glass-selector .word-row,
+.word-list.has-glass-selector .word-row:hover,
+.word-list.has-glass-selector .word-row.selected {
+  z-index: 1;
+  border-color: rgba(76, 100, 163, 0.11);
+  background: transparent;
+  box-shadow: none;
 }
 
 .word-row-title {

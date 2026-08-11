@@ -146,6 +146,10 @@ export function useSelectorTracking({
     }
 
     function runFrame(now) {
+      // Release the slot first: the frame is running, so anything that asks for
+      // one from here on - including the tail of this function - must be able to
+      // schedule the next. Leaving it held parks the loop after a single frame.
+      frame = null;
 
       const delta = Math.min(MAX_FRAME_TIME, (now - (lastNow || now)) / 1000);
       lastNow = now;
