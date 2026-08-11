@@ -286,6 +286,7 @@ function App() {
 
       {isAddModalOpen ? (
         <AddWordModal
+          entries={entries}
           onClose={() => setIsAddModalOpen(false)}
           onAdd={handleAddEntry}
         />

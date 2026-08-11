@@ -2,6 +2,7 @@ import { useState } from "react";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 import GlassSelect from "./GlassSelect.jsx";
 import Icon from "./Icon.jsx";
+import WordSuggestionInput from "./WordSuggestionInput.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
 
 const LANGUAGE_OPTIONS = [
@@ -9,7 +10,7 @@ const LANGUAGE_OPTIONS = [
   { value: "Chinese", label: "Chinese" },
 ];
 
-function AddWordModal({ onClose, onAdd }) {
+function AddWordModal({ entries, onClose, onAdd }) {
   const dialogRef = useDialogFocus(onClose);
   const [formError, setFormError] = useState("");
   const [formData, setFormData] = useState({
@@ -73,6 +74,7 @@ function AddWordModal({ onClose, onAdd }) {
         variant="panel"
         radius={30}
         intensity={1.18}
+        autoComplete="off"
         onSubmit={handleSubmit}
         role="dialog"
         aria-modal="true"
@@ -96,16 +98,13 @@ function AddWordModal({ onClose, onAdd }) {
         </div>
 
         <div className="add-word-form-grid">
-          <label className="form-field">
-            Word
-            <input
-              name="word"
-              value={formData.word}
-              onChange={handleChange}
-              placeholder="Example: happy"
-              data-autofocus
-            />
-          </label>
+          <WordSuggestionInput
+            value={formData.word}
+            entries={entries}
+            onChange={(word) =>
+              setFormData((previousData) => ({ ...previousData, word }))
+            }
+          />
 
           <GlassSelect
             variant="field"
