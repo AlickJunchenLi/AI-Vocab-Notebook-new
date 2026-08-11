@@ -4,12 +4,12 @@ import { lerp, saturate } from "../glass/roundedRectField.js";
 /*
  * Drives the glass selector across a list of rows.
  *
- * The demo lens is pointer-driven; this one is element-driven. The target is
- * the hovered row if there is one, otherwise the selected row, so the glass
- * previews under the cursor and falls back to the selection when the pointer
- * leaves. Position is sprung, size is snapped: the displacement map is a
- * function of the box, and rebuilding it mid-transition would be far too
- * expensive to do per frame.
+ * The demo lens is pointer-driven; this one is element-driven, and the only
+ * element it answers to is the selected row. Pointing at a row deliberately
+ * does nothing: the glass marks what is selected, so letting it preview under
+ * the cursor would make it say two different things at once. Position is
+ * sprung, size is snapped: the displacement map is a function of the box, and
+ * rebuilding it mid-transition would be far too expensive to do per frame.
  *
  * The target element is re-measured at the top of every frame, so reflows from
  * filtering, sorting or resizing are picked up without any invalidation
@@ -43,15 +43,12 @@ export function useSelectorTracking({
 }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const activeKeyRef = useRef(activeKey);
-  const hoverKeyRef = useRef(null);
   const sizeRef = useRef(size);
   const stateRef = useRef({
     x: 0,
     y: 0,
     vx: 0,
     vy: 0,
-    hover: 0,
-    hoverTarget: 0,
     speed: 0,
     headingX: 0,
     headingY: 1,
@@ -102,7 +99,7 @@ export function useSelectorTracking({
     }
 
     function findTarget() {
-      return findRow(hoverKeyRef.current) ?? findRow(activeKeyRef.current);
+      return findRow(activeKeyRef.current);
     }
 
     function measureTarget(element) {
@@ -136,7 +133,6 @@ export function useSelectorTracking({
       writeVariable(variableCache, selector, "--sel-angle", `${angle.toFixed(2)}deg`);
       writeVariable(variableCache, selector, "--sel-speed", state.speed.toFixed(4));
       writeVariable(variableCache, selector, "--sel-stretch", state.stretch.toFixed(4));
-      writeVariable(variableCache, selector, "--sel-hover", state.hover.toFixed(4));
       writeVariable(
         variableCache,
         selector,
@@ -198,7 +194,6 @@ export function useSelectorTracking({
 
       const rawSpeed = Math.hypot(state.vx, state.vy);
       state.speed = lerp(state.speed, saturate(rawSpeed / SPEED_REFERENCE), STATE_LERP);
-      state.hover = lerp(state.hover, state.hoverTarget, STATE_LERP);
       state.visible = lerp(state.visible, state.visibleTarget, STATE_LERP);
       state.stretch = state.speed * MAX_STRETCH;
 
@@ -215,36 +210,13 @@ export function useSelectorTracking({
           rawSpeed < 1
         : true;
       const settled =
-        positionSettled &&
-        Math.abs(state.hoverTarget - state.hover) < 0.002 &&
-        Math.abs(state.visibleTarget - state.visible) < 0.002;
+        positionSettled && Math.abs(state.visibleTarget - state.visible) < 0.002;
 
       if (!settled) {
         requestFrame();
       }
     }
 
-    function handlePointerOver(event) {
-      const row = event.target.closest?.(`[${keyAttribute}]`);
-      const key = row?.getAttribute(keyAttribute) ?? null;
-
-      if (key === hoverKeyRef.current) {
-        return;
-      }
-
-      hoverKeyRef.current = key;
-      state.hoverTarget = key === null ? 0 : 1;
-      requestFrame();
-    }
-
-    function handlePointerLeave() {
-      hoverKeyRef.current = null;
-      state.hoverTarget = 0;
-      requestFrame();
-    }
-
-    container.addEventListener("pointerover", handlePointerOver, { passive: true });
-    container.addEventListener("pointerleave", handlePointerLeave, { passive: true });
     window.addEventListener("resize", requestFrame, { passive: true });
 
     const resizeObserver = new ResizeObserver(requestFrame);
@@ -260,8 +232,6 @@ export function useSelectorTracking({
     requestFrame();
 
     return () => {
-      container.removeEventListener("pointerover", handlePointerOver);
-      container.removeEventListener("pointerleave", handlePointerLeave);
       window.removeEventListener("resize", requestFrame);
       resizeObserver.disconnect();
       requestFrameRef.current = () => {};

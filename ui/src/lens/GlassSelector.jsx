@@ -8,8 +8,9 @@ import "./glassSelector.css";
  * A movable glass selector for a list.
  *
  * Drop it inside a positioned container whose rows carry the key attribute; it
- * finds the hovered or selected row, springs onto it, and refracts whatever is
- * underneath. It never takes pointer events, so the rows below stay clickable.
+ * finds the row named by activeKey, springs onto it, and refracts whatever is
+ * underneath. Only a change of selection moves it - hovering is not a preview.
+ * It never takes pointer events, so the rows below stay clickable.
  *
  * Optics are the same stack as the standalone lens: backdrop blur, an SDF
  * displacement pass strongest at the rim, a specular highlight that slides with
