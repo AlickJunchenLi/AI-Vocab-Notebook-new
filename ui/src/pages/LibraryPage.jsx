@@ -102,6 +102,79 @@ function LibraryPage({
     null;
   const languageCount = new Set(entries.map((entry) => entry.language)).size;
 
+  /*
+   * The list is one composite widget, not a run of buttons: only the selected row
+   * is a tab stop, and the arrows move within it. Selection follows focus, which
+   * is what makes the glass selector track the keyboard for free - it reads the
+   * same activeKey either way.
+   */
+  function selectRowAt(index) {
+    const entry = filteredEntries[index];
+
+    if (!entry) {
+      return;
+    }
+
+    onSelect(entry);
+    setIsMoreOpen(false);
+
+    const row = wordListRef.current?.querySelector(
+      `[data-glass-row="${CSS.escape(String(entry.id))}"]`,
+    );
+
+    row?.focus();
+    row?.scrollIntoView({ block: "nearest" });
+  }
+
+  function handleListKeyDown(event) {
+    if (filteredEntries.length === 0 || event.metaKey || event.ctrlKey || event.altKey) {
+      return;
+    }
+
+    const currentIndex = Math.max(
+      0,
+      filteredEntries.findIndex((entry) => entry.id === visibleSelectedEntry?.id),
+    );
+    const lastIndex = filteredEntries.length - 1;
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        selectRowAt(Math.min(currentIndex + 1, lastIndex));
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        selectRowAt(Math.max(currentIndex - 1, 0));
+        break;
+      case "Home":
+        event.preventDefault();
+        selectRowAt(0);
+        break;
+      case "End":
+        event.preventDefault();
+        selectRowAt(lastIndex);
+        break;
+      case "Enter":
+        // Focus and selection are the same row here, so Enter can mean "open"
+        // rather than "select" - and the primary thing to do with a word is drill it.
+        event.preventDefault();
+        onPractice(filteredEntries[currentIndex]);
+        break;
+      case "e":
+      case "E":
+        event.preventDefault();
+        onEdit(filteredEntries[currentIndex]);
+        break;
+      case "Delete":
+      case "Backspace":
+        event.preventDefault();
+        onDelete(filteredEntries[currentIndex]);
+        break;
+      default:
+        break;
+    }
+  }
+
   return (
     <main className="page library-page">
       <header className="page-heading library-heading">
@@ -184,8 +257,11 @@ function LibraryPage({
 
           <div
             className="word-list has-glass-selector"
+            role="group"
             aria-label="Vocabulary words"
+            aria-describedby="word-list-shortcuts"
             ref={wordListRef}
+            onKeyDown={handleListKeyDown}
           >
             <div className="word-list-header" aria-hidden="true">
               <span>Word</span>
@@ -209,6 +285,7 @@ function LibraryPage({
                   className={isSelected ? "word-row selected" : "word-row"}
                   data-glass-row={entry.id}
                   aria-pressed={isSelected}
+                  tabIndex={isSelected ? 0 : -1}
                   onClick={() => {
                     onSelect(entry);
                     setIsMoreOpen(false);
@@ -253,7 +330,21 @@ function LibraryPage({
           </div>
 
           <p className="collection-count">
-            Showing {filteredEntries.length} of {entries.length} words
+            <span>
+              Showing {filteredEntries.length} of {entries.length} words
+            </span>
+            {filteredEntries.length > 0 ? (
+              <span id="word-list-shortcuts" className="collection-shortcuts">
+                <kbd>↑</kbd>
+                <kbd>↓</kbd> move
+                <span aria-hidden="true">·</span>
+                <kbd>Enter</kbd> practice
+                <span aria-hidden="true">·</span>
+                <kbd>E</kbd> edit
+                <span aria-hidden="true">·</span>
+                <kbd>Delete</kbd> remove
+              </span>
+            ) : null}
           </p>
         </div>
 

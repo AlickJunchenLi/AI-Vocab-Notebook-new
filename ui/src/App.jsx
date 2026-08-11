@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./glass/liquidGlass.css";
 import "./App.css";
 import LiquidGlassGroup from "./glass/LiquidGlassGroup.jsx";
@@ -6,25 +6,25 @@ import TopMenu from "./components/TopMenu.jsx";
 import AddWordModal from "./components/AddWordModal.jsx";
 import EditWordModal from "./components/EditWordModal.jsx";
 import DeleteConfirmModal from "./components/DeleteConfirmModal.jsx";
+import Toast from "./components/Toast.jsx";
+import TodayPage from "./pages/TodayPage.jsx";
 import LibraryPage from "./pages/LibraryPage.jsx";
 import PracticePage from "./pages/PracticePage.jsx";
 import ProgressPage from "./pages/ProgressPage.jsx";
 import { mockEntries } from "./data/mockEntries.js";
 
 const STORAGE_KEY = "ai-vocabulary-notebook.entries.v3";
-const PAGE_IDS = new Set(["library", "practice", "progress"]);
+const PAGE_IDS = new Set(["today", "library", "practice", "progress"]);
 
 function getPageFromHash() {
   const page = window.location.hash.replace(/^#\/?/, "");
-  return PAGE_IDS.has(page) ? page : "library";
+  return PAGE_IDS.has(page) ? page : "today";
 }
 
 function loadEntries() {
   try {
     const savedEntries = JSON.parse(window.localStorage.getItem(STORAGE_KEY));
-    return Array.isArray(savedEntries) && savedEntries.length > 0
-      ? savedEntries
-      : mockEntries;
+    return Array.isArray(savedEntries) ? savedEntries : mockEntries;
   } catch {
     return mockEntries;
   }
@@ -48,26 +48,24 @@ function App() {
   const [selectedId, setSelectedId] = useState(() => {
     return mockEntries.find((entry) => entry.word === "lucid")?.id ?? mockEntries[0].id;
   });
-  const [practiceStartId, setPracticeStartId] = useState(() => {
-    return mockEntries.find((entry) => entry.word === "lucid")?.id ?? null;
-  });
+  const [practiceQueueIds, setPracticeQueueIds] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [entryToDelete, setEntryToDelete] = useState(null);
+  const [pendingDeletion, setPendingDeletion] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const selectedEntry =
     entries.find((entry) => entry.id === selectedId) ?? entries[0] ?? null;
 
   const practiceEntries = useMemo(() => {
-    if (!practiceStartId) {
+    if (!Array.isArray(practiceQueueIds) || practiceQueueIds.length === 0) {
       return entries;
     }
 
-    const requestedEntry = entries.find((entry) => entry.id === practiceStartId);
-    return requestedEntry
-      ? [requestedEntry, ...entries.filter((entry) => entry.id !== practiceStartId)]
-      : entries;
-  }, [entries, practiceStartId]);
+    const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+    return practiceQueueIds.map((id) => entriesById.get(id)).filter(Boolean);
+  }, [entries, practiceQueueIds]);
 
   useEffect(() => {
     function handleHashChange() {
@@ -91,15 +89,12 @@ function App() {
     document.title = `${pageName} · AI Vocabulary Notebook`;
   }, [activePage]);
 
-  function navigateTo(page) {
+  function commitNavigation(page) {
     if (!PAGE_IDS.has(page)) {
       return;
     }
 
     setActivePage(page);
-    if (page === "practice" && !practiceStartId) {
-      setPracticeStartId(selectedEntry?.id ?? null);
-    }
     window.history.pushState(null, "", `#/${page}`);
     window.scrollTo({
       top: 0,
@@ -107,6 +102,14 @@ function App() {
         ? "auto"
         : "smooth",
     });
+  }
+
+  function navigateTo(page) {
+    if (page === "practice") {
+      setPracticeQueueIds(entries.map((entry) => entry.id));
+    }
+
+    commitNavigation(page);
   }
 
   function handleAddEntry(newEntry) {
@@ -127,7 +130,7 @@ function App() {
     setEntries((currentEntries) => [entryWithDefaults, ...currentEntries]);
     setSelectedId(entryWithDefaults.id);
     setIsAddModalOpen(false);
-    navigateTo("library");
+    commitNavigation("library");
   }
 
   function handleSaveEdit(updatedEntry) {
@@ -145,10 +148,13 @@ function App() {
       return;
     }
 
+    const deletedIndex = entries.findIndex((entry) => entry.id === entryToDelete.id);
     const remainingEntries = entries.filter(
       (entry) => entry.id !== entryToDelete.id,
     );
 
+    setPendingDeletion({ entry: entryToDelete, index: deletedIndex });
+    setToast({ id: Date.now(), message: `${entryToDelete.word} was removed.` });
     setEntries(remainingEntries);
     if (selectedId === entryToDelete.id) {
       setSelectedId(remainingEntries[0]?.id ?? null);
@@ -157,8 +163,53 @@ function App() {
   }
 
   function handleStartPractice(entry) {
-    setPracticeStartId(entry.id);
-    navigateTo("practice");
+    setPracticeQueueIds([
+      entry.id,
+      ...entries.filter((candidate) => candidate.id !== entry.id).map((candidate) => candidate.id),
+    ]);
+    commitNavigation("practice");
+  }
+
+  function handleStartReview(queue) {
+    const queueIds = queue.map((entry) => entry.id);
+    setPracticeQueueIds(queueIds);
+    commitNavigation("practice");
+  }
+
+  function handleSelectFromToday(entry) {
+    if (entry) {
+      setSelectedId(entry.id);
+    }
+
+    commitNavigation("library");
+  }
+
+  const dismissToast = useCallback(() => {
+    setToast(null);
+    setPendingDeletion(null);
+  }, []);
+
+  function handleUndoDelete() {
+    if (!pendingDeletion) {
+      return;
+    }
+
+    setEntries((currentEntries) => {
+      if (currentEntries.some((entry) => entry.id === pendingDeletion.entry.id)) {
+        return currentEntries;
+      }
+
+      const restoredEntries = [...currentEntries];
+      const insertAt = Math.max(0, Math.min(pendingDeletion.index, restoredEntries.length));
+      restoredEntries.splice(insertAt, 0, pendingDeletion.entry);
+      return restoredEntries;
+    });
+    setSelectedId(pendingDeletion.entry.id);
+    setToast({
+      id: Date.now(),
+      message: `${pendingDeletion.entry.word} was restored.`,
+    });
+    setPendingDeletion(null);
   }
 
   function handlePracticeEntry(entry, assessment) {
@@ -202,6 +253,15 @@ function App() {
       />
 
       <div className="page-transition" key={activePage}>
+        {activePage === "today" ? (
+          <TodayPage
+            entries={entries}
+            onStartReview={handleStartReview}
+            onSelectEntry={handleSelectFromToday}
+            onAdd={() => setIsAddModalOpen(true)}
+          />
+        ) : null}
+
         {activePage === "library" ? (
           <LibraryPage
             entries={entries}
@@ -244,6 +304,16 @@ function App() {
           entry={entryToDelete}
           onConfirm={handleConfirmDelete}
           onCancel={() => setEntryToDelete(null)}
+        />
+      ) : null}
+
+      {toast ? (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          actionLabel={pendingDeletion ? "Undo" : undefined}
+          onAction={pendingDeletion ? handleUndoDelete : undefined}
+          onDismiss={dismissToast}
         />
       ) : null}
     </LiquidGlassGroup>

@@ -43,7 +43,8 @@ function DeleteConfirmModal({ entry, onConfirm, onCancel }) {
         </div>
 
         <p id="delete-word-description" className="delete-warning-text">
-          This removes the word and its review history. You cannot undo it.
+          This removes the word and its review history. You can restore it from the
+          confirmation message immediately afterward.
         </p>
 
         <div className="modal-actions">
