@@ -1,7 +1,20 @@
 import { useMemo, useRef, useState } from "react";
+import GlassSelect from "../components/GlassSelect.jsx";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 import GlassSelector from "../lens/GlassSelector.jsx";
+
+const LANGUAGE_OPTIONS = [
+  { value: "all", label: "All languages" },
+  { value: "English", label: "English" },
+  { value: "Chinese", label: "Chinese" },
+];
+
+const SORT_OPTIONS = [
+  { value: "recent", label: "Recently added" },
+  { value: "az", label: "A to Z" },
+  { value: "za", label: "Z to A" },
+];
 
 function listText(arrayValue, fallback = "Not added yet") {
   return Array.isArray(arrayValue) && arrayValue.length > 0
@@ -150,33 +163,23 @@ function LibraryPage({
               ) : null}
             </label>
 
-            <label className="select-control">
-              <span className="sr-only">Filter by language</span>
-              <Icon name="globe" size={19} />
-              <select
-                value={language}
-                onChange={(event) => setLanguage(event.target.value)}
-              >
-                <option value="all">All languages</option>
-                <option value="English">English</option>
-                <option value="Chinese">Chinese</option>
-              </select>
-              <Icon name="chevron" size={16} />
-            </label>
+            <GlassSelect
+              label="Filter by language"
+              hideLabel
+              icon="globe"
+              value={language}
+              onChange={setLanguage}
+              options={LANGUAGE_OPTIONS}
+            />
 
-            <label className="select-control">
-              <span className="sr-only">Sort vocabulary</span>
-              <Icon name="sort" size={19} />
-              <select
-                value={sortOrder}
-                onChange={(event) => setSortOrder(event.target.value)}
-              >
-                <option value="recent">Recently added</option>
-                <option value="az">A to Z</option>
-                <option value="za">Z to A</option>
-              </select>
-              <Icon name="chevron" size={16} />
-            </label>
+            <GlassSelect
+              label="Sort vocabulary"
+              hideLabel
+              icon="sort"
+              value={sortOrder}
+              onChange={setSortOrder}
+              options={SORT_OPTIONS}
+            />
           </div>
 
           <div

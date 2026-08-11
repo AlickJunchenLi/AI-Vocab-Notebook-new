@@ -1,7 +1,13 @@
 import { useState } from "react";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import GlassSelect from "./GlassSelect.jsx";
 import Icon from "./Icon.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
+
+const LANGUAGE_OPTIONS = [
+  { value: "English", label: "English" },
+  { value: "Chinese", label: "Chinese" },
+];
 
 function AddWordModal({ onClose, onAdd }) {
   const dialogRef = useDialogFocus(onClose);
@@ -101,17 +107,15 @@ function AddWordModal({ onClose, onAdd }) {
             />
           </label>
 
-          <label className="form-field">
-            Language
-            <select
-              name="language"
-              value={formData.language}
-              onChange={handleChange}
-            >
-              <option value="English">English</option>
-              <option value="Chinese">Chinese</option>
-            </select>
-          </label>
+          <GlassSelect
+            variant="field"
+            label="Language"
+            value={formData.language}
+            onChange={(language) =>
+              setFormData((previousData) => ({ ...previousData, language }))
+            }
+            options={LANGUAGE_OPTIONS}
+          />
 
           <label className="form-field">
             Synonyms
