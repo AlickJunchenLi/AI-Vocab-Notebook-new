@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 
@@ -30,6 +30,9 @@ function PracticePage({ entries, onPracticeEntry }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isRevealed, setIsRevealed] = useState(false);
   const [sessionResults, setSessionResults] = useState([]);
+  const revealButtonRef = useRef(null);
+  const resetButtonRef = useRef(null);
+  const shouldRestoreFocus = useRef(false);
 
   const hasEntries = sessionEntries.length > 0;
   const isComplete = hasEntries && currentIndex >= sessionEntries.length;
@@ -38,8 +41,8 @@ function PracticePage({ entries, onPracticeEntry }) {
     (result) => result.assessment === "good" || result.assessment === "easy"
   ).length;
 
-  function handleAssessment(assessment) {
-    if (!currentEntry) {
+  const handleAssessment = useCallback((assessment) => {
+    if (!currentEntry || !isRevealed) {
       return;
     }
 
@@ -47,15 +50,48 @@ function PracticePage({ entries, onPracticeEntry }) {
       onPracticeEntry(currentEntry, assessment);
     }
 
+    shouldRestoreFocus.current = true;
     setSessionResults((previousResults) => [
       ...previousResults,
       { entryId: currentEntry.id, assessment },
     ]);
     setCurrentIndex((previousIndex) => previousIndex + 1);
     setIsRevealed(false);
-  }
+  }, [currentEntry, isRevealed, onPracticeEntry]);
+
+  useEffect(() => {
+    if (shouldRestoreFocus.current) {
+      const nextControl = isComplete ? resetButtonRef.current : revealButtonRef.current;
+      nextControl?.focus({ preventScroll: true });
+      shouldRestoreFocus.current = false;
+    }
+  }, [currentIndex, isComplete]);
+
+  useEffect(() => {
+    function handleShortcut(event) {
+      if (
+        !currentEntry || event.repeat || event.altKey || event.ctrlKey || event.metaKey ||
+        document.querySelector('[role="dialog"], dialog[open]') ||
+        event.target.closest?.('input, textarea, select, [contenteditable="true"]')
+      ) {
+        return;
+      }
+
+      if (event.code === "Space" && !event.target.closest?.("button, a")) {
+        event.preventDefault();
+        setIsRevealed(true);
+      } else if (isRevealed && /^[1-4]$/.test(event.key)) {
+        event.preventDefault();
+        handleAssessment(ASSESSMENTS[Number(event.key) - 1].value);
+      }
+    }
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [currentEntry, isRevealed, handleAssessment]);
 
   function handleReset() {
+    shouldRestoreFocus.current = true;
     setCurrentIndex(0);
     setIsRevealed(false);
     setSessionResults([]);
@@ -133,6 +169,7 @@ function PracticePage({ entries, onPracticeEntry }) {
           <LiquidGlassSurface
             as="button"
             id="practice-reset-button"
+            ref={resetButtonRef}
             type="button"
             className="practice-reset-button"
             variant="button"
@@ -163,10 +200,11 @@ function PracticePage({ entries, onPracticeEntry }) {
         <div className="practice-progress-group" aria-live="polite">
           <progress
             className="practice-progress-bar"
-            value={currentIndex + 1}
+            value={currentIndex}
             max={sessionEntries.length}
+            aria-label="Words reviewed"
           >
-            {currentIndex + 1} of {sessionEntries.length}
+            {currentIndex} of {sessionEntries.length} reviewed
           </progress>
           <span className="practice-progress-label">
             {currentIndex + 1} of {sessionEntries.length}
@@ -198,6 +236,7 @@ function PracticePage({ entries, onPracticeEntry }) {
               <LiquidGlassSurface
                 as="button"
                 id="practice-reveal-button"
+                ref={revealButtonRef}
                 type="button"
                 className="practice-reveal-button"
                 variant="button"
@@ -205,6 +244,7 @@ function PracticePage({ entries, onPracticeEntry }) {
                 intensity={1.1}
                 aria-expanded={isRevealed}
                 aria-controls={answerId}
+                aria-keyshortcuts="Space"
                 onClick={() => setIsRevealed(true)}
               >
                 <Icon name="eye" size={18} />
@@ -244,12 +284,14 @@ function PracticePage({ entries, onPracticeEntry }) {
               <fieldset className="practice-assessment-group">
                 <legend>How well did you remember it?</legend>
                 <div className="practice-assessment-buttons">
-                  {ASSESSMENTS.map((assessment) => (
+                  {ASSESSMENTS.map((assessment, index) => (
                     <button
                       key={assessment.value}
                       type="button"
                       className={`practice-assessment-button practice-assessment-${assessment.value}`}
                       aria-label={`Rate ${currentEntry.word} as ${assessment.label}`}
+                      aria-keyshortcuts={String(index + 1)}
+                      title={`${assessment.label} (${index + 1})`}
                       onClick={() => handleAssessment(assessment.value)}
                     >
                       <Icon name={assessment.icon} size={18} />
@@ -310,6 +352,9 @@ function PracticePage({ entries, onPracticeEntry }) {
           <p className="practice-session-count">
             {sessionEntries.length} {sessionEntries.length === 1 ? "word" : "words"} in
             this session
+          </p>
+          <p className="practice-session-count">
+            <kbd>Space</kbd> reveal · <kbd>1</kbd>–<kbd>4</kbd> rate
           </p>
         </LiquidGlassSurface>
       </div>

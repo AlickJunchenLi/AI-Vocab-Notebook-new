@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./glass/liquidGlass.css";
 import "./App.css";
+import "./notebook.css";
 import LiquidGlassGroup from "./glass/LiquidGlassGroup.jsx";
 import TopMenu from "./components/TopMenu.jsx";
 import AddWordModal from "./components/AddWordModal.jsx";
@@ -54,6 +55,23 @@ function App() {
   const [entryToDelete, setEntryToDelete] = useState(null);
   const [pendingDeletion, setPendingDeletion] = useState(null);
   const [toast, setToast] = useState(null);
+  const [glassEnabled, setGlassEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem("notebook.liquid-glass") !== "off";
+    } catch {
+      return true;
+    }
+  });
+
+  function toggleGlass() {
+    const enabled = !glassEnabled;
+    setGlassEnabled(enabled);
+    try {
+      window.localStorage.setItem("notebook.liquid-glass", enabled ? "on" : "off");
+    } catch {
+      // The appearance control also works when browser storage is unavailable.
+    }
+  }
 
   const selectedEntry =
     entries.find((entry) => entry.id === selectedId) ?? entries[0] ?? null;
@@ -240,7 +258,11 @@ function App() {
   }
 
   return (
-    <LiquidGlassGroup className="app">
+    <LiquidGlassGroup className="app" enabled={glassEnabled}>
+      <a className="skip-link" href="#main-content" onClick={(event) => {
+        event.preventDefault();
+        document.getElementById("main-content")?.focus();
+      }}>Skip to content</a>
       <div className="ambient-field" aria-hidden="true">
         <span className="ambient-field-blue" />
         <span className="ambient-field-violet" />
@@ -250,9 +272,11 @@ function App() {
         activePage={activePage}
         onNavigate={navigateTo}
         onAdd={() => setIsAddModalOpen(true)}
+        glassEnabled={glassEnabled}
+        onToggleGlass={toggleGlass}
       />
 
-      <div className="page-transition" key={activePage}>
+      <div className="page-transition" id="main-content" tabIndex={-1} key={activePage}>
         {activePage === "today" ? (
           <TodayPage
             entries={entries}
@@ -283,6 +307,11 @@ function App() {
 
         {activePage === "progress" ? <ProgressPage entries={entries} /> : null}
       </div>
+
+      <footer className="notebook-footer">
+        <span>A little practice. A world of words.</span>
+        <span><span className="storage-dot" /> Saved on this device</span>
+      </footer>
 
       {isAddModalOpen ? (
         <AddWordModal

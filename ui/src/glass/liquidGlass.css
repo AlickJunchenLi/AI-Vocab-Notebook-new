@@ -6,21 +6,16 @@
   color-scheme: light;
 }
 
-/*
- * The cursor pass is unwired pending a redesign, so nothing writes per-surface
- * position vars any more. The ~20 of them that used to live here (--lg-local-*,
- * --lg-boundary-*, --lg-outer-*, --lg-edge, --lg-spill, --lg-active, …) are
- * gone along with the ::before sheen and the field-overlay canvas.
- *
- * What is left is the static half of the material: frosted background, gradient
- * border, shadow, radius. --lg-radius and --lg-intensity are still set inline by
- * LiquidGlassSurface, so per-surface tuning keeps working.
- */
-
 .liquid-glass-surface {
   --lg-radius: 28px;
   --lg-intensity: 1;
   --lg-control-radius: max(12px, calc(var(--lg-radius) - 14px));
+  --lg-local-x: 50%;
+  --lg-local-y: 50%;
+  --lg-boundary-x: 50%;
+  --lg-boundary-y: 0%;
+  --lg-active: 0;
+  --lg-edge: 0;
 
   position: relative;
   z-index: 3;
@@ -51,11 +46,28 @@
   color: inherit;
 }
 
-/*
- * ::after is the 1px gradient border, drawn with the padding-box/border-box
- * mask-composite trick below. It used to be lit from the cursor; it is now a
- * fixed diagonal sweep. ::before was the cursor sheen and no longer exists.
- */
+.liquid-glass-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      195px circle at var(--lg-local-x) var(--lg-local-y),
+      rgb(255 255 255 / 0.72),
+      rgb(169 221 255 / 0.18) 32%,
+      rgb(183 174 255 / 0.14) 57%,
+      transparent 100%
+    ),
+    radial-gradient(
+      115px circle at var(--lg-boundary-x) var(--lg-boundary-y),
+      rgb(193 205 255 / 0.3),
+      transparent 100%
+    );
+  opacity: calc(var(--lg-active) * 0.9);
+}
 
 .liquid-glass-surface::after {
   content: "";
@@ -65,17 +77,24 @@
   pointer-events: none;
   z-index: 1;
   padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgb(255 255 255 / 0.96),
-    rgb(191 219 254 / 0.42) 38%,
-    rgb(196 181 253 / 0.22) 66%,
-    rgb(255 255 255 / 0.76)
-  );
+  background:
+    radial-gradient(
+      180px circle at var(--lg-local-x) var(--lg-local-y),
+      rgb(255 255 255 / var(--lg-active)),
+      rgb(130 159 244 / calc(var(--lg-active) * 0.8)) 48%,
+      transparent 100%
+    ),
+    linear-gradient(
+      135deg,
+      rgb(255 255 255 / 0.96),
+      rgb(191 219 254 / 0.42) 38%,
+      rgb(196 181 253 / 0.22) 66%,
+      rgb(255 255 255 / 0.76)
+    );
   box-shadow:
     inset 0 0 7px rgb(255 255 255 / 0.18),
     inset 0 0 2px rgb(125 211 252 / 0.28);
-  opacity: 0.68;
+  opacity: calc(0.68 + var(--lg-edge) * 0.32);
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -198,17 +217,101 @@
   }
 }
 
-/*
- * The `prefers-reduced-motion: reduce` and `(hover: none), (pointer: coarse)`
- * blocks that used to sit here are gone: both existed to strip the cursor pass,
- * and their static fallback is now what every surface renders by default.
- *
- * Put them back when the redesigned effect lands. Whatever replaces the cursor
- * visual should stay off under reduced-motion and on touch/coarse pointers,
- * where a pointer-following visual has nothing to follow.
- */
+/* One small composited layer follows the pointer; no viewport-sized canvas. */
+.liquid-glass-field-overlay {
+  --glass-stretch: 1;
+  --glass-angle: 0rad;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  will-change: transform, opacity;
+}
+
+.liquid-glass-field-overlay * {
+  pointer-events: none;
+}
+
+.liquid-glass-cursor-aura {
+  position: absolute;
+  top: -165px;
+  left: -165px;
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 38% 38%, rgb(148 207 248 / 0.13), transparent 58%),
+    radial-gradient(ellipse at 62% 62%, rgb(179 163 247 / 0.12), transparent 62%);
+}
+
+.liquid-glass-cursor-lens {
+  position: absolute;
+  top: -61px;
+  left: -61px;
+  width: 122px;
+  height: 122px;
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 28% 15%, rgb(255 255 255 / 0.43), transparent 47%),
+    radial-gradient(ellipse at 78% 87%, rgb(156 173 255 / 0.09), transparent 56%);
+  box-shadow:
+    inset 0 1px 2px rgb(255 255 255 / 0.9),
+    inset 0 -2px 6px rgb(118 143 211 / 0.09),
+    0 8px 32px rgb(62 91 149 / 0.055);
+  -webkit-backdrop-filter: blur(0.4px) saturate(1.22) brightness(1.015);
+  backdrop-filter: blur(0.4px) saturate(1.22) brightness(1.015);
+  transform: rotate(var(--glass-angle)) scale(var(--glass-stretch), calc(1 / var(--glass-stretch)));
+}
+
+/* The softly refracted perimeter leaves the centre clear for reading. */
+.liquid-glass-cursor-lens::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  -webkit-backdrop-filter: blur(2px) saturate(1.5);
+  backdrop-filter: blur(2px) saturate(1.5);
+  -webkit-mask: radial-gradient(circle, transparent 57%, #000 69%, #000 71%, transparent 74%);
+  mask: radial-gradient(circle, transparent 57%, #000 69%, #000 71%, transparent 74%);
+}
+
+.liquid-glass-cursor-rim {
+  position: absolute;
+  inset: -1px;
+  padding: 1.2px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from -38deg,
+    rgb(255 255 255 / 0.9),
+    rgb(150 215 249 / 0.45) 18%,
+    rgb(174 161 244 / 0.32) 42%,
+    rgb(255 255 255 / 0.14) 62%,
+    rgb(171 215 244 / 0.4) 80%,
+    rgb(255 255 255 / 0.9)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
+  .liquid-glass-field-overlay,
+  .liquid-glass-surface::before {
+    display: none;
+  }
+}
 
 @media (forced-colors: active) {
+  .liquid-glass-field-overlay,
+  .liquid-glass-surface::before,
   .liquid-glass-surface::after {
     display: none;
   }

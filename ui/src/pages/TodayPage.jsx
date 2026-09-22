@@ -2,6 +2,7 @@ import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function getPrimaryTranslation(entry) {
   if (Array.isArray(entry?.translations) && entry.translations.length > 0) {
@@ -114,6 +115,8 @@ function TodayPage({ entries, onStartReview, onSelectEntry, onAdd }) {
   const todayIndex = (now.getDay() + 6) % 7;
   const streak = getCurrentStreak(weeklyActivity, todayIndex);
   const weeklyReviewCount = weeklyActivity.reduce((total, count) => total + count, 0);
+  const masteredCount = vocabularyEntries.filter((entry) => entry.mastery === "mastered").length;
+  const languageCount = new Set(vocabularyEntries.map((entry) => entry.language)).size;
   const needsAttention = [...vocabularyEntries]
     .sort(
       (first, second) =>
@@ -162,14 +165,19 @@ function TodayPage({ entries, onStartReview, onSelectEntry, onAdd }) {
   return (
     <main className="page today-page" aria-labelledby="today-page-title">
       <header className="page-heading today-heading">
-        <h1 id="today-page-title">{getGreeting(now.getHours())}</h1>
-        <time dateTime={now.toISOString().slice(0, 10)}>{formatToday(now)}</time>
-        <p>
-          {dueEntries.length === 0
-            ? "You are clear for today."
-            : `${dueEntries.length} ${dueEntries.length === 1 ? "word is" : "words are"} ready for review.`}
-        </p>
+        <div>
+          <span className="page-eyebrow"><span /> YOUR DAILY CHAPTER</span>
+          <h1 id="today-page-title">{getGreeting(now.getHours())}</h1>
+          <p>A few words today. A little more of the world tomorrow.</p>
+        </div>
+        <time dateTime={now.toLocaleDateString("en-CA")}><Icon name="calendar" size={17} />{formatToday(now)}</time>
       </header>
+
+      <div className="today-stat-strip" aria-label="Your vocabulary at a glance">
+        <span><Icon name="book-open" size={17} /><strong>{vocabularyEntries.length}</strong> words collected</span>
+        <span><Icon name="globe" size={17} /><strong>{languageCount}</strong> {languageCount === 1 ? "language" : "languages"} explored</span>
+        <span><Icon name="check" size={17} /><strong>{masteredCount}</strong> mastered</span>
+      </div>
 
       <div className="today-overview-grid">
         <LiquidGlassSurface
@@ -181,26 +189,35 @@ function TodayPage({ entries, onStartReview, onSelectEntry, onAdd }) {
           intensity={1.08}
           aria-labelledby="today-due-title"
         >
-          <span className="today-due-icon" aria-hidden="true">
-            <Icon name="book-open" size={40} />
-          </span>
           <div className="today-due-copy">
-            <strong>{dueEntries.length}</strong>
+            <span className="review-eyebrow"><span /> {dueEntries.length > 0 ? "A MOMENT FOR YOUR MIND" : "LOOK AT YOU GROW"}</span>
             <h2 id="today-due-title">
-              {dueEntries.length === 0 ? "all caught up" : "due today"}
+              {dueEntries.length === 0 ? <>All caught up.<br /><em>Nicely done.</em></> : <>Small steps.<br /><em>Lasting knowledge.</em></>}
             </h2>
+            <p>{dueEntries.length === 0 ? "Your words are in a good place. Come back for a fresh start." : <><strong>{dueEntries.length} {dueEntries.length === 1 ? "word" : "words"}</strong> ready for a little refresh.</>}</p>
             {dueEntries.length > 0 ? (
               <button
                 type="button"
                 className="primary-action today-start-review"
                 onClick={() => onStartReview(dueEntries)}
               >
-                <Icon name="target" size={18} />
                 Start review
+                <Icon name="arrow-up-right" size={18} />
               </button>
             ) : (
-              <p>Your next review will appear here when it is ready.</p>
+              <button type="button" className="primary-action today-start-review" onClick={onAdd}>
+                Find a new word <Icon name="plus" size={18} />
+              </button>
             )}
+            {dueEntries.length > 0 && <span className="review-duration">About {Math.max(1, Math.ceil(dueEntries.length * 0.4))} min · At your own pace</span>}
+          </div>
+          <div className="word-sculpture" aria-hidden="true">
+            <span className="sculpture-orbit sculpture-orbit-one" />
+            <span className="sculpture-orbit sculpture-orbit-two" />
+            <span className="sculpture-glow" />
+            <span className="sculpture-tile sculpture-tile-back">文<small>DISCOVER</small></span>
+            <span className="sculpture-tile sculpture-tile-front">Aa<small>REMEMBER</small></span>
+            <span className="sculpture-spark"><Icon name="sparkles" size={24} /></span>
           </div>
         </LiquidGlassSurface>
 
@@ -218,26 +235,24 @@ function TodayPage({ entries, onStartReview, onSelectEntry, onAdd }) {
               <Icon name="flame" size={20} />
             </span>
             <div>
-              <h2 id="today-streak-title">Streak</h2>
-              <p>
-                <strong>{streak}</strong> day streak
-              </p>
+              <h2 id="today-streak-title">Your learning rhythm</h2>
             </div>
           </header>
+          <p className="streak-number"><strong>{streak}</strong><span>{streak === 1 ? "day" : "days"}<small>in your current streak</small></span></p>
 
           <ol className="today-week-strip" aria-label="Reviews this week">
             {WEEKDAYS.map((weekday, index) => (
               <li
                 key={`${weekday}-${index}`}
-                className={weeklyActivity[index] > 0 ? "active" : ""}
-                aria-label={`${weekday}: ${weeklyActivity[index]} reviews`}
+                className={[weeklyActivity[index] > 0 ? "active" : "", index === todayIndex ? "current-day" : ""].filter(Boolean).join(" ")}
+                aria-label={`${DAY_NAMES[index]}: ${weeklyActivity[index]} reviews${index === todayIndex ? ", today" : ""}`}
               >
-                <span>{weekday}</span>
-                <small>{weeklyActivity[index]}</small>
+                <small>{weekday}</small>
+                <span>{weeklyActivity[index] > 0 ? <Icon name="check" size={16} /> : <span className="week-dot" />}</span>
               </li>
             ))}
           </ol>
-          <p className="today-week-summary">{weeklyReviewCount} reviews this week</p>
+          <p className="today-week-summary"><Icon name="chart" size={14} /><strong>{weeklyReviewCount} reviews</strong> this week. Keep showing up.</p>
         </LiquidGlassSurface>
       </div>
 
@@ -255,7 +270,7 @@ function TodayPage({ entries, onStartReview, onSelectEntry, onAdd }) {
             <span className="today-panel-icon today-panel-icon-warning" aria-hidden="true">
               <Icon name="target" size={20} />
             </span>
-            <h2 id="today-attention-title">Needs attention</h2>
+            <div><h2 id="today-attention-title">A little more practice</h2><p>Give these words another moment.</p></div>
           </header>
 
           <ul className="today-attention-list">
@@ -297,7 +312,7 @@ function TodayPage({ entries, onStartReview, onSelectEntry, onAdd }) {
               <span className="today-panel-icon" aria-hidden="true">
                 <Icon name="star" size={20} />
               </span>
-              <h2 id="today-featured-title">Word of the day</h2>
+              <h2 id="today-featured-title">A word to keep</h2>
             </header>
 
             <button
@@ -336,7 +351,7 @@ function TodayPage({ entries, onStartReview, onSelectEntry, onAdd }) {
             <h2 id="today-recent-title">Recently added</h2>
           </div>
           <button type="button" className="today-see-all" onClick={() => onSelectEntry(null)}>
-            See all
+            Open library
             <Icon name="chevron-right" size={16} />
           </button>
         </header>

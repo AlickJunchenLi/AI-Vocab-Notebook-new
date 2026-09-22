@@ -13,18 +13,18 @@
   --font-ui:
     "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial,
     "PingFang SC", "Microsoft YaHei", sans-serif;
-  --ink: #101b49;
-  --ink-soft: #26365f;
-  --muted: #667493;
-  --muted-light: #8b96af;
-  --canvas: #f8faff;
+  --ink: #282743;
+  --ink-soft: #45435e;
+  --muted: #68667d;
+  --muted-light: #737089;
+  --canvas: #f6f7fb;
   --surface: rgba(255, 255, 255, 0.68);
   --surface-strong: rgba(255, 255, 255, 0.86);
   --line: rgba(76, 100, 163, 0.16);
   --line-strong: rgba(74, 91, 235, 0.34);
-  --accent: #3f51ed;
-  --accent-strong: #243be0;
-  --accent-soft: #e9edff;
+  --accent: #6559c8;
+  --accent-strong: #5144b4;
+  --accent-soft: #eeebfc;
   --violet: #a78bfa;
   --ice: #a8d8ff;
   --mint: #5bc9aa;
@@ -35,7 +35,7 @@
   --shadow-md:
     0 24px 70px rgba(38, 57, 119, 0.11),
     0 4px 14px rgba(38, 57, 119, 0.05);
-  --shadow-button: 0 12px 26px rgba(49, 65, 216, 0.24);
+  --shadow-button: 0 7px 18px rgba(89, 72, 164, 0.2);
 }
 
 * {

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import GlassSelect from "../components/GlassSelect.jsx";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
@@ -59,6 +59,45 @@ function LibraryPage({
   const [sortOrder, setSortOrder] = useState("recent");
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const wordListRef = useRef(null);
+  const searchRef = useRef(null);
+  const moreActionRef = useRef(null);
+  const moreButtonRef = useRef(null);
+  const deleteButtonRef = useRef(null);
+
+  useEffect(() => {
+    function handleSearchShortcut(event) {
+      if (
+        event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey ||
+        document.querySelector('[role="dialog"], dialog[open]') ||
+        event.target.closest?.('input, textarea, select, [contenteditable="true"]')
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      searchRef.current?.focus();
+    }
+
+    window.addEventListener("keydown", handleSearchShortcut);
+    return () => window.removeEventListener("keydown", handleSearchShortcut);
+  }, []);
+
+  useEffect(() => {
+    if (!isMoreOpen) {
+      return undefined;
+    }
+
+    deleteButtonRef.current?.focus();
+
+    function dismissOutside(event) {
+      if (!moreActionRef.current?.contains(event.target)) {
+        setIsMoreOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", dismissOutside);
+    return () => document.removeEventListener("pointerdown", dismissOutside);
+  }, [isMoreOpen]);
 
   const filteredEntries = useMemo(() => {
     const query = searchText.trim().toLowerCase();
@@ -101,6 +140,17 @@ function LibraryPage({
     filteredEntries[0] ??
     null;
   const languageCount = new Set(entries.map((entry) => entry.language)).size;
+  const dueCount = entries.filter((entry) => {
+    const dueLabel = String(entry.dueLabel || "Due today").toLowerCase();
+    return dueLabel.includes("due") || dueLabel.includes("review again");
+  }).length;
+
+  function clearFilters() {
+    setSearchText("");
+    setLanguage("all");
+    setIsMoreOpen(false);
+    searchRef.current?.focus();
+  }
 
   /*
    * The list is one composite widget, not a run of buttons: only the selected row
@@ -166,7 +216,6 @@ function LibraryPage({
         onEdit(filteredEntries[currentIndex]);
         break;
       case "Delete":
-      case "Backspace":
         event.preventDefault();
         onDelete(filteredEntries[currentIndex]);
         break;
@@ -176,10 +225,10 @@ function LibraryPage({
   }
 
   return (
-    <main className="page library-page">
+    <main className="page library-page" aria-labelledby="library-page-title">
       <header className="page-heading library-heading">
         <div>
-          <h1>Your vocabulary</h1>
+          <h1 id="library-page-title">Your vocabulary</h1>
           <p>A living collection of words worth remembering.</p>
         </div>
       </header>
@@ -197,18 +246,18 @@ function LibraryPage({
         <div className="summary-item">
           <Icon name="book-open" size={24} />
           <strong>{entries.length}</strong>
-          <span>words</span>
+          <span>{entries.length === 1 ? "word" : "words"}</span>
         </div>
         <div className="summary-divider" aria-hidden="true" />
         <div className="summary-item">
           <Icon name="globe" size={24} />
           <strong>{languageCount}</strong>
-          <span>languages</span>
+          <span>{languageCount === 1 ? "language" : "languages"}</span>
         </div>
         <div className="summary-divider" aria-hidden="true" />
         <div className="summary-item">
           <Icon name="calendar" size={24} />
-          <strong>{entries.length}</strong>
+          <strong>{dueCount}</strong>
           <span>due today</span>
         </div>
       </LiquidGlassSurface>
@@ -220,16 +269,25 @@ function LibraryPage({
               <span className="sr-only">Search your words</span>
               <Icon name="search" size={20} />
               <input
+                ref={searchRef}
                 type="search"
                 placeholder="Search your words"
+                aria-keyshortcuts="/"
+                title="Search your words (/)"
                 value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
+                onChange={(event) => {
+                  setSearchText(event.target.value);
+                  setIsMoreOpen(false);
+                }}
               />
               {searchText ? (
                 <button
                   type="button"
                   className="clear-search"
-                  onClick={() => setSearchText("")}
+                  onClick={() => {
+                    setSearchText("");
+                    searchRef.current?.focus();
+                  }}
                 >
                   Clear
                 </button>
@@ -241,7 +299,10 @@ function LibraryPage({
               hideLabel
               icon="globe"
               value={language}
-              onChange={setLanguage}
+              onChange={(value) => {
+                setLanguage(value);
+                setIsMoreOpen(false);
+              }}
               options={LANGUAGE_OPTIONS}
             />
 
@@ -259,7 +320,7 @@ function LibraryPage({
             className="word-list has-glass-selector"
             role="group"
             aria-label="Vocabulary words"
-            aria-describedby="word-list-shortcuts"
+            aria-describedby={filteredEntries.length > 0 ? "word-list-shortcuts" : undefined}
             ref={wordListRef}
             onKeyDown={handleListKeyDown}
           >
@@ -313,28 +374,27 @@ function LibraryPage({
                 <span className="empty-icon" aria-hidden="true">
                   <Icon name="search" size={26} />
                 </span>
-                <h2>No words match that search</h2>
-                <p>Try another term or clear the filters to see your library.</p>
+                <h2>{entries.length === 0 ? "Your next word starts here" : "No words match that search"}</h2>
+                <p>{entries.length === 0 ? "Save a word, add its meaning, and make it yours." : "Try another term or clear the filters to see your library."}</p>
                 <button
                   type="button"
                   className="secondary-action"
-                  onClick={() => {
-                    setSearchText("");
-                    setLanguage("all");
-                  }}
+                  onClick={entries.length === 0 ? onAdd : clearFilters}
                 >
-                  Clear filters
+                  {entries.length === 0 ? "Add your first word" : "Clear filters"}
                 </button>
               </div>
             ) : null}
           </div>
 
           <p className="collection-count">
-            <span>
+            <span role="status" aria-atomic="true">
               Showing {filteredEntries.length} of {entries.length} words
             </span>
             {filteredEntries.length > 0 ? (
               <span id="word-list-shortcuts" className="collection-shortcuts">
+                <kbd>/</kbd> search
+                <span aria-hidden="true">·</span>
                 <kbd>↑</kbd>
                 <kbd>↓</kbd> move
                 <span aria-hidden="true">·</span>
@@ -356,6 +416,7 @@ function LibraryPage({
             variant="sidebar"
             radius={30}
             intensity={1.08}
+            aria-label={`Details for ${visibleSelectedEntry.word}`}
           >
             <div className="detail-heading-row">
               <div>
@@ -409,19 +470,37 @@ function LibraryPage({
                 <Icon name="edit" size={18} />
                 Edit
               </button>
-              <div className="more-action-wrap">
+              <div
+                className="more-action-wrap"
+                ref={moreActionRef}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    setIsMoreOpen(false);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape" && isMoreOpen) {
+                    event.preventDefault();
+                    setIsMoreOpen(false);
+                    moreButtonRef.current?.focus();
+                  }
+                }}
+              >
                 <button
+                  ref={moreButtonRef}
                   type="button"
                   className="icon-button action-more"
                   aria-label="More actions"
                   aria-expanded={isMoreOpen}
+                  aria-controls={isMoreOpen ? "word-more-actions" : undefined}
                   onClick={() => setIsMoreOpen((isOpen) => !isOpen)}
                 >
                   <Icon name="more" size={20} />
                 </button>
                 {isMoreOpen ? (
-                  <div className="more-menu">
+                  <div className="more-menu" id="word-more-actions">
                     <button
+                      ref={deleteButtonRef}
                       type="button"
                       onClick={() => {
                         setIsMoreOpen(false);
@@ -446,11 +525,11 @@ function LibraryPage({
             intensity={0.9}
           >
             <Icon name="book-open" size={34} />
-            <h2>Your library is ready</h2>
-            <p>Add your first word to begin building a practice queue.</p>
-            <button type="button" className="primary-action" onClick={onAdd}>
-              <Icon name="plus" size={18} />
-              Add word
+            <h2>{entries.length === 0 ? "Your library is ready" : "Find your next word"}</h2>
+            <p>{entries.length === 0 ? "Add your first word to begin building a practice queue." : "Clear your filters to browse the words in your library."}</p>
+            <button type="button" className="primary-action" onClick={entries.length === 0 ? onAdd : clearFilters}>
+              <Icon name={entries.length === 0 ? "plus" : "search"} size={18} />
+              {entries.length === 0 ? "Add word" : "Clear filters"}
             </button>
           </LiquidGlassSurface>
         )}
