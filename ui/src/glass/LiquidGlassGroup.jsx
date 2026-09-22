@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef } from "react";
 import { LiquidGlassContext } from "./LiquidGlassContext.js";
-import LiquidGlassFieldOverlay from "./LiquidGlassFieldOverlay.jsx";
 import { useLiquidGlassPointer } from "./useLiquidGlassPointer.js";
 
 function normalizeSurfaceConfig(config) {
@@ -28,14 +27,12 @@ function LiquidGlassGroup({
   ...props
 }) {
   const groupRef = useRef(null);
-  const overlayRef = useRef(null);
   const surfacesRef = useRef(new Map());
   const resizeObserverRef = useRef(null);
   const markMeasurementsDirtyRef = useRef(() => {});
 
   useLiquidGlassPointer({
     groupRef,
-    overlayRef,
     surfacesRef,
     resizeObserverRef,
     markMeasurementsDirtyRef,
@@ -88,7 +85,6 @@ function LiquidGlassGroup({
       <div ref={groupRef} className={getClassName(className)} {...props}>
         {children}
       </div>
-      <LiquidGlassFieldOverlay overlayRef={overlayRef} />
     </LiquidGlassContext.Provider>
   );
 }

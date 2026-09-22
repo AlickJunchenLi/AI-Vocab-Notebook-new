@@ -1,9 +1,31 @@
 import { useEffect } from "react";
 import { clamp, computeSurfaceMetrics, smoothstep } from "./roundedRectField.js";
 
+// The pointer acts as a small lamp held just above the page. Nothing is drawn
+// at the pointer itself; nearby glass surfaces catch the light on their rims.
+const RIM_REACH = 210;
+const SPECULAR_MIN = 54;
+const SPECULAR_MAX = 210;
+
 function approach(current, target, rate, delta, epsilon = 0.001) {
   const next = current + (target - current) * (1 - Math.exp(-rate * delta));
   return Math.abs(next - target) < epsilon ? target : next;
+}
+
+// Critically damped spring: the light eases in and out of motion instead of
+// snapping to each pointer event, which is what makes the rims feel fluid.
+function springAxis(axis, target, smoothTime, delta) {
+  const omega = 2 / smoothTime;
+  const x = omega * delta;
+  const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  const change = axis.value - target;
+  const carry = (axis.velocity + omega * change) * delta;
+  axis.velocity = (axis.velocity - omega * carry) * decay;
+  axis.value = target + (change + carry) * decay;
+  if (Math.abs(axis.value - target) < 0.05 && Math.abs(axis.velocity) < 2) {
+    axis.value = target;
+    axis.velocity = 0;
+  }
 }
 
 function writeVariable(surface, name, value) {
@@ -15,14 +37,23 @@ function writeVariable(surface, name, value) {
 }
 
 function resetSurface(surface) {
-  surface.render = { active: 0, edge: 0 };
+  surface.render = null;
   writeVariable(surface, "--lg-active", "0");
   writeVariable(surface, "--lg-edge", "0");
 }
 
+function createRenderState(metrics) {
+  return {
+    active: 0,
+    edge: 0,
+    normalX: metrics.normalX,
+    normalY: metrics.normalY,
+    specular: SPECULAR_MAX,
+  };
+}
+
 export function useLiquidGlassPointer({
   groupRef,
-  overlayRef,
   surfacesRef,
   resizeObserverRef,
   markMeasurementsDirtyRef,
@@ -32,9 +63,8 @@ export function useLiquidGlassPointer({
 }) {
   useEffect(() => {
     const group = groupRef.current;
-    const overlay = overlayRef.current;
     const surfaces = surfacesRef.current;
-    if (!group || !overlay) return undefined;
+    if (!group) return undefined;
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
     const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
@@ -44,13 +74,10 @@ export function useLiquidGlassPointer({
     const pointer = {
       active: false,
       positioned: false,
-      x: 0,
-      y: 0,
+      x: { value: 0, velocity: 0 },
+      y: { value: 0, velocity: 0 },
       targetX: 0,
       targetY: 0,
-      opacity: 0,
-      stretch: 1,
-      angle: 0,
     };
     let available = false;
     let frame = null;
@@ -63,14 +90,19 @@ export function useLiquidGlassPointer({
 
     function markMeasurementsDirty() {
       measurementsDirty = true;
-      if (pointer.active || pointer.opacity > 0) requestFrame();
+      if (pointer.active) requestFrame();
     }
 
     function measureSurfaces() {
       // Batch layout reads before any per-frame style writes.
       for (const surface of surfaces.values()) {
         if (surface.element.isConnected) {
-          surface.rect = surface.element.getBoundingClientRect();
+          const rect = surface.element.getBoundingClientRect();
+          surface.rect = rect;
+          // Highlights are drawn in the surface's own pixels, which differ from
+          // viewport pixels while an ancestor is scaled (e.g. a modal opening).
+          surface.scaleX = rect.width / (surface.element.offsetWidth || rect.width || 1);
+          surface.scaleY = rect.height / (surface.element.offsetHeight || rect.height || 1);
         }
       }
       measurementsDirty = false;
@@ -82,9 +114,8 @@ export function useLiquidGlassPointer({
       lastTime = 0;
       pointer.active = false;
       pointer.positioned = false;
-      pointer.opacity = 0;
-      pointer.stretch = 1;
-      overlay.style.opacity = "0";
+      pointer.x.velocity = 0;
+      pointer.y.velocity = 0;
       for (const surface of surfaces.values()) resetSurface(surface);
     }
 
@@ -103,8 +134,8 @@ export function useLiquidGlassPointer({
       pointer.targetY = event.clientY;
       pointer.active = true;
       if (!pointer.positioned) {
-        pointer.x = event.clientX;
-        pointer.y = event.clientY;
+        pointer.x.value = event.clientX;
+        pointer.y.value = event.clientY;
         pointer.positioned = true;
       }
       measurementsDirty = true;
@@ -123,15 +154,13 @@ export function useLiquidGlassPointer({
       lastTime = now;
       if (measurementsDirty) measureSurfaces();
 
-      const previousX = pointer.x;
-      const previousY = pointer.y;
-      pointer.x = approach(pointer.x, pointer.targetX, 21, delta, 0.025);
-      pointer.y = approach(pointer.y, pointer.targetY, 21, delta, 0.025);
-      pointer.opacity = approach(pointer.opacity, pointer.active ? 1 : 0, 14, delta);
-      const speed = Math.hypot(pointer.x - previousX, pointer.y - previousY) / delta;
-      const targetStretch = 1 + clamp(speed / 8000, 0, 0.13);
-      pointer.stretch = approach(pointer.stretch, targetStretch, 16, delta);
-      if (speed > 30) pointer.angle = Math.atan2(pointer.y - previousY, pointer.x - previousX);
+      springAxis(pointer.x, pointer.targetX, 0.085, delta);
+      springAxis(pointer.y, pointer.targetY, 0.085, delta);
+      const x = pointer.x.value;
+      const y = pointer.y.value;
+      // A moving highlight smears a little along the rim, like it does on real glass.
+      const speed = Math.hypot(pointer.x.velocity, pointer.y.velocity);
+      const smear = 1 + clamp(speed / 2600, 0, 0.45);
 
       const candidates = [];
       if (pointer.active) {
@@ -139,10 +168,11 @@ export function useLiquidGlassPointer({
           const rect = surface.rect;
           if (!rect || !surface.element.isConnected || surface.interactive === false ||
             rect.width === 0 || rect.height === 0 ||
-            pointer.x < rect.left - radius || pointer.x > rect.right + radius ||
-            pointer.y < rect.top - radius || pointer.y > rect.bottom + radius) continue;
+            x < rect.left - radius || x > rect.right + radius ||
+            y < rect.top - radius || y > rect.bottom + radius) continue;
 
-          const metrics = computeSurfaceMetrics(pointer.x, pointer.y, rect, surface.radius);
+          const scale = ((surface.scaleX || 1) + (surface.scaleY || 1)) / 2;
+          const metrics = computeSurfaceMetrics(x, y, rect, surface.radius * scale);
           const proximity = 1 - smoothstep(0, radius, Math.max(0, metrics.d));
           if (proximity > 0) candidates.push({ surface, metrics, proximity });
         }
@@ -153,35 +183,55 @@ export function useLiquidGlassPointer({
 
       for (const surface of surfaces.values()) {
         const candidate = active.get(surface.id);
-        const current = surface.render ?? { active: 0, edge: 0 };
+        if (!candidate && !surface.render) continue;
+
+        const current = surface.render ?? createRenderState(candidate.metrics);
         const strength = clamp(Number(surface.intensity) || 0, 0, 1.5);
-        const targetActive = candidate ? candidate.proximity * strength : 0;
-        const targetEdge = candidate
-          ? (1 - smoothstep(0, 115, Math.abs(candidate.metrics.d))) * strength
-          : 0;
-        current.active = approach(current.active, targetActive, 15, delta);
-        current.edge = approach(current.edge, targetEdge, 15, delta);
-        surface.render = current;
-        surfacesSettling ||= current.active !== targetActive || current.edge !== targetEdge;
+        let targetActive = 0;
+        let targetEdge = 0;
 
         if (candidate) {
-          writeVariable(surface, "--lg-local-x", `${candidate.metrics.elementX.toFixed(2)}px`);
-          writeVariable(surface, "--lg-local-y", `${candidate.metrics.elementY.toFixed(2)}px`);
-          writeVariable(surface, "--lg-boundary-x", `${candidate.metrics.boundaryX.toFixed(2)}px`);
-          writeVariable(surface, "--lg-boundary-y", `${candidate.metrics.boundaryY.toFixed(2)}px`);
+          const { metrics } = candidate;
+          const scaleX = surface.scaleX || 1;
+          const scaleY = surface.scaleY || 1;
+          const distance = Math.abs(metrics.d) / ((scaleX + scaleY) / 2);
+          targetActive = candidate.proximity * strength;
+          targetEdge = (1 - smoothstep(0, RIM_REACH, distance)) * strength;
+          // The rim highlight tightens as the light nears the edge.
+          const targetSpecular = clamp(SPECULAR_MIN + distance * 0.62, SPECULAR_MIN, SPECULAR_MAX) * smear;
+          // Ease the facing direction so crossing the middle of a narrow surface
+          // swings the bevel light across instead of flipping it.
+          current.normalX = approach(current.normalX, metrics.normalX, 11, delta);
+          current.normalY = approach(current.normalY, metrics.normalY, 11, delta);
+          current.specular = approach(current.specular, targetSpecular, 14, delta, 0.05);
+          surfacesSettling ||= current.normalX !== metrics.normalX ||
+            current.normalY !== metrics.normalY || current.specular !== targetSpecular;
+
+          writeVariable(surface, "--lg-local-x", `${(metrics.elementX / scaleX).toFixed(1)}px`);
+          writeVariable(surface, "--lg-local-y", `${(metrics.elementY / scaleY).toFixed(1)}px`);
+          writeVariable(surface, "--lg-boundary-x", `${(metrics.boundaryX / scaleX).toFixed(1)}px`);
+          writeVariable(surface, "--lg-boundary-y", `${(metrics.boundaryY / scaleY).toFixed(1)}px`);
+          // Light that enters the near rim reflects off the inside of the far one.
+          writeVariable(surface, "--lg-mirror-x",
+            `${((metrics.rectWidth - metrics.boundaryX) / scaleX).toFixed(1)}px`);
+          writeVariable(surface, "--lg-mirror-y",
+            `${((metrics.rectHeight - metrics.boundaryY) / scaleY).toFixed(1)}px`);
+          writeVariable(surface, "--lg-normal-x", current.normalX.toFixed(3));
+          writeVariable(surface, "--lg-normal-y", current.normalY.toFixed(3));
+          writeVariable(surface, "--lg-specular", `${current.specular.toFixed(1)}px`);
         }
+
+        current.active = approach(current.active, targetActive, 12, delta);
+        current.edge = approach(current.edge, targetEdge, 12, delta);
+        surfacesSettling ||= current.active !== targetActive || current.edge !== targetEdge;
         writeVariable(surface, "--lg-active", current.active.toFixed(4));
         writeVariable(surface, "--lg-edge", current.edge.toFixed(4));
+        surface.render = current.active === 0 && current.edge === 0 ? null : current;
       }
 
-      overlay.style.transform = `translate3d(${pointer.x.toFixed(2)}px, ${pointer.y.toFixed(2)}px, 0)`;
-      overlay.style.opacity = pointer.opacity.toFixed(4);
-      overlay.style.setProperty("--glass-stretch", pointer.stretch.toFixed(4));
-      overlay.style.setProperty("--glass-angle", `${pointer.angle.toFixed(3)}rad`);
-
-      const pointerSettling = pointer.x !== pointer.targetX || pointer.y !== pointer.targetY ||
-        pointer.opacity !== (pointer.active ? 1 : 0) || pointer.stretch !== 1;
-      // A stationary pointer keeps its glass highlight without spending frames.
+      const pointerSettling = pointer.x.value !== pointer.targetX ||
+        pointer.y.value !== pointer.targetY;
+      // A stationary pointer keeps its highlights without spending frames.
       if (pointerSettling || surfacesSettling) requestFrame();
       else {
         lastTime = 0;
@@ -237,6 +287,6 @@ export function useLiquidGlassPointer({
         query.removeEventListener("change", syncAvailability);
       }
     };
-  }, [enabled, groupRef, overlayRef, surfacesRef, resizeObserverRef,
+  }, [enabled, groupRef, surfacesRef, resizeObserverRef,
     markMeasurementsDirtyRef, spillRadius, maxActiveSurfaces]);
 }

@@ -5,6 +5,12 @@
       "name": "ui-dev",
       "url": "http://localhost:5173",
       "port": 5173
+    },
+    {
+      "name": "ui-vite",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "ui", "run", "dev", "--", "--port", "5173", "--strictPort"],
+      "port": 5173
     }
   ]
 }

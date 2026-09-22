@@ -13,7 +13,7 @@ npm run dev
 
 ## Liquid glass
 
-Move your mouse across the page to see a glass lens, soft surrounding light, and highlights on nearby surfaces. The **Glass** button in the header switches the cursor effect on or off and remembers your choice on this device. On smaller screens, it appears as a sparkle icon.
+The pointer acts like a small lamp held just above the page. Nothing is drawn at the cursor itself; instead, glass surfaces near it catch the light: the facing bevel brightens with a fine line of refraction at the rim, a fainter reflection appears on the opposite edge, and the frosted face picks up a little scattered light. The highlight tightens as the cursor nears an edge and follows it with a slight, fluid lag. The **Glass** button in the header switches the cursor effect on or off and remembers your choice on this device. On smaller screens, it appears as a sparkle icon.
 
 The effect keeps the native pointer visible and never intercepts clicks. It is disabled on touch/coarse pointers, when reduced motion is requested, and in forced-colors mode. Rendering pauses once the pointer and highlights settle, and resets when the tab is hidden or loses focus.
 
