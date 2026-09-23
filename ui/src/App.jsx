@@ -13,6 +13,7 @@ import LibraryPage from "./pages/LibraryPage.jsx";
 import PracticePage from "./pages/PracticePage.jsx";
 import ProgressPage from "./pages/ProgressPage.jsx";
 import { mockEntries } from "./data/mockEntries.js";
+import { loadTheme, saveTheme } from "./theme/themes.js";
 
 const STORAGE_KEY = "ai-vocabulary-notebook.entries.v3";
 const PAGE_IDS = new Set(["today", "library", "practice", "progress"]);
@@ -63,6 +64,13 @@ function App() {
     }
   });
 
+  const [theme, setTheme] = useState(loadTheme);
+
+  function changeTheme(nextTheme) {
+    setTheme(nextTheme);
+    saveTheme(nextTheme);
+  }
+
   function toggleGlass() {
     const enabled = !glassEnabled;
     setGlassEnabled(enabled);
@@ -101,6 +109,16 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
   }, [entries]);
+
+  useEffect(() => {
+    // Swap colours with transitions off: interpolating from one theme hue to
+    // another sweeps through unrelated colours (pink to green passes red).
+    const root = document.documentElement;
+    root.classList.add("theme-switching");
+    root.dataset.theme = theme;
+    void root.offsetWidth;
+    root.classList.remove("theme-switching");
+  }, [theme]);
 
   useEffect(() => {
     const pageName = activePage[0].toUpperCase() + activePage.slice(1);
@@ -274,6 +292,8 @@ function App() {
         onAdd={() => setIsAddModalOpen(true)}
         glassEnabled={glassEnabled}
         onToggleGlass={toggleGlass}
+        theme={theme}
+        onThemeChange={changeTheme}
       />
 
       <div className="page-transition" id="main-content" tabIndex={-1} key={activePage}>

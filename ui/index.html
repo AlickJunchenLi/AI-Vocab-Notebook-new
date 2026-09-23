@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ui</title>
+    <script>
+      // Apply the saved colour theme before first paint (see src/theme/themes.js).
+      try {
+        var theme = localStorage.getItem("notebook.theme");
+        if (["lavender", "blue", "pink", "green"].indexOf(theme) !== -1) {
+          document.documentElement.dataset.theme = theme;
+        }
+      } catch (error) {
+        // Fall back to the default theme.
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

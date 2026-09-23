@@ -47,7 +47,7 @@
   background: rgba(255, 255, 255, 0.56);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 8px 24px rgba(36, 54, 117, 0.04);
+    0 8px 24px oklch(35.6% calc(0.11 * var(--theme-chroma)) calc(var(--theme-hue) - 16.7) / 0.04);
   backdrop-filter: blur(14px);
 }
 
@@ -60,15 +60,15 @@
 }
 
 .glass-select-trigger:hover {
-  border-color: rgba(63, 81, 237, 0.28);
+  border-color: oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.28);
   background: rgba(255, 255, 255, 0.74);
 }
 
 .glass-select-trigger:focus-visible,
 .glass-select[data-open="true"] .glass-select-trigger {
-  border-color: rgba(63, 81, 237, 0.44);
+  border-color: oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.44);
   background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 0 0 4px rgba(63, 81, 237, 0.07);
+  box-shadow: 0 0 0 4px oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.07);
 }
 
 .glass-select-value {
@@ -111,7 +111,7 @@
    */
   background: linear-gradient(
     rgba(255, 255, 255, 0.97),
-    rgba(243, 246, 255, 0.95)
+    oklch(97.3% 0.012 calc(var(--theme-hue) - 13.7) / 0.95)
   );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
@@ -167,7 +167,7 @@
  * has already changed the value.
  */
 .glass-select-option[data-active="true"] {
-  background: rgba(63, 81, 237, 0.09);
+  background: oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.09);
   color: var(--accent-strong);
 }
 

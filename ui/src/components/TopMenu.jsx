@@ -1,5 +1,7 @@
+import { useEffect, useRef, useState } from "react";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 import Icon from "./Icon.jsx";
+import { THEMES } from "../theme/themes.js";
 
 const NAV_ITEMS = [
   { id: "today", label: "Today", icon: "sun" },
@@ -8,7 +10,58 @@ const NAV_ITEMS = [
   { id: "progress", label: "Progress", icon: "chart" },
 ];
 
-function TopMenu({ activePage, onNavigate, onAdd, glassEnabled, onToggleGlass }) {
+function TopMenu({
+  activePage,
+  onNavigate,
+  onAdd,
+  glassEnabled,
+  onToggleGlass,
+  theme,
+  onThemeChange,
+}) {
+  // Below 980px the swatches fold behind one button showing the current theme.
+  const [isThemeTrayOpen, setIsThemeTrayOpen] = useState(false);
+  const themeWrapRef = useRef(null);
+  const themeToggleRef = useRef(null);
+  const pickedWithPointerRef = useRef(false);
+  const currentTheme = THEMES.find((option) => option.id === theme) ?? THEMES[0];
+
+  useEffect(() => {
+    if (!isThemeTrayOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event) {
+      if (!themeWrapRef.current?.contains(event.target)) {
+        setIsThemeTrayOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setIsThemeTrayOpen(false);
+        themeToggleRef.current?.focus();
+      }
+    }
+
+    themeWrapRef.current?.querySelector("input:checked")?.focus({ preventScroll: true });
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isThemeTrayOpen]);
+
+  function handleThemeClick(event) {
+    // A click picks and closes, even on the current theme; arrow keys keep the
+    // tray open while browsing.
+    if (isThemeTrayOpen && pickedWithPointerRef.current && event.target instanceof HTMLInputElement) {
+      setIsThemeTrayOpen(false);
+      themeToggleRef.current?.focus({ preventScroll: true });
+    }
+  }
+
   return (
     <LiquidGlassSurface
       as="header"
@@ -48,6 +101,51 @@ function TopMenu({ activePage, onNavigate, onAdd, glassEnabled, onToggleGlass })
       </nav>
 
       <div className="header-actions">
+        <div
+          ref={themeWrapRef}
+          className={isThemeTrayOpen ? "theme-picker-wrap open" : "theme-picker-wrap"}
+        >
+          <button
+            ref={themeToggleRef}
+            type="button"
+            className="theme-picker-toggle"
+            aria-expanded={isThemeTrayOpen}
+            aria-controls="theme-picker"
+            aria-label={`Colour theme: ${currentTheme.label}`}
+            title="Colour theme"
+            onClick={() => setIsThemeTrayOpen((open) => !open)}
+          >
+            <span className="theme-swatch" data-theme={currentTheme.id} aria-hidden="true" />
+          </button>
+          <fieldset
+            id="theme-picker"
+            className="theme-picker"
+            onPointerDown={() => {
+              pickedWithPointerRef.current = true;
+            }}
+            onKeyDown={() => {
+              pickedWithPointerRef.current = false;
+            }}
+            onClick={handleThemeClick}
+          >
+            <legend className="sr-only">Colour theme</legend>
+            {THEMES.map((option) => (
+              <label key={option.id} className="theme-option" title={`${option.label} theme`}>
+                <input
+                  type="radio"
+                  name="colour-theme"
+                  value={option.id}
+                  checked={theme === option.id}
+                  onChange={() => onThemeChange(option.id)}
+                  className="sr-only"
+                />
+                {/* data-theme gives the swatch that theme's hues from index.css. */}
+                <span className="theme-swatch" data-theme={option.id} aria-hidden="true" />
+                <span className="sr-only">{option.label}</span>
+              </label>
+            ))}
+          </fieldset>
+        </div>
         <button
           type="button"
           className="glass-toggle"

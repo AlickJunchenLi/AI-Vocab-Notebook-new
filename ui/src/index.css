@@ -1,3 +1,42 @@
+/*
+ * Colour themes. Every brand-tinted colour in the app is an oklch() value
+ * relative to these hues, so a theme is just a main hue, a companion hue for
+ * the cooler washes, and a chroma scale that keeps saturated colours inside
+ * the sRGB gamut. Warm, mint and danger accents are deliberately fixed.
+ * The selectors are not tied to :root so a theme swatch can carry its own hue.
+ */
+:root,
+[data-theme="lavender"] {
+  --theme-hue: 285;
+  --theme-hue-2: 230;
+  --theme-chroma: 1;
+}
+
+[data-theme="blue"] {
+  --theme-hue: 258;
+  --theme-hue-2: 218;
+  --theme-chroma: 0.9;
+}
+
+[data-theme="pink"] {
+  --theme-hue: 350;
+  --theme-hue-2: 315;
+  --theme-chroma: 1;
+}
+
+[data-theme="green"] {
+  --theme-hue: 158;
+  --theme-hue-2: 196;
+  --theme-chroma: 0.75;
+}
+
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
 :root {
   color-scheme: light;
   font-family:
@@ -13,29 +52,29 @@
   --font-ui:
     "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial,
     "PingFang SC", "Microsoft YaHei", sans-serif;
-  --ink: #282743;
-  --ink-soft: #45435e;
-  --muted: #68667d;
-  --muted-light: #737089;
+  --ink: oklch(28.8% 0.051 calc(var(--theme-hue) - 0.6));
+  --ink-soft: oklch(39.6% 0.045 calc(var(--theme-hue) + 2.5));
+  --muted: oklch(52.1% 0.036 calc(var(--theme-hue) + 4.1));
+  --muted-light: oklch(55.7% 0.039 calc(var(--theme-hue) + 5.6));
   --canvas: #f6f7fb;
   --surface: rgba(255, 255, 255, 0.68);
   --surface-strong: rgba(255, 255, 255, 0.86);
-  --line: rgba(76, 100, 163, 0.16);
-  --line-strong: rgba(74, 91, 235, 0.34);
-  --accent: #6559c8;
-  --accent-strong: #5144b4;
-  --accent-soft: #eeebfc;
-  --violet: #a78bfa;
-  --ice: #a8d8ff;
+  --line: oklch(51.4% calc(0.104 * var(--theme-chroma)) calc(var(--theme-hue) - 18) / 0.16);
+  --line-strong: oklch(54.6% calc(0.215 * var(--theme-chroma)) calc(var(--theme-hue) - 13.1) / 0.34);
+  --accent: oklch(53.4% calc(0.166 * var(--theme-chroma)) calc(var(--theme-hue) - 0.9));
+  --accent-strong: oklch(46.6% calc(0.17 * var(--theme-chroma)) calc(var(--theme-hue) - 2.2));
+  --accent-soft: oklch(94.7% 0.023 calc(var(--theme-hue) + 9.1));
+  --violet: oklch(70.9% calc(0.159 * var(--theme-chroma)) calc(var(--theme-hue) + 8.5));
+  --ice: oklch(86.2% calc(0.074 * var(--theme-chroma)) calc(var(--theme-hue-2) + 13.2));
   --mint: #5bc9aa;
   --mint-soft: #e5f8f2;
   --danger: #c44762;
   --danger-soft: #fff0f3;
-  --shadow-sm: 0 8px 24px rgba(29, 46, 102, 0.07);
+  --shadow-sm: 0 8px 24px oklch(32.2% calc(0.101 * var(--theme-chroma)) calc(var(--theme-hue) - 17.3) / 0.07);
   --shadow-md:
-    0 24px 70px rgba(38, 57, 119, 0.11),
-    0 4px 14px rgba(38, 57, 119, 0.05);
-  --shadow-button: 0 7px 18px rgba(89, 72, 164, 0.2);
+    0 24px 70px oklch(36.5% calc(0.109 * var(--theme-chroma)) calc(var(--theme-hue) - 17.1) / 0.11),
+    0 4px 14px oklch(36.5% calc(0.109 * var(--theme-chroma)) calc(var(--theme-hue) - 17.1) / 0.05);
+  --shadow-button: 0 7px 18px oklch(46.8% calc(0.143 * var(--theme-chroma)) calc(var(--theme-hue) + 3.1) / 0.2);
 }
 
 * {
@@ -92,12 +131,12 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid rgba(63, 81, 237, 0.28);
+  outline: 3px solid oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.28);
   outline-offset: 3px;
 }
 
 ::selection {
-  background: rgba(63, 81, 237, 0.18);
+  background: oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.18);
   color: var(--ink);
 }
 
