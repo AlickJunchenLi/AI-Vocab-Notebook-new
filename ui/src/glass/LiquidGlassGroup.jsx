@@ -9,6 +9,7 @@ function normalizeSurfaceConfig(config) {
     intensity: config.intensity ?? 1,
     variant: config.variant ?? "card",
     interactive: config.interactive ?? true,
+    edgeOnly: config.edgeOnly ?? false,
     rect: null,
   };
 }
@@ -68,6 +69,7 @@ function LiquidGlassGroup({
     surface.intensity = config.intensity ?? surface.intensity;
     surface.variant = config.variant ?? surface.variant;
     surface.interactive = config.interactive ?? surface.interactive;
+    surface.edgeOnly = config.edgeOnly ?? surface.edgeOnly;
     markMeasurementsDirtyRef.current();
   }, []);
 

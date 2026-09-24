@@ -74,6 +74,7 @@ function AddWordModal({ entries, onClose, onAdd }) {
         variant="panel"
         radius={30}
         intensity={1.18}
+        edgeOnly
         autoComplete="off"
         onSubmit={handleSubmit}
         role="dialog"

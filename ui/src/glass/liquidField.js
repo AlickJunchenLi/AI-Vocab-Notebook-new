@@ -4,12 +4,12 @@ import { clamp, sdRoundedRect, smoothstep } from "./roundedRectField.js";
  * The liquid layer's model, in one place.
  *
  * The glass is a slab whose rim is a bevel. As the pointer nears an edge, the
- * rim there swells and sends a liquid trace towards the pointer: light
- * gathered in the glass that flares where it clings to the rim and thins to a
- * tip just short of the pointer, so nothing is drawn around the pointer
- * itself. Everything visible is lighting on that height field, which the
- * shader evaluates per pixel, so no part of it depends on picking a single
- * "nearest edge".
+ * rim there swells and its highlight brightens; nothing is drawn around the
+ * pointer itself. The rim can also send a liquid trace towards the pointer
+ * (light gathered in the glass, flared where it clings to the rim and thinning
+ * to a tip just short of the pointer), but that is off by default. Everything
+ * visible is lighting on that height field, which the shader evaluates per
+ * pixel, so no part of it depends on picking a single "nearest edge".
  *
  * The same numbers drive the shader uniforms and the tuning page.
  */
@@ -21,10 +21,12 @@ export const LIQUID_DEFAULTS = {
   // Half-width of the trace where it leaves the rim, how bright it is, how
   // far short of the pointer it stops, how softly its body fades to its
   // sides, the fine bright line along its edge, and the faint shade outside
-  // that line. By default the trace is a soft streak of light with no edge
-  // line or shade: any contour turns it into a shape stuck on the glass.
+  // that line. The trace is off by default (strength 0): the pointer's effect
+  // stays on the rim itself. Raise the strength to bring it back as a soft
+  // streak of light; any edge line or shade turns it into a shape stuck on
+  // the glass.
   traceWidth: 26,
-  traceStrength: 1.1,
+  traceStrength: 0,
   tipGap: 10,
   traceWall: 24,
   traceEdge: 0,
@@ -57,100 +59,116 @@ export const LIQUID_DEFAULTS = {
   presence: 240,
 };
 
-/*
- * Each side of the rounded rectangle, as a map into that side's own frame:
- * `along` runs the length of the side and `depth` points into the glass. A
- * side owns its straight edge plus the half of each corner arc next to it, so
- * the four sides share the whole rim between them.
- */
-const SIDES = [
-  { // top
-    toSide: (x, y) => [x, y],
-    fromSide: (along, depth) => [along, depth],
-    length: (width) => width,
-  },
-  { // right
-    toSide: (x, y, width) => [y, width - x],
-    fromSide: (along, depth, width) => [width - depth, along],
-    length: (width, height) => height,
-  },
-  { // bottom
-    toSide: (x, y, width, height) => [x, height - y],
-    fromSide: (along, depth, width, height) => [along, height - depth],
-    length: (width) => width,
-  },
-  { // left
-    toSide: (x, y) => [y, x],
-    fromSide: (along, depth) => [depth, along],
-    length: (width, height) => height,
-  },
-];
+// The four sides: top, right, bottom, left.
+export const SIDE_COUNT = 4;
 
-// Nearest point to (along, depth) on one side, in that side's frame.
-function nearestOnSide(along, depth, length, radius) {
-  if (along >= radius && along <= length - radius) return [along, 0];
-  const outward = along < radius ? -1 : 1;
-  const centreAlong = along < radius ? radius : length - radius;
-  const dx = along - centreAlong;
-  const dy = depth - radius;
-  const distance = Math.hypot(dx, dy);
-  const diagonal = [centreAlong + outward * radius * Math.SQRT1_2, radius - radius * Math.SQRT1_2];
-  if (distance < 1e-6) return diagonal;
-  const nx = dx / distance;
-  const ny = dy / distance;
-  // This side's share of the arc runs from straight up to the diagonal.
-  if (-ny >= nx * outward) return [centreAlong + nx * radius, radius + ny * radius];
-  return diagonal;
+/*
+ * The four sides as seen from (x, y): how far away each side's line is, which
+ * way it faces, and the nearest point on its straight edge (clamped short of
+ * the corner arcs, so it slides smoothly as the point moves).
+ */
+function sidesFrom(x, y, width, height, radius) {
+  const alongX = clamp(x, radius, width - radius);
+  const alongY = clamp(y, radius, height - radius);
+  return [
+    { line: y, normal: [0, -1], point: [alongX, 0] },
+    { line: width - x, normal: [1, 0], point: [width, alongY] },
+    { line: height - y, normal: [0, 1], point: [alongX, height] },
+    { line: x, normal: [-1, 0], point: [0, alongY] },
+  ];
 }
 
-export const TRACE_COUNT = SIDES.length;
-
 /*
- * The liquid traces for one surface, in its own pixels: one per side, running
- * from that side's nearest rim point towards the anchor and stopping
- * `tipGap` short of it. Only the nearest side draws at full strength; others
- * fade out as they fall behind, so a pointer crossing the middle of a surface
- * hands the trace from one side to the other instead of snapping.
+ * The liquid effect for one surface, in its own pixels.
  *
- * Returns `frames` (rim point x, y and unit direction x, y), `shapes`
- * (mouth radius, tip radius, spine length, strength) and `swells` (how much
- * each side's rim swells), ready for the shader. The swell also answers a
- * pointer approaching from outside the glass; the trace only forms inside.
+ * The rim swells on every side near the anchor. The trace is always a single
+ * one. Every side pulls it towards itself, more the closer it is, so it runs
+ * straight out of an edge that is clearly nearest, comes out of the corner
+ * when two edges are equally near, and fades away where opposite edges pull
+ * equally (the middle of a thin bar or button). Its start is where that
+ * direction meets the rim, and it stops `tipGap` short of the anchor.
+ * Everything here changes smoothly as the anchor moves, so the trace never
+ * jumps.
+ *
+ * `traceAmount` scales only the trace, so a surface can keep its rim light
+ * while another surface draws the trace.
+ *
+ * Returns `frame` (rim point x, y and unit direction x, y) and `shape` (mouth
+ * radius, tip radius, spine length, strength) for the trace, and `swellPoints`
+ * and `swells` (each side's rim point and how much it swells), ready for the
+ * shader. The swell also answers a pointer approaching from outside the
+ * glass; the trace only forms inside.
  */
-export function computeTraces(anchorX, anchorY, width, height, radius, settings, amount) {
+export function computeTraces(
+  anchorX, anchorY, width, height, radius, settings, amount, traceAmount = amount,
+) {
   const safeRadius = clamp(radius, 0, Math.min(width, height) / 2);
-  const inside = sdRoundedRect(
-    anchorX - width / 2, anchorY - height / 2, width, height, safeRadius,
-  ) < 0;
-  const candidates = SIDES.map((side) => {
-    const [along, depth] = side.toSide(anchorX, anchorY, width, height);
-    const [nearAlong, nearDepth] = nearestOnSide(along, depth, side.length(width, height), safeRadius);
-    const [x, y] = side.fromSide(nearAlong, nearDepth, width, height);
-    return { x, y, distance: Math.hypot(anchorX - x, anchorY - y) };
-  });
-  const nearest = Math.min(...candidates.map((candidate) => candidate.distance));
+  const rim = sdRoundedRect(anchorX - width / 2, anchorY - height / 2, width, height, safeRadius);
+  const inside = rim < 0;
+  const sides = sidesFrom(anchorX, anchorY, width, height, safeRadius);
 
-  const frames = [];
-  const shapes = [];
-  const swells = [];
-  for (const { x, y, distance } of candidates) {
-    const length = distance - settings.tipGap;
-    const dominance = 1 - smoothstep(0, settings.traceWidth, distance - nearest);
-    const press = inside
-      ? 1 - smoothstep(0, settings.reach, distance)
-      : 1 - smoothstep(0, Math.max(settings.outsideReach, 0.001), distance);
-    swells.push(amount * settings.swell * dominance * press);
-    const strength = inside && length > 0.5
-      ? amount * settings.traceStrength * dominance * (1 - smoothstep(0, settings.reach, distance))
-      : 0;
-    // A short trace stays a tongue pointing at the pointer rather than
-    // swelling into a half-disc that curves around it.
-    const mouth = Math.min(settings.traceWidth, Math.max(length, 0) * 0.6);
-    const tip = mouth * 0.35;
-    frames.push(distance > 0 ? [x, y, (anchorX - x) / distance, (anchorY - y) / distance] : [x, y, 0, 1]);
-    shapes.push([mouth, tip, Math.max(length - tip, mouth - tip + 0.01), strength]);
+  const distances = sides.map(({ point }) => Math.hypot(anchorX - point[0], anchorY - point[1]));
+  const nearest = Math.min(...distances);
+  // The swell reaches `reach` inside the glass and `outsideReach` outside it,
+  // blending between the two across the rim so crossing it changes nothing.
+  const swellReach = Math.max(
+    settings.outsideReach + (settings.reach - settings.outsideReach) * smoothstep(-8, 8, -rim),
+    0.001,
+  );
+  const swellPoints = sides.map(({ point }) => point);
+  const swells = distances.map((distance) => {
+    const closeness = 1 - smoothstep(0, settings.traceWidth, distance - nearest);
+    return amount * settings.swell * closeness * (1 - smoothstep(0, swellReach, distance));
+  });
+
+  // Each side pulls with a weight that falls off as it gets farther than the
+  // nearest one; the pulls add up to the trace's direction out to the rim.
+  const nearestLine = Math.min(...sides.map(({ line }) => line));
+  const softness = settings.traceWidth / 3;
+  let pullX = 0;
+  let pullY = 0;
+  let total = 0;
+  for (const { line, normal } of sides) {
+    const weight = Math.exp(-(line - nearestLine) / softness);
+    pullX += weight * normal[0];
+    pullY += weight * normal[1];
+    total += weight;
   }
-  return { frames, shapes, swells };
+  const pull = Math.hypot(pullX, pullY);
+  // How decided the pull is: 1 for a single edge, about 0.7 at a corner, and
+  // 0 where opposite edges cancel out.
+  const fade = smoothstep(0.15, 0.65, pull / total);
+  const outX = pull > 1e-9 ? pullX / pull : 0;
+  const outY = pull > 1e-9 ? pullY / pull : -1;
+
+  // Walk from the anchor along that direction out to the rim.
+  let reach = 0;
+  for (let step = 0; step < 48; step++) {
+    const inward = -sdRoundedRect(
+      anchorX + outX * reach - width / 2, anchorY + outY * reach - height / 2, width, height, safeRadius,
+    );
+    if (inward < 0.01) break;
+    reach += inward;
+  }
+  const x = anchorX + outX * reach;
+  const y = anchorY + outY * reach;
+
+  const length = reach - settings.tipGap;
+  // It grows in with its length, so it never appears at full strength.
+  const strength = inside && length > 0.5
+    ? traceAmount * settings.traceStrength * fade * smoothstep(0.5, 12, length) *
+      (1 - smoothstep(0, settings.reach, reach))
+    : 0;
+  // A short trace stays a tongue pointing at the pointer rather than swelling
+  // into a half-disc that curves around it.
+  const mouth = Math.min(settings.traceWidth, Math.max(length, 0) * 0.6);
+  const tip = mouth * 0.35;
+  return {
+    frame: [x, y, -outX, -outY],
+    shape: [mouth, tip, Math.max(length - tip, mouth - tip + 0.01), strength],
+    swellPoints,
+    swells,
+  };
 }
 
 // Frame-rate independent exponential ease, snapping once it is close enough.

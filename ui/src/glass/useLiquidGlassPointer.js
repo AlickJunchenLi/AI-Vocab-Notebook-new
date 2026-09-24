@@ -204,12 +204,20 @@ export function useLiquidGlassPointer({
       const pixelRatio = Math.min(window.devicePixelRatio || 1, SETTINGS.pixelRatio);
       const requests = [];
       let settling = false;
+      // The trace belongs to the surface actually under the pointer: over a
+      // glass surface nested inside another, the outer one keeps its rim light
+      // but hands the trace to the inner one.
+      const underPointer = scope.hit?.closest(".liquid-glass-surface") ?? null;
 
       for (const surface of surfaces.values()) {
         const spot = pointer.active ? locate(surface, x, y, scope) : null;
         const target = spot ? layerPresence(spot.distance, radius) : 0;
         surface.presence = approach(surface.presence ?? 0, target, 12, delta);
         settling ||= surface.presence !== target;
+        const handsOver = Boolean(underPointer) && underPointer !== surface.element &&
+          surface.element.contains(underPointer);
+        surface.traceShare = approach(surface.traceShare ?? 1, handsOver ? 0 : 1, 12, delta);
+        settling ||= surface.traceShare !== (handsOver ? 0 : 1);
         if (!spot || surface.presence <= 0.001) continue;
 
         const strength = clamp(Number(surface.intensity) || 0, 0, 1.5);
@@ -220,9 +228,16 @@ export function useLiquidGlassPointer({
           traceStrength: SETTINGS.traceStrength * strength,
           swell: SETTINGS.swell * strength,
         };
+        // An edge-only surface keeps just the darker line along its edge,
+        // which still strengthens as the rim swells near the pointer; every
+        // source of white light is switched off.
+        if (surface.edgeOnly) {
+          Object.assign(tuned, { glow: 0, specular: 0, caustic: 0, traceStrength: 0 });
+        }
         const [anchorX, anchorY] = toLocal(surface, pointer.anchorX.value, pointer.anchorY.value);
         const traces = computeTraces(
           anchorX, anchorY, spot.width, spot.height, spot.cornerRadius, tuned, surface.presence,
+          surface.presence * surface.traceShare,
         );
         requests.push({
           key: surface.element,
@@ -235,8 +250,9 @@ export function useLiquidGlassPointer({
             ...tuned,
             radius: spot.cornerRadius,
             cursor: [spot.localX, spot.localY],
-            traceFrames: traces.frames,
-            traceShapes: traces.shapes,
+            traceFrame: traces.frame,
+            traceShape: traces.shape,
+            swellPoints: traces.swellPoints,
             traceSwells: traces.swells,
             lightColor: colours.light,
             shadeColor: colours.shade,
@@ -271,7 +287,9 @@ export function useLiquidGlassPointer({
         const candidate = active.get(surface.id);
         if (!candidate && !surface.edge) continue;
         const strength = clamp(Number(surface.intensity) || 0, 0, 1.5);
-        const target = candidate ? candidate.proximity * strength : 0;
+        // This fallback only has a white rim light, which edge-only surfaces
+        // do without.
+        const target = candidate && !surface.edgeOnly ? candidate.proximity * strength : 0;
         if (candidate) {
           const { spot } = candidate;
           writeVariable(surface, "--lg-local-x", `${spot.localX.toFixed(1)}px`);

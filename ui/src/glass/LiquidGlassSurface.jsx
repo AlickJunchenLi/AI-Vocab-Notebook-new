@@ -29,6 +29,9 @@ function LiquidGlassSurface({
   radius = 28,
   intensity = 1,
   interactive = true,
+  // Only the darker line along the edge reacts to the pointer; no white
+  // highlight is drawn between the pointer and the edge.
+  edgeOnly = false,
   style,
   ...props
 }) {
@@ -64,8 +67,9 @@ function LiquidGlassSurface({
       intensity,
       variant: resolvedVariant,
       interactive,
+      edgeOnly,
     });
-  }, [group, surfaceId, radius, intensity, resolvedVariant, interactive]);
+  }, [group, surfaceId, radius, intensity, resolvedVariant, interactive, edgeOnly]);
 
   useEffect(() => {
     group?.updateSurface(surfaceId, {
@@ -73,8 +77,9 @@ function LiquidGlassSurface({
       intensity,
       variant: resolvedVariant,
       interactive,
+      edgeOnly,
     });
-  }, [group, surfaceId, radius, intensity, resolvedVariant, interactive]);
+  }, [group, surfaceId, radius, intensity, resolvedVariant, interactive, edgeOnly]);
 
   return (
     <Element

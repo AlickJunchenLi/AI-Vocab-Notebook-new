@@ -1,5 +1,5 @@
 import { Mesh, Program, Renderer, Triangle } from "ogl";
-import { approach, TRACE_COUNT } from "./liquidField.js";
+import { approach, SIDE_COUNT } from "./liquidField.js";
 import "./liquidLayer.css";
 
 const VERTEX = /* glsl */ `
@@ -36,12 +36,14 @@ uniform vec2 uResolution;
 uniform vec2 uSize;
 uniform float uRadius;
 uniform vec2 uCursor;
-// Per side: where its trace leaves the rim (xy) and its direction (zw); the
-// trace's mouth radius, tip radius, spine length and strength; and how much
-// that stretch of rim swells.
-uniform vec4 uTraceFrame[${TRACE_COUNT}];
-uniform vec4 uTraceShape[${TRACE_COUNT}];
-uniform float uTraceSwell[${TRACE_COUNT}];
+// The single trace: where it leaves the rim (xy) and its direction (zw), then
+// its mouth radius, tip radius, spine length and strength.
+uniform vec4 uTraceFrame;
+uniform vec4 uTraceShape;
+// Per side: the rim point nearest the pointer, and how much the rim swells
+// there.
+uniform vec2 uSwellPoint[${SIDE_COUNT}];
+uniform float uTraceSwell[${SIDE_COUNT}];
 uniform float uTraceWall;
 uniform float uTraceEdge;
 uniform float uTraceShade;
@@ -85,13 +87,14 @@ float band(float x, float centre, float width) {
   return exp2(-t * t);
 }
 
-// How much the rim swells at p: most where the traces leave it.
+// How much the rim swells at p: most on each side's stretch nearest the
+// pointer.
 float swellAt(vec2 p) {
   float swell = 0.0;
-  for (int i = 0; i < ${TRACE_COUNT}; i++) {
+  for (int i = 0; i < ${SIDE_COUNT}; i++) {
     float amount = uTraceSwell[i];
     if (amount <= 0.0) continue;
-    vec2 offset = p - uTraceFrame[i].xy;
+    vec2 offset = p - uSwellPoint[i];
     swell = max(swell, amount * exp2(-dot(offset, offset) / (uSwellWidth * uSwellWidth)));
   }
   return swell;
@@ -121,30 +124,26 @@ float traceHalfWidth(vec2 local, vec4 shape) {
   return shape.y + (shape.x - shape.y) * (1.0 - t) * (1.0 - t);
 }
 
-// The light (x) and shade (y) the traces put at p. A trace is light gathered
-// in the glass, flowing from the rim towards the pointer: a soft body,
-// brightest down its middle and where it leaves the rim, and a fine bright
-// line just inside its edge, the way the glass's own rim catches light. A soft,
-// faint shade just outside the edge gives that line something to read against
-// on pale glass, the way a droplet sits on a surface.
+// The light (x) and shade (y) the trace puts at p. The trace is light
+// gathered in the glass, flowing from the rim towards the pointer: a soft
+// body, brightest down its middle and where it leaves the rim, and optionally
+// a fine bright line just inside its edge, the way the glass's own rim catches
+// light, with a soft, faint shade outside it, the way a droplet sits on a
+// surface.
 vec2 traceAt(vec2 p) {
-  vec2 light = vec2(0.0);
-  for (int i = 0; i < ${TRACE_COUNT}; i++) {
-    vec4 shape = uTraceShape[i];
-    if (shape.w <= 0.0) continue;
-    vec4 frame = uTraceFrame[i];
-    vec2 offset = p - frame.xy;
-    vec2 local = vec2(dot(offset, vec2(-frame.w, frame.z)), dot(offset, frame.zw));
-    float distance = sdTrace(local, shape);
-    float soft = uTraceWall * 0.5;
-    float body = smootherstep01((soft - distance) / (traceHalfWidth(local, shape) + soft));
-    float along = clamp(local.y / (shape.z + shape.y), 0.0, 1.0);
-    float taper = mix(1.0, 0.45, along);
-    float edge = band(distance, -1.5, 1.3) * uTraceEdge;
-    float shade = band(distance, 4.0, 5.0) * uTraceShade;
-    light = max(light, vec2(body + edge, shade) * taper * shape.w);
-  }
-  return light;
+  vec4 shape = uTraceShape;
+  if (shape.w <= 0.0) return vec2(0.0);
+  vec4 frame = uTraceFrame;
+  vec2 offset = p - frame.xy;
+  vec2 local = vec2(dot(offset, vec2(-frame.w, frame.z)), dot(offset, frame.zw));
+  float distance = sdTrace(local, shape);
+  float soft = uTraceWall * 0.5;
+  float body = smootherstep01((soft - distance) / (traceHalfWidth(local, shape) + soft));
+  float along = clamp(local.y / (shape.z + shape.y), 0.0, 1.0);
+  float taper = mix(1.0, 0.45, along);
+  float edge = band(distance, -1.5, 1.3) * uTraceEdge;
+  float shade = band(distance, 4.0, 5.0) * uTraceShade;
+  return vec2(body + edge, shade) * taper * shape.w;
 }
 
 // The bevel's height in pixels. Near the pointer the rim swells: its bevel
@@ -224,8 +223,9 @@ void main() {
 const UNIFORM_KEYS = {
   uRadius: "radius",
   uCursor: "cursor",
-  uTraceFrame: "traceFrames",
-  uTraceShape: "traceShapes",
+  uTraceFrame: "traceFrame",
+  uTraceShape: "traceShape",
+  uSwellPoint: "swellPoints",
   uTraceSwell: "traceSwells",
   uTraceWall: "traceWall",
   uTraceEdge: "traceEdge",
@@ -247,15 +247,15 @@ const UNIFORM_KEYS = {
 };
 
 function createUniforms() {
-  const emptyTraces = () => Array.from({ length: TRACE_COUNT }, () => [0, 0, 0, 0]);
   return {
     uResolution: { value: [1, 1] },
     uSize: { value: [1, 1] },
     uRadius: { value: 0 },
     uCursor: { value: [0, 0] },
-    uTraceFrame: { value: emptyTraces() },
-    uTraceShape: { value: emptyTraces() },
-    uTraceSwell: { value: new Array(TRACE_COUNT).fill(0) },
+    uTraceFrame: { value: [0, 0, 0, 1] },
+    uTraceShape: { value: [0, 0, 0, 0] },
+    uSwellPoint: { value: Array.from({ length: SIDE_COUNT }, () => [0, 0]) },
+    uTraceSwell: { value: new Array(SIDE_COUNT).fill(0) },
     uTraceWall: { value: 1 },
     uTraceEdge: { value: 0 },
     uTraceShade: { value: 0 },
