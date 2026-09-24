@@ -20,7 +20,10 @@ import { LiquidLayerPool } from "./liquidGlassGL.js";
  * pointer's own position so it never jumps between edges.
  */
 const SETTINGS = LIQUID_DEFAULTS;
-const LIQUID_LAYERS = 2;
+// Enough layers for every surface around a gap between cards, so a surface
+// that stops being among the nearest always fades out on its own layer
+// instead of having it taken over mid-fade.
+const LIQUID_LAYERS = 4;
 // How far from the rim the CSS rim light still shows.
 const RIM_REACH = 210;
 

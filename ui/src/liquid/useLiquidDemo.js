@@ -13,7 +13,7 @@ import { LiquidLayerPool } from "../glass/liquidGlassGL.js";
 /*
  * Drives the prototype with the pointer model the app will use: a smoothed
  * pointer for the lamp, a springier anchor for the liquid trace, and a pool of
- * two WebGL layers for the surfaces nearest the pointer. Settings are read
+ * four WebGL layers for the surfaces nearest the pointer. Settings are read
  * from a ref every frame, so moving a slider never recreates a WebGL context.
  * While `pinRef` holds a point, the pointer stays there so slider changes can
  * be watched.
@@ -23,7 +23,7 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
     const stage = stageRef.current;
     if (!stage) return undefined;
 
-    const pool = new LiquidLayerPool(2);
+    const pool = new LiquidLayerPool(4);
     const states = new Map();
     const pointer = {
       active: false,
