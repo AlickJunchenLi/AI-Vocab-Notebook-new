@@ -1,10 +1,10 @@
 import { useEffect } from "react";
-import { clamp, sdRoundedRect, smoothstep } from "../glass/roundedRectField.js";
+import { clamp, sdRoundedRect } from "../glass/roundedRectField.js";
 import {
   approach,
+  computeTraces,
   followAxis,
   layerPresence,
-  pressStrength,
   stepSpring,
 } from "../glass/liquidField.js";
 import { readLiquidColours } from "../glass/liquidColours.js";
@@ -12,11 +12,13 @@ import { LiquidLayerPool } from "../glass/liquidGlassGL.js";
 
 /*
  * Drives the prototype with the pointer model the app will use: a smoothed
- * pointer, a springy dent per surface, and a pool of two WebGL layers for the
- * surfaces nearest the pointer. Settings are read from a ref every frame, so
- * moving a slider never recreates a WebGL context.
+ * pointer for the lamp, a springier anchor for the liquid trace, and a pool of
+ * two WebGL layers for the surfaces nearest the pointer. Settings are read
+ * from a ref every frame, so moving a slider never recreates a WebGL context.
+ * While `pinRef` holds a point, the pointer stays there so slider changes can
+ * be watched.
  */
-export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, statsRef }) {
+export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, statsRef, pinRef }) {
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return undefined;
@@ -28,6 +30,8 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
       positioned: false,
       x: { value: 0, velocity: 0 },
       y: { value: 0, velocity: 0 },
+      anchorX: { value: 0, velocity: 0 },
+      anchorY: { value: 0, velocity: 0 },
       targetX: 0,
       targetY: 0,
     };
@@ -46,12 +50,25 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
       requestFrame();
     }
 
+    function moveTo(x, y) {
+      pointer.targetX = x;
+      pointer.targetY = y;
+      pointer.active = true;
+      if (!pointer.positioned) {
+        for (const [axis, value] of [[pointer.x, x], [pointer.y, y], [pointer.anchorX, x], [pointer.anchorY, y]]) {
+          axis.value = value;
+          axis.velocity = 0;
+        }
+        pointer.positioned = true;
+      }
+    }
+
     function measure() {
       const seen = new Set();
       for (const element of stage.querySelectorAll("[data-liquid-surface]")) {
         let state = states.get(element);
         if (!state) {
-          state = { element, dent: { value: 0, velocity: 0 }, presence: 0, face: 0, cache: new Map() };
+          state = { element, presence: 0 };
           states.set(element, state);
         }
         const rect = element.getBoundingClientRect();
@@ -70,13 +87,6 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
         if (!seen.has(element)) states.delete(element);
       }
       measurementsDirty = false;
-    }
-
-    function writeVariable(state, name, value) {
-      if (state.cache.get(name) !== value) {
-        state.cache.set(name, value);
-        state.element.style.setProperty(name, value);
-      }
     }
 
     function reportStats(now, started) {
@@ -102,18 +112,20 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
       lastTime = now;
       if (measurementsDirty) measure();
       const settings = settingsRef.current;
+      if (pinRef.current) moveTo(pinRef.current.x, pinRef.current.y);
 
       followAxis(pointer.x, pointer.targetX, 0.085, delta);
       followAxis(pointer.y, pointer.targetY, 0.085, delta);
+      const anchorMovingX = stepSpring(
+        pointer.anchorX, pointer.targetX, settings.springStiffness, settings.springDamping, delta,
+      );
+      const anchorMovingY = stepSpring(
+        pointer.anchorY, pointer.targetY, settings.springStiffness, settings.springDamping, delta,
+      );
       const x = pointer.x.value;
       const y = pointer.y.value;
-      const speed = Math.hypot(pointer.x.velocity, pointer.y.velocity);
-      const stretchAmount = clamp(speed / 2400, 0, 1) * settings.stretch;
-      const stretch = speed > 1
-        ? [(pointer.x.velocity / speed) * stretchAmount, (pointer.y.velocity / speed) * stretchAmount]
-        : [0, 0];
+      let moving = anchorMovingX || anchorMovingY || x !== pointer.targetX || y !== pointer.targetY;
       const pixelRatio = Math.min(window.devicePixelRatio || 1, settings.pixelRatio);
-      let moving = x !== pointer.targetX || y !== pointer.targetY;
       const requests = [];
 
       for (const state of states.values()) {
@@ -127,25 +139,20 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
           state.height,
           state.radius,
         );
-
-        const press = pointer.active ? pressStrength(distance, settings.reach, settings.outsideReach) : 0;
-        moving = stepSpring(state.dent, press, settings.springStiffness, settings.springDamping, delta) ||
-          moving;
         const presence = pointer.active ? layerPresence(distance, settings.presence) : 0;
         state.presence = approach(state.presence, presence, 12, delta);
+        moving ||= state.presence !== presence;
 
-        // The existing soft face glow stays; its rim parts are left off
-        // (--lg-edge stays 0) because the canvas lights the rim now.
-        const face = pointer.active ? 1 - smoothstep(0, 220, Math.max(0, distance)) : 0;
-        state.face = approach(state.face, face, 12, delta);
-        moving ||= state.presence !== presence || state.face !== face;
-        writeVariable(state, "--lg-active", state.face.toFixed(4));
-        writeVariable(state, "--lg-local-x", `${localX.toFixed(1)}px`);
-        writeVariable(state, "--lg-local-y", `${localY.toFixed(1)}px`);
-        writeVariable(state, "--lg-mirror-x", `${(state.width - localX).toFixed(1)}px`);
-        writeVariable(state, "--lg-mirror-y", `${(state.height - localY).toFixed(1)}px`);
-
-        if (state.presence > 0.001 || Math.abs(state.dent.value) > 0.001) {
+        if (state.presence > 0.001) {
+          const traces = computeTraces(
+            pointer.anchorX.value - state.left,
+            pointer.anchorY.value - state.top,
+            state.width,
+            state.height,
+            state.radius,
+            settings,
+            state.presence,
+          );
           requests.push({
             key: state.element,
             element: state.element,
@@ -154,23 +161,12 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
             pixelRatio,
             priority: state.presence,
             values: {
+              ...settings,
               radius: state.radius,
               cursor: [localX, localY],
-              stretch,
-              amount: Math.max(0, state.dent.value),
-              dentRadius: settings.dentRadius,
-              dentDepth: settings.dentDepth,
-              dentSoftness: settings.dentSoftness,
-              neck: settings.neck,
-              bevel: settings.bevel,
-              bevelHeight: settings.bevelHeight,
-              lightHeight: settings.lightHeight,
-              falloff: settings.falloff,
-              glow: settings.glow,
-              specular: settings.specular,
-              shininess: settings.shininess,
-              shade: settings.shade,
-              caustic: settings.caustic,
+              traceFrames: traces.frames,
+              traceShapes: traces.shapes,
+              traceSwells: traces.swells,
               lightColor: colours.light,
               shadeColor: colours.shade,
               opacity: state.presence,
@@ -187,19 +183,13 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
     }
 
     function handlePointerMove(event) {
-      if (event.pointerType === "touch") return;
-      pointer.targetX = event.clientX;
-      pointer.targetY = event.clientY;
-      pointer.active = true;
-      if (!pointer.positioned) {
-        pointer.x.value = event.clientX;
-        pointer.y.value = event.clientY;
-        pointer.positioned = true;
-      }
+      if (event.pointerType === "touch" || pinRef.current) return;
+      moveTo(event.clientX, event.clientY);
       requestFrame();
     }
 
     function handlePointerLeave() {
+      if (pinRef.current) return;
       pointer.active = false;
       pointer.positioned = false;
       requestFrame();
@@ -230,5 +220,5 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
       window.removeEventListener("scroll", markMeasurementsDirty, true);
       pool.destroy();
     };
-  }, [stageRef, settingsRef, debugRef, invalidateRef, statsRef]);
+  }, [stageRef, settingsRef, debugRef, invalidateRef, statsRef, pinRef]);
 }

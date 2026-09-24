@@ -193,6 +193,19 @@
   align-items: center;
 }
 
+.pin-status {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--muted);
+}
+
+.pin-status.is-pinned {
+  background: var(--accent);
+  color: white;
+}
+
 .control-group {
   margin: 0 0 12px;
   padding: 10px 0 0;

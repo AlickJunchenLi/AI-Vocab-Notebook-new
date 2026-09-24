@@ -9,7 +9,6 @@ function normalizeSurfaceConfig(config) {
     intensity: config.intensity ?? 1,
     variant: config.variant ?? "card",
     interactive: config.interactive ?? true,
-    render: null,
     rect: null,
   };
 }

@@ -1,8 +1,8 @@
 /*
- * The liquid lighting canvas. It sits above the surface's own light layers
- * (::before and ::after, z-index 1) and below its content (z-index 3); the
- * surface's rounded overflow clip trims it to the glass. The renderer sets
- * its pixel size, matching the surface's padding box.
+ * The liquid lighting canvas. It sits above the surface's rim light (::after,
+ * z-index 1) and below its content (z-index 3); the surface's rounded overflow
+ * clip trims it to the glass. The renderer sets its pixel size, matching the
+ * surface's padding box.
  */
 .liquid-glass-layer {
   position: absolute;

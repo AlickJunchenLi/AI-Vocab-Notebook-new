@@ -19,9 +19,11 @@ Each theme is only three numbers in `src/index.css`: a main hue, a companion hue
 
 ## Liquid glass
 
-The pointer acts like a small lamp held just above the page. Nothing is drawn at the cursor itself; instead, glass surfaces near it catch the light: the facing bevel brightens with a fine line of refraction at the rim, a fainter reflection appears on the opposite edge, and the frosted face picks up a little scattered light. The light is tinted with the current theme's hue, and the far-edge reflection with its companion hue. The highlight tightens as the cursor nears an edge and follows it with a slight, fluid lag. The **Glass** button in the header switches the cursor effect on or off and remembers your choice on this device. On smaller screens, it appears as a sparkle icon.
+The pointer acts like a small lamp held just above the page, and nothing is drawn at the cursor itself. As it nears the edge of a glass surface, the rim there swells and its highlight brightens, with a thin darker line along the edge so the light reads on pale glass. The rim also sends a soft streak of light through the glass towards the cursor, widest where it leaves the edge and thinning out just short of the cursor, with no outline of its own. In a corner, both edges reach in. The trace follows with a slight springy lag, and the light takes the current theme's hue. The **Glass** button in the header switches the cursor effect on or off and remembers your choice on this device. On smaller screens, it appears as a sparkle icon.
 
-The effect keeps the native pointer visible and never intercepts clicks. It is disabled on touch/coarse pointers, when reduced motion is requested, and in forced-colors mode. Rendering pauses once the pointer and highlights settle, and resets when the tab is hidden or loses focus.
+The effect is drawn by a small WebGL layer ([OGL](https://github.com/oframe/ogl)) on the one or two surfaces nearest the pointer; every pixel is lit on its own, so the light never jumps from one edge to another. While a dialog is open, only its surfaces react. Without WebGL, a CSS rim highlight lit from the pointer's position takes over. The effect keeps the native pointer visible and never intercepts clicks. It is disabled on touch/coarse pointers, when reduced motion is requested, and in forced-colors mode. Rendering pauses once the pointer and highlights settle, and resets when the tab is hidden or loses focus.
+
+The effect's defaults live in `src/glass/liquidField.js`. With the dev server running, `/liquid.html` is a tuning page with a slider for each of them; click the page to pin the light in place while you adjust.
 
 The shared material and pointer behavior are in `src/glass/`; the notebook's visual styling and responsive layouts are in `src/notebook.css`. The mobile navigation is fixed at the bottom of the screen.
 
@@ -45,3 +47,4 @@ Practice shortcuts do not run while a dialog or text field is active. The first 
 - Browser checks for search, language filtering, add-word submission, a complete keyboard review session, and the persisted glass toggle.
 - Desktop and mobile layout checks, including bottom navigation and the weekly progress chart.
 - Cursor lifecycle checks for settling, pointer leave, reduced motion, disabled mode, touch input, and cleanup.
+- Liquid layer checks for which surfaces get a layer (including nested surfaces and open dialogs), theme changes, the Glass toggle, and the CSS fallback after a lost WebGL context.

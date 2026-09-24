@@ -1,32 +1,28 @@
 import { useEffect } from "react";
-import { clamp, computeSurfaceMetrics, smoothstep } from "./roundedRectField.js";
+import { clamp, sdRoundedRect, smoothstep } from "./roundedRectField.js";
+import {
+  LIQUID_DEFAULTS,
+  approach,
+  computeTraces,
+  followAxis,
+  layerPresence,
+  stepSpring,
+} from "./liquidField.js";
+import { readLiquidColours } from "./liquidColours.js";
+import { LiquidLayerPool } from "./liquidGlassGL.js";
 
-// The pointer acts as a small lamp held just above the page. Nothing is drawn
-// at the pointer itself; nearby glass surfaces catch the light on their rims.
+/*
+ * The pointer acts as a small lamp held just above the page, and nothing is
+ * drawn at the pointer itself. Where WebGL is available, the glass nearest it
+ * is lit per pixel by the liquid layer (liquidGlassGL.js): the rim swells and
+ * sends a liquid trace towards the pointer. Without WebGL, the CSS rim light
+ * in liquidGlass.css takes over: a highlight on the border ring, lit from the
+ * pointer's own position so it never jumps between edges.
+ */
+const SETTINGS = LIQUID_DEFAULTS;
+const LIQUID_LAYERS = 2;
+// How far from the rim the CSS rim light still shows.
 const RIM_REACH = 210;
-const SPECULAR_MIN = 54;
-const SPECULAR_MAX = 210;
-
-function approach(current, target, rate, delta, epsilon = 0.001) {
-  const next = current + (target - current) * (1 - Math.exp(-rate * delta));
-  return Math.abs(next - target) < epsilon ? target : next;
-}
-
-// Critically damped spring: the light eases in and out of motion instead of
-// snapping to each pointer event, which is what makes the rims feel fluid.
-function springAxis(axis, target, smoothTime, delta) {
-  const omega = 2 / smoothTime;
-  const x = omega * delta;
-  const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
-  const change = axis.value - target;
-  const carry = (axis.velocity + omega * change) * delta;
-  axis.velocity = (axis.velocity - omega * carry) * decay;
-  axis.value = target + (change + carry) * decay;
-  if (Math.abs(axis.value - target) < 0.05 && Math.abs(axis.velocity) < 2) {
-    axis.value = target;
-    axis.velocity = 0;
-  }
-}
 
 function writeVariable(surface, name, value) {
   surface.styleValueCache ??= new Map();
@@ -37,19 +33,18 @@ function writeVariable(surface, name, value) {
 }
 
 function resetSurface(surface) {
-  surface.render = null;
-  writeVariable(surface, "--lg-active", "0");
+  surface.presence = 0;
+  surface.edge = 0;
   writeVariable(surface, "--lg-edge", "0");
 }
 
-function createRenderState(metrics) {
-  return {
-    active: 0,
-    edge: 0,
-    normalX: metrics.normalX,
-    normalY: metrics.normalY,
-    specular: SPECULAR_MAX,
-  };
+function whenIdle(callback) {
+  if ("requestIdleCallback" in window) {
+    const handle = window.requestIdleCallback(callback, { timeout: 2000 });
+    return () => window.cancelIdleCallback(handle);
+  }
+  const handle = window.setTimeout(callback, 500);
+  return () => window.clearTimeout(handle);
 }
 
 export function useLiquidGlassPointer({
@@ -71,18 +66,25 @@ export function useLiquidGlassPointer({
     const forcedColors = window.matchMedia("(forced-colors: active)");
     const radius = Math.max(1, Number(spillRadius) || 220);
     const surfaceLimit = clamp(Math.floor(Number(maxActiveSurfaces) || 0), 0, 12);
+    const pool = new LiquidLayerPool(LIQUID_LAYERS);
     const pointer = {
       active: false,
       positioned: false,
       x: { value: 0, velocity: 0 },
       y: { value: 0, velocity: 0 },
+      // The liquid follows on a springier path than the light, so it lags and
+      // overshoots a little.
+      anchorX: { value: 0, velocity: 0 },
+      anchorY: { value: 0, velocity: 0 },
       targetX: 0,
       targetY: 0,
     };
+    let colours = null;
     let available = false;
     let frame = null;
     let lastTime = 0;
     let measurementsDirty = true;
+    let cancelPrewarm = null;
 
     function requestFrame() {
       if (available && frame === null) frame = requestAnimationFrame(render);
@@ -96,16 +98,60 @@ export function useLiquidGlassPointer({
     function measureSurfaces() {
       // Batch layout reads before any per-frame style writes.
       for (const surface of surfaces.values()) {
-        if (surface.element.isConnected) {
-          const rect = surface.element.getBoundingClientRect();
-          surface.rect = rect;
-          // Highlights are drawn in the surface's own pixels, which differ from
-          // viewport pixels while an ancestor is scaled (e.g. a modal opening).
-          surface.scaleX = rect.width / (surface.element.offsetWidth || rect.width || 1);
-          surface.scaleY = rect.height / (surface.element.offsetHeight || rect.height || 1);
-        }
+        const { element } = surface;
+        if (!element.isConnected) continue;
+        const rect = element.getBoundingClientRect();
+        surface.rect = rect;
+        // Highlights are drawn in the surface's own pixels, which differ from
+        // viewport pixels while an ancestor is scaled (e.g. a modal opening).
+        surface.scaleX = rect.width / (element.offsetWidth || rect.width || 1);
+        surface.scaleY = rect.height / (element.offsetHeight || rect.height || 1);
+        // The liquid layer and the rim light both work in the padding box.
+        surface.borderLeft = element.clientLeft;
+        surface.borderTop = element.clientTop;
+        surface.innerWidth = element.clientWidth;
+        surface.innerHeight = element.clientHeight;
       }
       measurementsDirty = false;
+    }
+
+    function toLocal(surface, x, y) {
+      return [
+        (x - surface.rect.left) / (surface.scaleX || 1) - surface.borderLeft,
+        (y - surface.rect.top) / (surface.scaleY || 1) - surface.borderTop,
+      ];
+    }
+
+    // What is actually under the pointer, and the topmost open dialog, if any.
+    function hitTest(x, y) {
+      const dialogs = group.querySelectorAll('[aria-modal="true"]');
+      return { hit: document.elementFromPoint(x, y), dialog: dialogs[dialogs.length - 1] ?? null };
+    }
+
+    // Surfaces hidden behind something else stay dark: everything outside an
+    // open dialog, and a surface under the pointer that is covered there.
+    function isExposed(surface, scope, x, y) {
+      if (scope.dialog && !scope.dialog.contains(surface.element)) return false;
+      const { rect } = surface;
+      const over = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      return !over || !scope.hit || surface.element.contains(scope.hit);
+    }
+
+    // Where the pointer is in a surface's padding box, and its signed distance
+    // from the rim (negative inside); null when the surface is out of reach.
+    function locate(surface, x, y, scope) {
+      const { rect } = surface;
+      if (!rect || !surface.element.isConnected || surface.interactive === false ||
+        !surface.innerWidth || !surface.innerHeight ||
+        x < rect.left - radius || x > rect.right + radius ||
+        y < rect.top - radius || y > rect.bottom + radius ||
+        !isExposed(surface, scope, x, y)) return null;
+      const width = surface.innerWidth;
+      const height = surface.innerHeight;
+      const cornerRadius = Math.max(0, surface.radius - surface.borderLeft);
+      const [localX, localY] = toLocal(surface, x, y);
+      const distance = sdRoundedRect(localX - width / 2, localY - height / 2, width, height, cornerRadius);
+      return { localX, localY, width, height, cornerRadius, distance };
     }
 
     function reset() {
@@ -114,8 +160,8 @@ export function useLiquidGlassPointer({
       lastTime = 0;
       pointer.active = false;
       pointer.positioned = false;
-      pointer.x.velocity = 0;
-      pointer.y.velocity = 0;
+      for (const axis of [pointer.x, pointer.y, pointer.anchorX, pointer.anchorY]) axis.velocity = 0;
+      pool.hide();
       for (const surface of surfaces.values()) resetSurface(surface);
     }
 
@@ -125,6 +171,7 @@ export function useLiquidGlassPointer({
         !forcedColors.matches && document.visibilityState !== "hidden",
       );
       if (!available) reset();
+      else if (!cancelPrewarm) cancelPrewarm = whenIdle(() => pool.prewarm());
       measurementsDirty = true;
     }
 
@@ -134,8 +181,8 @@ export function useLiquidGlassPointer({
       pointer.targetY = event.clientY;
       pointer.active = true;
       if (!pointer.positioned) {
-        pointer.x.value = event.clientX;
-        pointer.y.value = event.clientY;
+        pointer.x.value = pointer.anchorX.value = event.clientX;
+        pointer.y.value = pointer.anchorY.value = event.clientY;
         pointer.positioned = true;
       }
       measurementsDirty = true;
@@ -147,6 +194,98 @@ export function useLiquidGlassPointer({
       requestFrame();
     }
 
+    // The liquid layer on the surfaces nearest the pointer. Returns true while
+    // anything is still fading.
+    function renderLiquid(x, y, delta, scope) {
+      colours ??= readLiquidColours(group);
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, SETTINGS.pixelRatio);
+      const requests = [];
+      let settling = false;
+
+      for (const surface of surfaces.values()) {
+        const spot = pointer.active ? locate(surface, x, y, scope) : null;
+        const target = spot ? layerPresence(spot.distance, radius) : 0;
+        surface.presence = approach(surface.presence ?? 0, target, 12, delta);
+        settling ||= surface.presence !== target;
+        if (!spot || surface.presence <= 0.001) continue;
+
+        const strength = clamp(Number(surface.intensity) || 0, 0, 1.5);
+        const tuned = {
+          ...SETTINGS,
+          glow: SETTINGS.glow * strength,
+          specular: SETTINGS.specular * strength,
+          traceStrength: SETTINGS.traceStrength * strength,
+          swell: SETTINGS.swell * strength,
+        };
+        const [anchorX, anchorY] = toLocal(surface, pointer.anchorX.value, pointer.anchorY.value);
+        const traces = computeTraces(
+          anchorX, anchorY, spot.width, spot.height, spot.cornerRadius, tuned, surface.presence,
+        );
+        requests.push({
+          key: surface.element,
+          element: surface.element,
+          width: spot.width,
+          height: spot.height,
+          pixelRatio,
+          priority: surface.presence,
+          values: {
+            ...tuned,
+            radius: spot.cornerRadius,
+            cursor: [spot.localX, spot.localY],
+            traceFrames: traces.frames,
+            traceShapes: traces.shapes,
+            traceSwells: traces.swells,
+            lightColor: colours.light,
+            shadeColor: colours.shade,
+            opacity: surface.presence,
+          },
+        });
+      }
+
+      requests.sort((a, b) => b.priority - a.priority);
+      settling = pool.sync(requests, delta) || settling;
+      // A lost context hands over to the CSS rim light from the next frame on.
+      return pool.failed || settling;
+    }
+
+    // The CSS rim light, used when WebGL is unavailable. Returns true while it
+    // is still easing.
+    function renderRimLight(x, y, delta, scope) {
+      const candidates = [];
+      if (pointer.active) {
+        for (const surface of surfaces.values()) {
+          const spot = locate(surface, x, y, scope);
+          if (!spot) continue;
+          const proximity = 1 - smoothstep(0, RIM_REACH, Math.abs(spot.distance));
+          if (proximity > 0) candidates.push({ surface, spot, proximity });
+        }
+      }
+      candidates.sort((a, b) => b.proximity - a.proximity);
+      const active = new Map(candidates.slice(0, surfaceLimit).map((item) => [item.surface.id, item]));
+      let settling = false;
+
+      for (const surface of surfaces.values()) {
+        const candidate = active.get(surface.id);
+        if (!candidate && !surface.edge) continue;
+        const strength = clamp(Number(surface.intensity) || 0, 0, 1.5);
+        const target = candidate ? candidate.proximity * strength : 0;
+        if (candidate) {
+          const { spot } = candidate;
+          writeVariable(surface, "--lg-local-x", `${spot.localX.toFixed(1)}px`);
+          writeVariable(surface, "--lg-local-y", `${spot.localY.toFixed(1)}px`);
+          writeVariable(surface, "--lg-distance", `${Math.abs(spot.distance).toFixed(1)}px`);
+          // Light that enters the near rim reflects off the inside of the far
+          // one, at the pointer's reflection through the surface's centre.
+          writeVariable(surface, "--lg-mirror-x", `${(spot.width - spot.localX).toFixed(1)}px`);
+          writeVariable(surface, "--lg-mirror-y", `${(spot.height - spot.localY).toFixed(1)}px`);
+        }
+        surface.edge = approach(surface.edge ?? 0, target, 12, delta);
+        settling ||= surface.edge !== target;
+        writeVariable(surface, "--lg-edge", surface.edge.toFixed(4));
+      }
+      return settling;
+    }
+
     function render(now) {
       frame = null;
       if (!available) return;
@@ -154,83 +293,23 @@ export function useLiquidGlassPointer({
       lastTime = now;
       if (measurementsDirty) measureSurfaces();
 
-      springAxis(pointer.x, pointer.targetX, 0.085, delta);
-      springAxis(pointer.y, pointer.targetY, 0.085, delta);
+      followAxis(pointer.x, pointer.targetX, 0.085, delta);
+      followAxis(pointer.y, pointer.targetY, 0.085, delta);
+      const anchorMovingX = stepSpring(
+        pointer.anchorX, pointer.targetX, SETTINGS.springStiffness, SETTINGS.springDamping, delta,
+      );
+      const anchorMovingY = stepSpring(
+        pointer.anchorY, pointer.targetY, SETTINGS.springStiffness, SETTINGS.springDamping, delta,
+      );
       const x = pointer.x.value;
       const y = pointer.y.value;
-      // A moving highlight smears a little along the rim, like it does on real glass.
-      const speed = Math.hypot(pointer.x.velocity, pointer.y.velocity);
-      const smear = 1 + clamp(speed / 2600, 0, 0.45);
 
-      const candidates = [];
-      if (pointer.active) {
-        for (const surface of surfaces.values()) {
-          const rect = surface.rect;
-          if (!rect || !surface.element.isConnected || surface.interactive === false ||
-            rect.width === 0 || rect.height === 0 ||
-            x < rect.left - radius || x > rect.right + radius ||
-            y < rect.top - radius || y > rect.bottom + radius) continue;
-
-          const scale = ((surface.scaleX || 1) + (surface.scaleY || 1)) / 2;
-          const metrics = computeSurfaceMetrics(x, y, rect, surface.radius * scale);
-          const proximity = 1 - smoothstep(0, radius, Math.max(0, metrics.d));
-          if (proximity > 0) candidates.push({ surface, metrics, proximity });
-        }
-      }
-      candidates.sort((a, b) => b.proximity - a.proximity || Math.abs(a.metrics.d) - Math.abs(b.metrics.d));
-      const active = new Map(candidates.slice(0, surfaceLimit).map((item) => [item.surface.id, item]));
-      let surfacesSettling = false;
-
-      for (const surface of surfaces.values()) {
-        const candidate = active.get(surface.id);
-        if (!candidate && !surface.render) continue;
-
-        const current = surface.render ?? createRenderState(candidate.metrics);
-        const strength = clamp(Number(surface.intensity) || 0, 0, 1.5);
-        let targetActive = 0;
-        let targetEdge = 0;
-
-        if (candidate) {
-          const { metrics } = candidate;
-          const scaleX = surface.scaleX || 1;
-          const scaleY = surface.scaleY || 1;
-          const distance = Math.abs(metrics.d) / ((scaleX + scaleY) / 2);
-          targetActive = candidate.proximity * strength;
-          targetEdge = (1 - smoothstep(0, RIM_REACH, distance)) * strength;
-          // The rim highlight tightens as the light nears the edge.
-          const targetSpecular = clamp(SPECULAR_MIN + distance * 0.62, SPECULAR_MIN, SPECULAR_MAX) * smear;
-          // Ease the facing direction so crossing the middle of a narrow surface
-          // swings the bevel light across instead of flipping it.
-          current.normalX = approach(current.normalX, metrics.normalX, 11, delta);
-          current.normalY = approach(current.normalY, metrics.normalY, 11, delta);
-          current.specular = approach(current.specular, targetSpecular, 14, delta, 0.05);
-          surfacesSettling ||= current.normalX !== metrics.normalX ||
-            current.normalY !== metrics.normalY || current.specular !== targetSpecular;
-
-          writeVariable(surface, "--lg-local-x", `${(metrics.elementX / scaleX).toFixed(1)}px`);
-          writeVariable(surface, "--lg-local-y", `${(metrics.elementY / scaleY).toFixed(1)}px`);
-          writeVariable(surface, "--lg-boundary-x", `${(metrics.boundaryX / scaleX).toFixed(1)}px`);
-          writeVariable(surface, "--lg-boundary-y", `${(metrics.boundaryY / scaleY).toFixed(1)}px`);
-          // Light that enters the near rim reflects off the inside of the far one.
-          writeVariable(surface, "--lg-mirror-x",
-            `${((metrics.rectWidth - metrics.boundaryX) / scaleX).toFixed(1)}px`);
-          writeVariable(surface, "--lg-mirror-y",
-            `${((metrics.rectHeight - metrics.boundaryY) / scaleY).toFixed(1)}px`);
-          writeVariable(surface, "--lg-normal-x", current.normalX.toFixed(3));
-          writeVariable(surface, "--lg-normal-y", current.normalY.toFixed(3));
-          writeVariable(surface, "--lg-specular", `${current.specular.toFixed(1)}px`);
-        }
-
-        current.active = approach(current.active, targetActive, 12, delta);
-        current.edge = approach(current.edge, targetEdge, 12, delta);
-        surfacesSettling ||= current.active !== targetActive || current.edge !== targetEdge;
-        writeVariable(surface, "--lg-active", current.active.toFixed(4));
-        writeVariable(surface, "--lg-edge", current.edge.toFixed(4));
-        surface.render = current.active === 0 && current.edge === 0 ? null : current;
-      }
-
-      const pointerSettling = pointer.x.value !== pointer.targetX ||
-        pointer.y.value !== pointer.targetY;
+      const scope = pointer.active ? hitTest(x, y) : { hit: null, dialog: null };
+      const surfacesSettling = pool.failed
+        ? renderRimLight(x, y, delta, scope)
+        : renderLiquid(x, y, delta, scope);
+      const pointerSettling = anchorMovingX || anchorMovingY ||
+        x !== pointer.targetX || y !== pointer.targetY;
       // A stationary pointer keeps its highlights without spending frames.
       if (pointerSettling || surfacesSettling) requestFrame();
       else {
@@ -250,6 +329,13 @@ export function useLiquidGlassPointer({
     // Refresh coordinates after content changes, scroll, and page transitions.
     const mutationObserver = new MutationObserver(markMeasurementsDirty);
     mutationObserver.observe(group, { childList: true, subtree: true });
+    // The liquid layer's colours come from the theme; read them again when it
+    // changes.
+    const themeObserver = new MutationObserver(() => {
+      colours = null;
+      requestFrame();
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     group.addEventListener("pointerenter", handlePointerMove, { passive: true });
     group.addEventListener("pointermove", handlePointerMove, { passive: true });
     group.addEventListener("pointerleave", handlePointerLeave, { passive: true });
@@ -268,8 +354,11 @@ export function useLiquidGlassPointer({
 
     return () => {
       reset();
+      cancelPrewarm?.();
+      pool.destroy();
       resizeObserver.disconnect();
       mutationObserver.disconnect();
+      themeObserver.disconnect();
       resizeObserverRef.current = null;
       markMeasurementsDirtyRef.current = () => {};
       group.removeEventListener("pointerenter", handlePointerMove);

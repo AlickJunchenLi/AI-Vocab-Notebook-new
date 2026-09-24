@@ -10,17 +10,16 @@
   --lg-radius: 28px;
   --lg-intensity: 1;
   --lg-control-radius: max(12px, calc(var(--lg-radius) - 14px));
+  /* Set by useLiquidGlassPointer for the rim light below: the pointer in the
+     padding box, its distance from the rim, its reflection through the
+     centre, and how strongly the rim is lit. */
   --lg-local-x: 50%;
   --lg-local-y: 50%;
-  --lg-boundary-x: 50%;
-  --lg-boundary-y: 0%;
+  --lg-distance: 0px;
   --lg-mirror-x: 50%;
   --lg-mirror-y: 100%;
-  --lg-normal-x: 0;
-  --lg-normal-y: -1;
-  --lg-specular: 120px;
-  --lg-active: 0;
   --lg-edge: 0;
+  --lg-specular: 60px;
   /* The pointer light takes the theme's hue; light that has crossed the glass
      to the far rim comes out in the companion hue, like a touch of dispersion. */
   --lg-light-hue: var(--theme-hue);
@@ -57,64 +56,15 @@
 }
 
 /*
- * Pointer light, part one. The pointer is treated as a small lamp just above
- * the page: the frosted face scatters a little of it, and the bevel facing it
- * picks it up as a bright band. A hairline of darker refraction sits at the
- * very rim, which is what lets a white highlight read on a pale surface. Some
- * of the light crosses the glass and catches the inside of the far bevel.
- * The mask keeps all of it near the pointer (and its reflection) instead of
- * lighting a whole long edge.
- */
-.liquid-glass-surface::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  border-radius: inherit;
-  pointer-events: none;
-  background: radial-gradient(
-    circle 220px at var(--lg-local-x) var(--lg-local-y),
-    oklch(99% calc(var(--lg-light-chroma) * 0.3) var(--lg-light-hue) / 0.5),
-    oklch(95% var(--lg-light-chroma) var(--lg-light-hue) / 0.3) 22%,
-    oklch(92% var(--lg-light-chroma) var(--lg-light-hue) / 0.13) 50%,
-    oklch(92% var(--lg-light-chroma) var(--lg-light-hue) / 0.03) 78%,
-    transparent
-  );
-  box-shadow:
-    inset calc(var(--lg-normal-x) * -5px) calc(var(--lg-normal-y) * -5px) 3px -3px
-      oklch(41.9% calc(0.087 * var(--theme-chroma)) calc(var(--theme-hue) - 11.2) / calc(var(--lg-edge) * 0.3)),
-    inset calc(var(--lg-normal-x) * -18px) calc(var(--lg-normal-y) * -18px) 16px -8px
-      oklch(96% calc(var(--lg-light-chroma) * 0.7) var(--lg-light-hue) / var(--lg-edge)),
-    inset calc(var(--lg-normal-x) * 15px) calc(var(--lg-normal-y) * 15px) 14px -9px
-      oklch(94% var(--lg-light-chroma) var(--lg-light-hue-2) / calc(var(--lg-edge) * 0.6));
-  opacity: var(--lg-active);
-  -webkit-mask:
-    radial-gradient(
-      circle calc(var(--lg-specular) * 2 + 120px) at var(--lg-local-x) var(--lg-local-y),
-      #000 30%,
-      transparent
-    ),
-    radial-gradient(
-      circle calc(var(--lg-specular) * 1.6 + 60px) at var(--lg-mirror-x) var(--lg-mirror-y),
-      rgb(0 0 0 / 0.7) 20%,
-      transparent
-    );
-  mask:
-    radial-gradient(
-      circle calc(var(--lg-specular) * 2 + 120px) at var(--lg-local-x) var(--lg-local-y),
-      #000 30%,
-      transparent
-    ),
-    radial-gradient(
-      circle calc(var(--lg-specular) * 1.6 + 60px) at var(--lg-mirror-x) var(--lg-mirror-y),
-      rgb(0 0 0 / 0.7) 20%,
-      transparent
-    );
-}
-
-/*
- * Pointer light, part two: the crisp specular line on the rim itself, with its
- * fainter internal reflection opposite. At rest the rim keeps a quiet top light.
+ * The rim. At rest it keeps a quiet top light. The pointer's own light is
+ * drawn by the liquid layer (liquidGlassGL.js), a canvas between this and the
+ * content; when WebGL is unavailable, the two radial gradients here stand in
+ * for it. Both are centred on the pointer itself, and the mask keeps them to
+ * the 1px border ring, so every point of the rim is lit by its own distance
+ * from the pointer and the highlight never jumps between edges. The nearest
+ * rim sits `--lg-distance` away, which is where the gradient is brightest.
+ * A fainter reflection catches the far rim, centred on the pointer's
+ * reflection through the surface.
  */
 .liquid-glass-surface::after {
   content: "";
@@ -126,15 +76,16 @@
   padding: 1px;
   background:
     radial-gradient(
-      circle var(--lg-specular) at var(--lg-boundary-x) var(--lg-boundary-y),
-      oklch(99% calc(var(--lg-light-chroma) * 0.3) var(--lg-light-hue) / var(--lg-edge)),
-      oklch(93% var(--lg-light-chroma) var(--lg-light-hue) / calc(var(--lg-edge) * 0.5)) 38%,
+      circle calc(var(--lg-distance) + var(--lg-specular)) at var(--lg-local-x) var(--lg-local-y),
+      oklch(99% calc(var(--lg-light-chroma) * 0.3) var(--lg-light-hue) / var(--lg-edge)) var(--lg-distance),
+      oklch(93% var(--lg-light-chroma) var(--lg-light-hue) / calc(var(--lg-edge) * 0.5))
+        calc(var(--lg-distance) + var(--lg-specular) * 0.38),
       transparent
     ),
     radial-gradient(
-      circle calc(var(--lg-specular) * 1.45) at var(--lg-mirror-x) var(--lg-mirror-y),
-      oklch(93% var(--lg-light-chroma) var(--lg-light-hue-2) / calc(var(--lg-edge) * 0.55)),
-      transparent 72%
+      circle calc(var(--lg-distance) + var(--lg-specular) * 1.45) at var(--lg-mirror-x) var(--lg-mirror-y),
+      oklch(93% var(--lg-light-chroma) var(--lg-light-hue-2) / calc(var(--lg-edge) * 0.55)) var(--lg-distance),
+      transparent
     ),
     linear-gradient(
       168deg,
@@ -265,15 +216,9 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
-  .liquid-glass-surface::before {
-    display: none;
-  }
-}
-
 @media (forced-colors: active) {
-  .liquid-glass-surface::before,
-  .liquid-glass-surface::after {
+  .liquid-glass-surface::after,
+  .liquid-glass-layer {
     display: none;
   }
 
