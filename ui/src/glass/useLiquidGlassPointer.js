@@ -351,12 +351,15 @@ export function useLiquidGlassPointer({
     const mutationObserver = new MutationObserver(markMeasurementsDirty);
     mutationObserver.observe(group, { childList: true, subtree: true });
     // The liquid layer's colours come from the theme; read them again when it
-    // changes.
+    // changes, and on every frame of the theme fade, which restyles <html>.
     const themeObserver = new MutationObserver(() => {
       colours = null;
       requestFrame();
     });
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme", "style"],
+    });
     group.addEventListener("pointerenter", handlePointerMove, { passive: true });
     group.addEventListener("pointermove", handlePointerMove, { passive: true });
     group.addEventListener("pointerleave", handlePointerLeave, { passive: true });

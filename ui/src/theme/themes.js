@@ -6,7 +6,7 @@ export const THEMES = [
   { id: "green", label: "Green" },
 ];
 
-export const DEFAULT_THEME = "lavender";
+export const DEFAULT_THEME = "blue";
 // index.html reads this key too, so the saved theme applies before first paint.
 export const THEME_STORAGE_KEY = "notebook.theme";
 

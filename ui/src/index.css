@@ -30,6 +30,17 @@
   --theme-chroma: 0.75;
 }
 
+/*
+ * The theme fade (theme/applyTheme.js) dips this towards 0 so the hue can turn
+ * while the page is nearly grey. Colours with a fixed chroma multiply by it;
+ * the rest scale with --theme-chroma, which the fade dips along with it.
+ */
+:root {
+  --theme-saturation: 1;
+}
+
+/* Transitions stay off while the theme changes: they would trail every frame
+   of the fade. */
 .theme-switching,
 .theme-switching *,
 .theme-switching *::before,
@@ -52,10 +63,10 @@
   --font-ui:
     "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial,
     "PingFang SC", "Microsoft YaHei", sans-serif;
-  --ink: oklch(28.8% 0.051 calc(var(--theme-hue) - 0.6));
-  --ink-soft: oklch(39.6% 0.045 calc(var(--theme-hue) + 2.5));
-  --muted: oklch(52.1% 0.036 calc(var(--theme-hue) + 4.1));
-  --muted-light: oklch(55.7% 0.039 calc(var(--theme-hue) + 5.6));
+  --ink: oklch(28.8% calc(0.051 * var(--theme-saturation)) calc(var(--theme-hue) - 0.6));
+  --ink-soft: oklch(39.6% calc(0.045 * var(--theme-saturation)) calc(var(--theme-hue) + 2.5));
+  --muted: oklch(52.1% calc(0.036 * var(--theme-saturation)) calc(var(--theme-hue) + 4.1));
+  --muted-light: oklch(55.7% calc(0.039 * var(--theme-saturation)) calc(var(--theme-hue) + 5.6));
   --canvas: #f6f7fb;
   --surface: rgba(255, 255, 255, 0.68);
   --surface-strong: rgba(255, 255, 255, 0.86);
@@ -63,7 +74,7 @@
   --line-strong: oklch(54.6% calc(0.215 * var(--theme-chroma)) calc(var(--theme-hue) - 13.1) / 0.34);
   --accent: oklch(53.4% calc(0.166 * var(--theme-chroma)) calc(var(--theme-hue) - 0.9));
   --accent-strong: oklch(46.6% calc(0.17 * var(--theme-chroma)) calc(var(--theme-hue) - 2.2));
-  --accent-soft: oklch(94.7% 0.023 calc(var(--theme-hue) + 9.1));
+  --accent-soft: oklch(94.7% calc(0.023 * var(--theme-saturation)) calc(var(--theme-hue) + 9.1));
   --violet: oklch(70.9% calc(0.159 * var(--theme-chroma)) calc(var(--theme-hue) + 8.5));
   --ice: oklch(86.2% calc(0.074 * var(--theme-chroma)) calc(var(--theme-hue-2) + 13.2));
   --mint: #5bc9aa;

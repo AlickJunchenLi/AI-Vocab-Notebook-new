@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import "../studyNotebook.css";
 
 const MASTERY_LEVELS = [
   { key: "developing", label: "Developing" },
@@ -13,28 +14,32 @@ const REVIEW_PERIODS = {
     label: "Week",
     summary: "this week",
     points: [
-      { label: "Mon", weight: 1 },
-      { label: "Tue", weight: 2 },
-      { label: "Wed", weight: 3 },
-      { label: "Thu", weight: 2 },
-      { label: "Fri", weight: 4 },
-      { label: "Sat", weight: 3 },
-      { label: "Sun", weight: 2 },
+      { label: "Mon" },
+      { label: "Tue" },
+      { label: "Wed" },
+      { label: "Thu" },
+      { label: "Fri" },
+      { label: "Sat" },
+      { label: "Sun" },
     ],
   },
   month: {
     label: "Month",
     summary: "this month",
     points: [
-      { label: "Week 1", weight: 2 },
-      { label: "Week 2", weight: 3 },
-      { label: "Week 3", weight: 4 },
-      { label: "Week 4", weight: 5 },
+      { label: "Week 1" },
+      { label: "Week 2" },
+      { label: "Week 3" },
+      { label: "Week 4" },
     ],
   },
 };
 
 function toPercentage(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
   const number = Number(value);
 
   if (!Number.isFinite(number)) {
@@ -68,57 +73,36 @@ function getMastery(entry) {
   return "developing";
 }
 
-function getReviewCount(entry, period) {
-  const preferredValue =
-    period === "month"
-      ? entry?.monthlyReviews ?? entry?.reviewCount
-      : entry?.weeklyReviews ?? entry?.reviewCount;
-  const reviewCount = Number(preferredValue);
-
-  return Number.isFinite(reviewCount) && reviewCount > 0 ? reviewCount : 0;
-}
-
 function getReviewSeries(entries, period, points) {
-  if (period === "week") {
-    const hasDailyReviews = entries.some(
-      (entry) => Array.isArray(entry?.weeklyReviews) && entry.weeklyReviews.length > 0
-    );
-
-    if (hasDailyReviews) {
-      return points.map((point, pointIndex) => ({
-        label: point.label,
-        value: entries.reduce((sum, entry) => {
-          const dailyReviews = Number(entry?.weeklyReviews?.[pointIndex]);
-          return sum + (Number.isFinite(dailyReviews) ? dailyReviews : 0);
-        }, 0),
-      }));
-    }
-  }
-
-  const reviewTotal = entries.reduce(
-    (sum, entry) => sum + getReviewCount(entry, period),
-    0
+  const field = period === "month" ? "monthlyReviews" : "weeklyReviews";
+  const hasHistory = entries.some(
+    (entry) => Array.isArray(entry?.[field]) && entry[field].length > 0
   );
 
-  return distributeTotal(reviewTotal, points);
-}
-
-function distributeTotal(total, points) {
-  const weightTotal = points.reduce((sum, point) => sum + point.weight, 0);
-  const values = points.map((point) => Math.floor((total * point.weight) / weightTotal));
-  let remaining = total - values.reduce((sum, value) => sum + value, 0);
-  let index = points.length - 1;
-
-  while (remaining > 0) {
-    values[index] += 1;
-    remaining -= 1;
-    index = index === 0 ? points.length - 1 : index - 1;
-  }
+  if (!hasHistory) return null;
 
   return points.map((point, pointIndex) => ({
     label: point.label,
-    value: values[pointIndex],
+    value: entries.reduce((sum, entry) => {
+      const count = Array.isArray(entry?.[field]) ? Number(entry[field][pointIndex]) : 0;
+      return sum + (Number.isFinite(count) ? Math.max(0, count) : 0);
+    }, 0),
   }));
+}
+
+function getRecordedTotal(entries, period) {
+  const field = period === "month" ? "monthlyReviews" : "weeklyReviews";
+  const recordedCounts = entries.flatMap((entry) => {
+    const value = entry?.[field];
+    if (value === null || value === undefined || value === "") return [];
+    return (Array.isArray(value) ? value : [value])
+      .map(Number)
+      .filter((count) => Number.isFinite(count) && count >= 0);
+  });
+
+  return recordedCounts.length > 0
+    ? recordedCounts.reduce((sum, count) => sum + count, 0)
+    : undefined;
 }
 
 function getLanguageStats(entries) {
@@ -154,10 +138,11 @@ function getLanguageStats(entries) {
 
 function getRecallRate(entries) {
   if (entries.length === 0) {
-    return 0;
+    return null;
   }
 
   const explicitRates = entries
+    .filter((entry) => entry?.reviewCount !== 0 || entry?.lastReviewedAt)
     .map((entry) => toPercentage(entry?.recallRate ?? entry?.recall))
     .filter((value) => value !== null);
 
@@ -167,20 +152,12 @@ function getRecallRate(entries) {
     );
   }
 
-  const masteryWeights = {
-    developing: 35,
-    familiar: 72,
-    mastered: 95,
-  };
-
-  return Math.round(
-    entries.reduce((sum, entry) => sum + masteryWeights[getMastery(entry)], 0) /
-      entries.length
-  );
+  return null;
 }
 
 function getRecallChange(entries) {
   const changes = entries
+    .filter((entry) => entry?.recallChange !== null && entry?.recallChange !== undefined && entry?.recallChange !== "")
     .map((entry) => Number(entry?.recallChange))
     .filter(Number.isFinite);
 
@@ -199,7 +176,7 @@ function getActivityCopy(entry) {
   }
 
   if (mastery === "familiar") {
-    return "moved to Familiar";
+    return "marked familiar";
   }
 
   return "reviewed";
@@ -233,12 +210,13 @@ function ProgressPage({ entries }) {
     reviewPeriod,
     period.points
   );
-  const reviewTotal = reviewSeries.reduce((sum, point) => sum + point.value, 0);
-  const largestReviewValue = Math.max(...reviewSeries.map((point) => point.value), 1);
+  const reviewTotal = getRecordedTotal(vocabularyEntries, reviewPeriod);
+  const largestReviewValue = Math.max(...(reviewSeries || []).map((point) => point.value), 1);
   const recallRate = getRecallRate(vocabularyEntries);
   const recallChange = getRecallChange(vocabularyEntries);
   const languageStats = getLanguageStats(vocabularyEntries);
   const recentEntries = vocabularyEntries
+    .filter((entry) => Number(entry.reviewCount) > 0 || entry.lastReviewedAt || /^Reviewed\b/i.test(entry.lastReviewedLabel || ""))
     .map((entry, index) => ({ entry, index }))
     .sort(
       (left, right) =>
@@ -251,9 +229,9 @@ function ProgressPage({ entries }) {
   return (
     <main className="progress-page" aria-labelledby="progress-page-title">
       <header className="progress-page-header">
-        <h1 id="progress-page-title">See what is sticking</h1>
+        <h1 id="progress-page-title">My study log</h1>
         <p className="progress-page-description">
-          Small, consistent reviews turn new words into lasting recall.
+          A record of the words you keep coming back to.
         </p>
       </header>
 
@@ -269,8 +247,8 @@ function ProgressPage({ entries }) {
         >
           <header className="progress-card-header">
             <div>
-              <p className="progress-card-eyebrow">Review rhythm</p>
-              <h2 id="progress-rhythm-title">Keep the habit moving</h2>
+              <p className="progress-card-eyebrow">A little, often</p>
+              <h2 id="progress-rhythm-title">Back to the words</h2>
             </div>
 
             <div
@@ -297,12 +275,12 @@ function ProgressPage({ entries }) {
           </header>
 
           <p className="progress-rhythm-total" aria-live="polite">
-            <strong>{reviewTotal}</strong> reviews {period.summary}
+            {reviewTotal === undefined ? "No recorded history for this period" : <><strong>{reviewTotal}</strong> reviews {period.summary}</>}
           </p>
 
-          <figure className="progress-rhythm-figure">
+          {reviewSeries ? <figure className="progress-rhythm-figure">
             <figcaption className="progress-rhythm-caption">
-              Review activity for each day in the selected period
+              {reviewPeriod === "week" ? "Recorded reviews by day" : "Recorded reviews by week"}
             </figcaption>
             <ol className="progress-rhythm-plot">
               {reviewSeries.map((point) => (
@@ -310,7 +288,7 @@ function ProgressPage({ entries }) {
                   key={point.label}
                   className="progress-rhythm-point"
                   style={{
-                    "--progress-point": `${(point.value / largestReviewValue) * 100}%`,
+                    "--progress-point": `${(point.value / largestReviewValue) * 72}%`,
                   }}
                   aria-label={`${point.label}: ${point.value} ${
                     point.value === 1 ? "review" : "reviews"
@@ -322,7 +300,11 @@ function ProgressPage({ entries }) {
                 </li>
               ))}
             </ol>
-          </figure>
+          </figure> : <div className="progress-history-empty">
+            <Icon name="book-open" size={28} />
+            <p>{reviewTotal !== undefined ? "The total is here; the dates aren’t recorded yet." : reviewPeriod === "month" ? "No monthly history has been recorded yet." : "Your first review is the start of this page."}</p>
+            <span>{reviewPeriod === "month" ? "Daily reviews are kept on the Week page." : "Practice a few words to leave a mark here."}</span>
+          </div>}
         </LiquidGlassSurface>
 
         <LiquidGlassSurface
@@ -335,24 +317,21 @@ function ProgressPage({ entries }) {
           aria-labelledby="progress-recall-title"
         >
           <header className="progress-card-header">
-            <h2 id="progress-recall-title">Recall</h2>
-            <Icon name="chart" size={18} className="progress-card-icon" />
+            <h2 id="progress-recall-title">What’s sticking</h2>
           </header>
 
           <div
             className="progress-recall-ring"
-            style={{ "--progress-recall": `${recallRate}%` }}
             role="img"
-            aria-label={`${recallRate}% recall rate`}
+            aria-label={recallRate === null ? "No recall rate recorded yet" : `${recallRate}% recorded recall rate`}
           >
-            <strong>{recallRate}%</strong>
-            <span>Recall rate</span>
+            <strong>{recallRate === null ? "N/A" : `${recallRate}%`}</strong>
+            <span>Recorded recall</span>
           </div>
 
           <p className="progress-recall-change">
-            <Icon name="arrow-up-right" size={17} />
             {recallChange === null
-              ? "Building your baseline"
+              ? recallRate === null ? "A fresh page. Keep practicing." : "A little more remembered."
               : `${recallChange >= 0 ? "+" : ""}${recallChange}% vs last period`}
           </p>
         </LiquidGlassSurface>
@@ -368,7 +347,7 @@ function ProgressPage({ entries }) {
         aria-labelledby="progress-mastery-title"
       >
         <header className="progress-mastery-header">
-          <h2 id="progress-mastery-title">Mastery by language</h2>
+          <h2 id="progress-mastery-title">Where my words stand</h2>
           <ul className="progress-mastery-legend" aria-label="Mastery levels">
             {MASTERY_LEVELS.map((level) => (
               <li key={level.key} className={`progress-legend-${level.key}`}>
@@ -402,7 +381,7 @@ function ProgressPage({ entries }) {
                         "--progress-segment": `${language.percentages[level.key]}%`,
                       }}
                     >
-                      {language.percentages[level.key]}%
+                      {language.percentages[level.key] >= 12 ? `${language.percentages[level.key]}%` : ""}
                     </span>
                   ))}
                 </div>

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import GlassSelect from "../components/GlassSelect.jsx";
 import Icon from "../components/Icon.jsx";
-import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
-import GlassSelector from "../lens/GlassSelector.jsx";
+import "../libraryNotebook.css";
 
 const LANGUAGE_OPTIONS = [
   { value: "all", label: "All languages" },
@@ -59,6 +57,7 @@ function LibraryPage({
   const [sortOrder, setSortOrder] = useState("recent");
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const wordListRef = useRef(null);
+  const detailRef = useRef(null);
   const searchRef = useRef(null);
   const moreActionRef = useRef(null);
   const moreButtonRef = useRef(null);
@@ -68,7 +67,7 @@ function LibraryPage({
     function handleSearchShortcut(event) {
       if (
         event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey ||
-        document.querySelector('[role="dialog"], dialog[open]') ||
+        document.querySelector('[role="dialog"], [role="alertdialog"], dialog[open]') ||
         event.target.closest?.('input, textarea, select, [contenteditable="true"]')
       ) {
         return;
@@ -152,11 +151,35 @@ function LibraryPage({
     searchRef.current?.focus();
   }
 
+  function openEntry(entry) {
+    onSelect(entry);
+    setIsMoreOpen(false);
+
+    if (window.matchMedia("(max-width: 800px)").matches) {
+      detailRef.current?.scrollIntoView({
+        block: "start",
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+      });
+    }
+  }
+
+  function requestDelete(entry) {
+    // Give the dialog a return target that survives removing the selected row
+    // or closing the action menu. The detail sheet disappears with the last match.
+    const returnTarget = filteredEntries.length > 1
+      ? moreButtonRef.current
+      : searchRef.current;
+    returnTarget?.focus({ preventScroll: true });
+    setIsMoreOpen(false);
+    onDelete(entry);
+  }
+
   /*
    * The list is one composite widget, not a run of buttons: only the selected row
-   * is a tab stop, and the arrows move within it. Selection follows focus, which
-   * is what makes the glass selector track the keyboard for free - it reads the
-   * same activeKey either way.
+   * is a tab stop, and the arrows move within it. Selection follows focus so
+   * opening a notebook entry works just as well without a pointer.
    */
   function selectRowAt(index) {
     const entry = filteredEntries[index];
@@ -169,7 +192,7 @@ function LibraryPage({
     setIsMoreOpen(false);
 
     const row = wordListRef.current?.querySelector(
-      `[data-glass-row="${CSS.escape(String(entry.id))}"]`,
+      `[data-word-row="${CSS.escape(String(entry.id))}"]`,
     );
 
     row?.focus();
@@ -217,7 +240,7 @@ function LibraryPage({
         break;
       case "Delete":
         event.preventDefault();
-        onDelete(filteredEntries[currentIndex]);
+        requestDelete(filteredEntries[currentIndex]);
         break;
       default:
         break;
@@ -225,22 +248,17 @@ function LibraryPage({
   }
 
   return (
-    <main className="page library-page" aria-labelledby="library-page-title">
+    <main className="page library-page notebook-library" aria-labelledby="library-page-title">
       <header className="page-heading library-heading">
         <div>
           <h1 id="library-page-title">Your vocabulary</h1>
-          <p>A living collection of words worth remembering.</p>
+          <p>Words you’ve collected. Thoughts in the margins.</p>
         </div>
       </header>
 
-      <LiquidGlassSurface
-        as="section"
+      <section
         id="library-summary"
         className="library-summary"
-        variant="panel"
-        radius={20}
-        intensity={0.72}
-        interactive={false}
         aria-label="Vocabulary summary"
       >
         <div className="summary-item">
@@ -260,7 +278,7 @@ function LibraryPage({
           <strong>{dueCount}</strong>
           <span>due today</span>
         </div>
-      </LiquidGlassSurface>
+      </section>
 
       <section className="library-workspace">
         <div className="library-collection">
@@ -272,6 +290,7 @@ function LibraryPage({
                 ref={searchRef}
                 type="search"
                 placeholder="Search your words"
+                aria-label="Search your words"
                 aria-keyshortcuts="/"
                 title="Search your words (/)"
                 value={searchText}
@@ -294,30 +313,35 @@ function LibraryPage({
               ) : null}
             </label>
 
-            <GlassSelect
-              label="Filter by language"
-              hideLabel
-              icon="globe"
-              value={language}
-              onChange={(value) => {
-                setLanguage(value);
-                setIsMoreOpen(false);
-              }}
-              options={LANGUAGE_OPTIONS}
-            />
+            <label className="notebook-library-select">
+              <span className="sr-only">Filter by language</span>
+              <Icon name="globe" size={17} />
+              <select
+                value={language}
+                onChange={(event) => {
+                  setLanguage(event.target.value);
+                  setIsMoreOpen(false);
+                }}
+              >
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
 
-            <GlassSelect
-              label="Sort vocabulary"
-              hideLabel
-              icon="sort"
-              value={sortOrder}
-              onChange={setSortOrder}
-              options={SORT_OPTIONS}
-            />
+            <label className="notebook-library-select">
+              <span className="sr-only">Sort vocabulary</span>
+              <Icon name="sort" size={17} />
+              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div
-            className="word-list has-glass-selector"
+            className="word-list"
             role="group"
             aria-label="Vocabulary words"
             aria-describedby={filteredEntries.length > 0 ? "word-list-shortcuts" : undefined}
@@ -325,16 +349,9 @@ function LibraryPage({
             onKeyDown={handleListKeyDown}
           >
             <div className="word-list-header" aria-hidden="true">
-              <span>Word</span>
-              <span>Language</span>
-              <span>Notes</span>
+              <span>Word index</span>
               <span>Review</span>
             </div>
-
-            <GlassSelector
-              containerRef={wordListRef}
-              activeKey={visibleSelectedEntry?.id ?? null}
-            />
 
             {filteredEntries.map((entry) => {
               const isSelected = visibleSelectedEntry?.id === entry.id;
@@ -344,13 +361,10 @@ function LibraryPage({
                   key={entry.id}
                   type="button"
                   className={isSelected ? "word-row selected" : "word-row"}
-                  data-glass-row={entry.id}
+                  data-word-row={entry.id}
                   aria-pressed={isSelected}
                   tabIndex={isSelected ? 0 : -1}
-                  onClick={() => {
-                    onSelect(entry);
-                    setIsMoreOpen(false);
-                  }}
+                  onClick={() => openEntry(entry)}
                 >
                   <span className="word-row-title">
                     <strong>{entry.word}</strong>
@@ -409,18 +423,15 @@ function LibraryPage({
         </div>
 
         {visibleSelectedEntry ? (
-          <LiquidGlassSurface
-            as="aside"
+          <aside
+            ref={detailRef}
             id={`detail-${visibleSelectedEntry.id}`}
             className="library-detail"
-            variant="sidebar"
-            radius={30}
-            intensity={1.08}
             aria-label={`Details for ${visibleSelectedEntry.word}`}
           >
             <div className="detail-heading-row">
               <div>
-                <h2>{visibleSelectedEntry.word}</h2>
+                <h2 key={visibleSelectedEntry.id}>{visibleSelectedEntry.word}</h2>
                 <div className="pronunciation-row">
                   <span>{visibleSelectedEntry.pronunciation}</span>
                   <button
@@ -438,7 +449,7 @@ function LibraryPage({
               </span>
             </div>
 
-            <dl className="detail-definition-list">
+            <dl className="detail-definition-list" key={visibleSelectedEntry.id}>
               <div>
                 <dt>Translation</dt>
                 <dd>{listText(visibleSelectedEntry.translations)}</dd>
@@ -502,10 +513,7 @@ function LibraryPage({
                     <button
                       ref={deleteButtonRef}
                       type="button"
-                      onClick={() => {
-                        setIsMoreOpen(false);
-                        onDelete(visibleSelectedEntry);
-                      }}
+                      onClick={() => requestDelete(visibleSelectedEntry)}
                     >
                       <Icon name="trash" size={17} />
                       Delete word
@@ -514,15 +522,12 @@ function LibraryPage({
                 ) : null}
               </div>
             </div>
-          </LiquidGlassSurface>
+          </aside>
         ) : (
-          <LiquidGlassSurface
-            as="aside"
+          <aside
+            ref={detailRef}
             id="library-detail-empty"
             className="library-detail empty-detail"
-            variant="sidebar"
-            radius={30}
-            intensity={0.9}
           >
             <Icon name="book-open" size={34} />
             <h2>{entries.length === 0 ? "Your library is ready" : "Find your next word"}</h2>
@@ -531,7 +536,7 @@ function LibraryPage({
               <Icon name={entries.length === 0 ? "plus" : "search"} size={18} />
               {entries.length === 0 ? "Add word" : "Clear filters"}
             </button>
-          </LiquidGlassSurface>
+          </aside>
         )}
       </section>
     </main>

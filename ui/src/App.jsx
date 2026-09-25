@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./glass/liquidGlass.css";
 import "./App.css";
-import "./notebook.css";
-import LiquidGlassGroup from "./glass/LiquidGlassGroup.jsx";
 import TopMenu from "./components/TopMenu.jsx";
 import AddWordModal from "./components/AddWordModal.jsx";
 import EditWordModal from "./components/EditWordModal.jsx";
@@ -13,7 +11,9 @@ import LibraryPage from "./pages/LibraryPage.jsx";
 import PracticePage from "./pages/PracticePage.jsx";
 import ProgressPage from "./pages/ProgressPage.jsx";
 import { mockEntries } from "./data/mockEntries.js";
+import { applyTheme } from "./theme/applyTheme.js";
 import { loadTheme, saveTheme } from "./theme/themes.js";
+import "./paper.css";
 
 const STORAGE_KEY = "ai-vocabulary-notebook.entries.v3";
 const PAGE_IDS = new Set(["today", "library", "practice", "progress"]);
@@ -51,31 +51,67 @@ function App() {
     return mockEntries.find((entry) => entry.word === "lucid")?.id ?? mockEntries[0].id;
   });
   const [practiceQueueIds, setPracticeQueueIds] = useState(null);
+  const [libraryVisit, setLibraryVisit] = useState(0);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [entryToDelete, setEntryToDelete] = useState(null);
   const [pendingDeletion, setPendingDeletion] = useState(null);
   const [toast, setToast] = useState(null);
-  const [glassEnabled, setGlassEnabled] = useState(() => {
+  const [ruledPaper, setRuledPaper] = useState(() => {
     try {
-      return window.localStorage.getItem("notebook.liquid-glass") !== "off";
+      return window.localStorage.getItem("notebook.ruled-paper") !== "off";
     } catch {
       return true;
     }
   });
+  const [storageAvailable, setStorageAvailable] = useState(() => {
+    try {
+      window.localStorage.getItem(STORAGE_KEY);
+      return true;
+    } catch {
+      return false;
+    }
+  });
 
   const [theme, setTheme] = useState(loadTheme);
+  const [darkPaper, setDarkPaper] = useState(() => document.documentElement.dataset.paperTone === "dark");
+
+  function togglePaperTone() {
+    const next = !darkPaper;
+    setDarkPaper(next);
+    document.documentElement.dataset.paperTone = next ? "dark" : "light";
+    try {
+      window.localStorage.setItem("notebook.paper-tone", next ? "dark" : "light");
+    } catch {
+      // The chosen paper still applies for this visit.
+    }
+  }
+
+  function updateEntries(nextOrUpdater) {
+    const nextEntries = typeof nextOrUpdater === "function"
+      ? nextOrUpdater(entries)
+      : nextOrUpdater;
+
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextEntries));
+      setStorageAvailable(true);
+    } catch {
+      setStorageAvailable(false);
+    }
+
+    setEntries(nextEntries);
+  }
 
   function changeTheme(nextTheme) {
     setTheme(nextTheme);
     saveTheme(nextTheme);
   }
 
-  function toggleGlass() {
-    const enabled = !glassEnabled;
-    setGlassEnabled(enabled);
+  function toggleRuling() {
+    const enabled = !ruledPaper;
+    setRuledPaper(enabled);
     try {
-      window.localStorage.setItem("notebook.liquid-glass", enabled ? "on" : "off");
+      window.localStorage.setItem("notebook.ruled-paper", enabled ? "on" : "off");
     } catch {
       // The appearance control also works when browser storage is unavailable.
     }
@@ -107,17 +143,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-  }, [entries]);
-
-  useEffect(() => {
-    // Swap colours with transitions off: interpolating from one theme hue to
-    // another sweeps through unrelated colours (pink to green passes red).
-    const root = document.documentElement;
-    root.classList.add("theme-switching");
-    root.dataset.theme = theme;
-    void root.offsetWidth;
-    root.classList.remove("theme-switching");
+    applyTheme(theme);
   }, [theme]);
 
   useEffect(() => {
@@ -156,27 +182,29 @@ function App() {
       mastery: "developing",
       reviewCount: 0,
       weeklyReviews: [0, 0, 0, 0, 0, 0, 0],
-      recallRate: 0,
       lastReviewedLabel: "New word",
       dueLabel: "Due today",
       ...newEntry,
       id: newEntry.id ?? Date.now(),
     };
 
-    setEntries((currentEntries) => [entryWithDefaults, ...currentEntries]);
+    updateEntries((currentEntries) => [entryWithDefaults, ...currentEntries]);
     setSelectedId(entryWithDefaults.id);
+    setLibraryVisit((visit) => visit + 1);
     setIsAddModalOpen(false);
+    setToast({ id: Date.now(), message: `${entryWithDefaults.word} added to your notebook.` });
     commitNavigation("library");
   }
 
   function handleSaveEdit(updatedEntry) {
-    setEntries((currentEntries) =>
+    updateEntries((currentEntries) =>
       currentEntries.map((entry) =>
         entry.id === updatedEntry.id ? updatedEntry : entry,
       ),
     );
     setSelectedId(updatedEntry.id);
     setEditingEntry(null);
+    setToast({ id: Date.now(), message: `${updatedEntry.word} updated.` });
   }
 
   function handleConfirmDelete() {
@@ -191,7 +219,7 @@ function App() {
 
     setPendingDeletion({ entry: entryToDelete, index: deletedIndex });
     setToast({ id: Date.now(), message: `${entryToDelete.word} was removed.` });
-    setEntries(remainingEntries);
+    updateEntries(remainingEntries);
     if (selectedId === entryToDelete.id) {
       setSelectedId(remainingEntries[0]?.id ?? null);
     }
@@ -230,7 +258,7 @@ function App() {
       return;
     }
 
-    setEntries((currentEntries) => {
+    updateEntries((currentEntries) => {
       if (currentEntries.some((entry) => entry.id === pendingDeletion.entry.id)) {
         return currentEntries;
       }
@@ -251,7 +279,7 @@ function App() {
   function handlePracticeEntry(entry, assessment) {
     const mastery = getMasteryFromAssessment(assessment);
 
-    setEntries((currentEntries) =>
+    updateEntries((currentEntries) =>
       currentEntries.map((currentEntry) => {
         if (currentEntry.id !== entry.id) {
           return currentEntry;
@@ -269,6 +297,7 @@ function App() {
           reviewCount: (currentEntry.reviewCount ?? 0) + 1,
           weeklyReviews,
           lastReviewedLabel: "Reviewed just now",
+          lastReviewedAt: new Date().toISOString(),
           dueLabel: assessment === "again" ? "Review again" : "Up to date",
         };
       }),
@@ -276,26 +305,25 @@ function App() {
   }
 
   return (
-    <LiquidGlassGroup className="app" enabled={glassEnabled}>
+    <div className="app notebook-app" data-ruled={ruledPaper}>
       <a className="skip-link" href="#main-content" onClick={(event) => {
         event.preventDefault();
         document.getElementById("main-content")?.focus();
       }}>Skip to content</a>
-      <div className="ambient-field" aria-hidden="true">
-        <span className="ambient-field-blue" />
-        <span className="ambient-field-violet" />
-      </div>
-
       <TopMenu
         activePage={activePage}
         onNavigate={navigateTo}
         onAdd={() => setIsAddModalOpen(true)}
-        glassEnabled={glassEnabled}
-        onToggleGlass={toggleGlass}
+        ruledPaper={ruledPaper}
+        onToggleRuling={toggleRuling}
+        darkPaper={darkPaper}
+        onTogglePaperTone={togglePaperTone}
         theme={theme}
         onThemeChange={changeTheme}
       />
 
+      <div className="notebook-book">
+      <div className="notebook-binding" aria-hidden="true">{Array.from({ length: 9 }, (_, index) => <i key={index} />)}</div>
       <div className="page-transition" id="main-content" tabIndex={-1} key={activePage}>
         {activePage === "today" ? (
           <TodayPage
@@ -308,6 +336,7 @@ function App() {
 
         {activePage === "library" ? (
           <LibraryPage
+            key={libraryVisit}
             entries={entries}
             selectedEntry={selectedEntry}
             onSelect={(entry) => setSelectedId(entry.id)}
@@ -327,11 +356,12 @@ function App() {
 
         {activePage === "progress" ? <ProgressPage entries={entries} /> : null}
       </div>
-
       <footer className="notebook-footer">
-        <span>A little practice. A world of words.</span>
-        <span><span className="storage-dot" /> Saved on this device</span>
+        <span>{storageAvailable ? "Kept on this device" : "Storage unavailable. Changes last for this visit."}</span>
+        <span className="page-folio">{[...PAGE_IDS].indexOf(activePage) + 1} / 4</span>
+        <span>Your vocabulary notebook</span>
       </footer>
+      </div>
 
       {isAddModalOpen ? (
         <AddWordModal
@@ -366,7 +396,7 @@ function App() {
           onDismiss={dismissToast}
         />
       ) : null}
-    </LiquidGlassGroup>
+    </div>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import "../studyNotebook.css";
 
 const ASSESSMENTS = [
   { value: "again", label: "Again", icon: "rotate-ccw" },
@@ -101,9 +102,9 @@ function PracticePage({ entries, onPracticeEntry }) {
     return (
       <main className="practice-page" aria-labelledby="practice-page-title">
         <header className="practice-page-header">
-          <h1 id="practice-page-title">Practice what matters</h1>
+          <h1 id="practice-page-title">A little practice</h1>
           <p className="practice-page-description">
-            A short session built from the words ready for review.
+            One word at a time. See what you remember.
           </p>
         </header>
 
@@ -117,8 +118,9 @@ function PracticePage({ entries, onPracticeEntry }) {
           aria-labelledby="practice-empty-title"
         >
           <Icon name="book-open" size={30} className="practice-empty-icon" />
-          <h2 id="practice-empty-title">Your practice queue is empty</h2>
-          <p>Add words to the library, then return here for a focused review.</p>
+          <h2 id="practice-empty-title">A fresh stack of cards</h2>
+          <p>Add a word to your notebook, then come back and try it from memory.</p>
+          <a className="study-text-link" href="#/library">Open my notebook <span aria-hidden="true">↗</span></a>
         </LiquidGlassSurface>
       </main>
     );
@@ -132,7 +134,7 @@ function PracticePage({ entries, onPracticeEntry }) {
     return (
       <main className="practice-page" aria-labelledby="practice-complete-title">
         <header className="practice-page-header practice-page-header-complete">
-          <h1 id="practice-complete-title">Nice work. That round is done.</h1>
+          <h1 id="practice-complete-title">That’s a good place to stop.</h1>
           <p className="practice-page-description">
             You reviewed every word in this session.
           </p>
@@ -150,6 +152,7 @@ function PracticePage({ entries, onPracticeEntry }) {
           <span className="practice-completion-icon" aria-hidden="true">
             <Icon name="check" size={30} />
           </span>
+          <p className="study-handwritten-note">One more page of progress.</p>
 
           <dl className="practice-completion-stats">
             <div className="practice-completion-stat">
@@ -191,9 +194,9 @@ function PracticePage({ entries, onPracticeEntry }) {
     <main className="practice-page" aria-labelledby="practice-page-title">
       <header className="practice-page-header">
         <div className="practice-page-heading-copy">
-          <h1 id="practice-page-title">Practice what matters</h1>
+          <h1 id="practice-page-title">A little practice</h1>
           <p className="practice-page-description">
-            A short session built from the words ready for review.
+            One word at a time. See what you remember.
           </p>
         </div>
 
@@ -207,7 +210,7 @@ function PracticePage({ entries, onPracticeEntry }) {
             {currentIndex} of {sessionEntries.length} reviewed
           </progress>
           <span className="practice-progress-label">
-            {currentIndex + 1} of {sessionEntries.length}
+            Card {currentIndex + 1} / {sessionEntries.length}
           </span>
         </div>
       </header>
@@ -215,6 +218,7 @@ function PracticePage({ entries, onPracticeEntry }) {
       <div className="practice-layout">
         <div className="practice-stage" aria-live="polite">
           <LiquidGlassSurface
+            key={currentEntry.id ?? currentIndex}
             as="article"
             id="practice-prompt-card"
             className="practice-prompt-card"
@@ -223,16 +227,18 @@ function PracticePage({ entries, onPracticeEntry }) {
             intensity={1.2}
             aria-labelledby="practice-current-word"
           >
+            <div className="practice-card-topline">
+              <span>{currentEntry.language}</span>
+              <span>No. {String(currentIndex + 1).padStart(2, "0")}</span>
+            </div>
             <h2 id="practice-current-word" className="practice-word">
               {currentEntry.word}
             </h2>
             {currentEntry.pronunciation ? (
               <p className="practice-pronunciation">{currentEntry.pronunciation}</p>
             ) : null}
-            <p className="practice-language">{currentEntry.language}</p>
-
             <div className="practice-prompt-action">
-              <p>Do you remember this word?</p>
+              <p>Say it to yourself before you peek.</p>
               <LiquidGlassSurface
                 as="button"
                 id="practice-reveal-button"
@@ -248,7 +254,8 @@ function PracticePage({ entries, onPracticeEntry }) {
                 onClick={() => setIsRevealed(true)}
               >
                 <Icon name="eye" size={18} />
-                {isRevealed ? "Meaning revealed" : "Reveal meaning"}
+                {isRevealed ? "Meaning uncovered" : "Uncover the meaning"}
+                <kbd aria-hidden="true">Space</kbd>
               </LiquidGlassSurface>
             </div>
           </LiquidGlassSurface>
@@ -264,7 +271,7 @@ function PracticePage({ entries, onPracticeEntry }) {
               aria-labelledby="practice-answer-title"
             >
               <div className="practice-answer-heading">
-                <p className="practice-answer-label">Translation</p>
+                <p className="practice-answer-label">The other side</p>
                 <h2 id="practice-answer-title">{getTranslations(currentEntry)}</h2>
               </div>
 
@@ -296,6 +303,7 @@ function PracticePage({ entries, onPracticeEntry }) {
                     >
                       <Icon name={assessment.icon} size={18} />
                       <span>{assessment.label}</span>
+                      <kbd aria-hidden="true">{index + 1}</kbd>
                     </button>
                   ))}
                 </div>
@@ -314,8 +322,8 @@ function PracticePage({ entries, onPracticeEntry }) {
           aria-labelledby="practice-session-title"
         >
           <header className="practice-session-header">
-            <Icon name="clock" size={18} />
-            <h2 id="practice-session-title">Session</h2>
+            <Icon name="book-open" size={18} />
+            <h2 id="practice-session-title">In this little stack</h2>
           </header>
 
           <ol className="practice-session-list">
@@ -336,13 +344,13 @@ function PracticePage({ entries, onPracticeEntry }) {
                   className={itemClassName}
                   aria-current={isCurrent ? "step" : undefined}
                 >
-                  <span className="practice-session-number">{index + 1}</span>
+                  <span className="practice-session-number">{isReviewed ? <Icon name="check" size={16} /> : String(index + 1).padStart(2, "0")}</span>
                   <span className="practice-session-word-group">
                     <strong>{entry.word}</strong>
                     <span>{entry.language}</span>
                   </span>
                   <span className="practice-session-status">
-                    {isCurrent ? "Now" : isReviewed ? "Reviewed" : "Due"}
+                    {isCurrent ? "This one" : isReviewed ? "Done" : "Next"}
                   </span>
                 </li>
               );
@@ -354,7 +362,7 @@ function PracticePage({ entries, onPracticeEntry }) {
             this session
           </p>
           <p className="practice-session-count">
-            <kbd>Space</kbd> reveal · <kbd>1</kbd>–<kbd>4</kbd> rate
+            <kbd>Space</kbd> reveal · <kbd>1</kbd>-<kbd>4</kbd> rate
           </p>
         </LiquidGlassSurface>
       </div>

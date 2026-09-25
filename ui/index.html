@@ -4,16 +4,25 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ui</title>
+    <meta name="theme-color" content="#f7f5ed" />
+    <meta name="description" content="Your personal vocabulary notebook. Collect words, keep notes, and practice a little every day." />
+    <title>Vocabulary Notebook</title>
     <script>
       // Apply the saved colour theme before first paint (see src/theme/themes.js).
       try {
         var theme = localStorage.getItem("notebook.theme");
         if (["lavender", "blue", "pink", "green"].indexOf(theme) !== -1) {
           document.documentElement.dataset.theme = theme;
+        } else {
+          document.documentElement.dataset.theme = "blue";
         }
       } catch (error) {
         // Fall back to the default theme.
+      }
+      try {
+        document.documentElement.dataset.paperTone = localStorage.getItem("notebook.paper-tone") === "dark" ? "dark" : "light";
+      } catch (error) {
+        document.documentElement.dataset.paperTone = "light";
       }
     </script>
   </head>

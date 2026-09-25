@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
 import Icon from "./Icon.jsx";
 import { THEMES } from "../theme/themes.js";
 
@@ -14,12 +13,14 @@ function TopMenu({
   activePage,
   onNavigate,
   onAdd,
-  glassEnabled,
-  onToggleGlass,
+  ruledPaper,
+  onToggleRuling,
+  darkPaper,
+  onTogglePaperTone,
   theme,
   onThemeChange,
 }) {
-  // Below 980px the swatches fold behind one button showing the current theme.
+  // On small screens the ink pens fold into a compact tray.
   const [isThemeTrayOpen, setIsThemeTrayOpen] = useState(false);
   const themeWrapRef = useRef(null);
   const themeToggleRef = useRef(null);
@@ -63,14 +64,9 @@ function TopMenu({
   }
 
   return (
-    <LiquidGlassSurface
-      as="header"
+    <header
       id="top-menu"
       className="top-menu"
-      variant="menu"
-      radius={24}
-      intensity={0.82}
-      interactive
     >
       <button
         type="button"
@@ -81,7 +77,7 @@ function TopMenu({
         <span className="brand-mark" aria-hidden="true">
           <Icon name="book-open" size={24} />
         </span>
-        <span className="brand-name">Vocabulary<span className="brand-caption">YOUR PERSONAL NOTEBOOK</span></span>
+        <span className="brand-name">Vocabulary<span className="brand-caption">your personal notebook</span></span>
       </button>
 
       <nav className="primary-nav" aria-label="Primary navigation">
@@ -111,8 +107,8 @@ function TopMenu({
             className="theme-picker-toggle"
             aria-expanded={isThemeTrayOpen}
             aria-controls="theme-picker"
-            aria-label={`Colour theme: ${currentTheme.label}`}
-            title="Colour theme"
+            aria-label={`Ink colour: ${currentTheme.label}`}
+            title="Choose your ink"
             onClick={() => setIsThemeTrayOpen((open) => !open)}
           >
             <span className="theme-swatch" data-theme={currentTheme.id} aria-hidden="true" />
@@ -128,9 +124,9 @@ function TopMenu({
             }}
             onClick={handleThemeClick}
           >
-            <legend className="sr-only">Colour theme</legend>
+            <legend className="sr-only">Ink colour</legend>
             {THEMES.map((option) => (
-              <label key={option.id} className="theme-option" title={`${option.label} theme`}>
+              <label key={option.id} className="theme-option" title={`${option.label} ink`}>
                 <input
                   type="radio"
                   name="colour-theme"
@@ -139,7 +135,7 @@ function TopMenu({
                   onChange={() => onThemeChange(option.id)}
                   className="sr-only"
                 />
-                {/* data-theme gives the swatch that theme's hues from index.css. */}
+                {/* Each pen previews its ink using the existing theme hues. */}
                 <span className="theme-swatch" data-theme={option.id} aria-hidden="true" />
                 <span className="sr-only">{option.label}</span>
               </label>
@@ -148,15 +144,24 @@ function TopMenu({
         </div>
         <button
           type="button"
-          className="glass-toggle"
-          aria-label="Liquid glass cursor effect"
-          aria-pressed={glassEnabled}
-          title={`Liquid glass cursor: ${glassEnabled ? "on" : "off"}`}
-          onClick={onToggleGlass}
+          className="paper-toggle"
+          aria-label="Ruled paper"
+          aria-pressed={ruledPaper}
+          title={ruledPaper ? "Switch to plain paper" : "Switch to ruled paper"}
+          onClick={onToggleRuling}
         >
-          <Icon name="sparkles" size={18} />
-          <span>Glass</span>
-          <span className="glass-toggle-indicator" aria-hidden="true" />
+          <Icon name="book-open" size={18} />
+          <span>Lines</span>
+        </button>
+        <button
+          type="button"
+          className="paper-tone-toggle"
+          aria-label="Dark paper"
+          aria-pressed={darkPaper}
+          title={darkPaper ? "Use light paper" : "Use dark paper"}
+          onClick={onTogglePaperTone}
+        >
+          <Icon name="sun" size={18} />
         </button>
         <button
           type="button"
@@ -164,11 +169,11 @@ function TopMenu({
           onClick={onAdd}
           aria-label="Add word"
         >
-          <Icon name="plus" size={18} />
+          <Icon name="edit" size={18} />
           <span>Add word</span>
         </button>
       </div>
-    </LiquidGlassSurface>
+    </header>
   );
 }
 
