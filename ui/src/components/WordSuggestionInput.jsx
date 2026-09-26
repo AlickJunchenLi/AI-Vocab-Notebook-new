@@ -1,11 +1,13 @@
 import { useId, useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
+import MotionRegion from "../motion/MotionRegion.jsx";
 import Icon from "./Icon.jsx";
 
 const MAX_SUGGESTIONS = 5;
 
 function getTranslation(entry) {
   if (Array.isArray(entry?.translations) && entry.translations.length > 0) {
-    return entry.translations.slice(0, 2).join(" · ");
+    return entry.translations.slice(0, 2).join(", ");
   }
 
   return entry?.translation || "Saved in your library";
@@ -142,60 +144,62 @@ function WordSuggestionInput({ value, onChange, entries = [] }) {
           data-autofocus
         />
 
-        {showSuggestions ? (
-          <div className="word-suggestion-popover">
-            <div className="word-suggestion-caption">
-              <span>{value.trim() ? "Matching vocabulary" : "Recent vocabulary"}</span>
-              <span>{suggestions.length}</span>
-            </div>
+        <AnimatePresence>
+          {showSuggestions ? (
+            <MotionRegion key="suggestions" motionPreset="menu" className="word-suggestion-popover">
+              <div className="word-suggestion-caption">
+                <span>{value.trim() ? "Matching words" : "Your words"}</span>
+                <span>{suggestions.length}</span>
+              </div>
 
-            <div id={listboxId} className="word-suggestion-list" role="listbox">
-              {suggestions.map((entry, index) => {
-                const isActive = index === resolvedActiveIndex;
+              <div id={listboxId} className="word-suggestion-list" role="listbox">
+                {suggestions.map((entry, index) => {
+                  const isActive = index === resolvedActiveIndex;
 
-                return (
-                  <button
-                    key={entry.id ?? entry.word}
-                    id={`${listboxId}-option-${index}`}
-                    type="button"
-                    className={
-                      isActive
-                        ? "word-suggestion-option active"
-                        : "word-suggestion-option"
-                    }
-                    role="option"
-                    aria-selected={isActive}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => selectSuggestion(entry)}
-                  >
-                    <span className="word-suggestion-copy">
-                      <strong>{entry.word}</strong>
-                      <span>{getTranslation(entry)}</span>
-                    </span>
-                    <span className="word-suggestion-direction">
-                      {getDirection(entry.language)}
-                    </span>
-                    <Icon name="chevron-right" size={15} />
-                  </button>
-                );
-              })}
-            </div>
+                  return (
+                    <button
+                      key={entry.id ?? entry.word}
+                      id={`${listboxId}-option-${index}`}
+                      type="button"
+                      className={
+                        isActive
+                          ? "word-suggestion-option active"
+                          : "word-suggestion-option"
+                      }
+                      role="option"
+                      aria-selected={isActive}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectSuggestion(entry)}
+                    >
+                      <span className="word-suggestion-copy">
+                        <strong>{entry.word}</strong>
+                        <span>{getTranslation(entry)}</span>
+                      </span>
+                      <span className="word-suggestion-direction">
+                        {getDirection(entry.language)}
+                      </span>
+                      <Icon name="chevron-right" size={15} />
+                    </button>
+                  );
+                })}
+              </div>
 
-            <p className="word-suggestion-help">
-              <span>
-                <kbd>↑</kbd>
-                <kbd>↓</kbd> move
-              </span>
-              <span>
-                <kbd>Enter</kbd> select
-              </span>
-              <span>
-                <kbd>Esc</kbd> close
-              </span>
-            </p>
-          </div>
-        ) : null}
+              <p className="word-suggestion-help">
+                <span>
+                  <kbd>↑</kbd>
+                  <kbd>↓</kbd> move
+                </span>
+                <span>
+                  <kbd>Enter</kbd> select
+                </span>
+                <span>
+                  <kbd>Esc</kbd> close
+                </span>
+              </p>
+            </MotionRegion>
+          ) : null}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import Icon from "../components/Icon.jsx";
+import GlassSelect from "../components/GlassSelect.jsx";
+import LiquidGlassSurface from "../motion/MotionSurface.jsx";
+import MotionRegion from "../motion/MotionRegion.jsx";
 import "../libraryNotebook.css";
 
 const LANGUAGE_OPTIONS = [
@@ -25,7 +29,7 @@ function primaryTranslation(entry) {
     return "Translation not added";
   }
 
-  return entry.translations.slice(0, 2).join(" · ");
+  return entry.translations.slice(0, 2).join(", ");
 }
 
 function getLanguageDirection(language) {
@@ -248,44 +252,22 @@ function LibraryPage({
   }
 
   return (
-    <main className="page library-page notebook-library" aria-labelledby="library-page-title">
-      <header className="page-heading library-heading">
-        <div>
-          <h1 id="library-page-title">Your vocabulary</h1>
-          <p>Words you’ve collected. Thoughts in the margins.</p>
-        </div>
+    <main className="page library-page" aria-labelledby="library-page-title">
+      <header className="page-header">
+        <h1 id="library-page-title">Your vocabulary</h1>
+        <p id="library-summary">
+          <strong>{entries.length}</strong> {entries.length === 1 ? "word" : "words"} in{" "}
+          <strong>{languageCount}</strong> {languageCount === 1 ? "language" : "languages"}.{" "}
+          <strong>{dueCount}</strong> due today.
+        </p>
       </header>
-
-      <section
-        id="library-summary"
-        className="library-summary"
-        aria-label="Vocabulary summary"
-      >
-        <div className="summary-item">
-          <Icon name="book-open" size={24} />
-          <strong>{entries.length}</strong>
-          <span>{entries.length === 1 ? "word" : "words"}</span>
-        </div>
-        <div className="summary-divider" aria-hidden="true" />
-        <div className="summary-item">
-          <Icon name="globe" size={24} />
-          <strong>{languageCount}</strong>
-          <span>{languageCount === 1 ? "language" : "languages"}</span>
-        </div>
-        <div className="summary-divider" aria-hidden="true" />
-        <div className="summary-item">
-          <Icon name="calendar" size={24} />
-          <strong>{dueCount}</strong>
-          <span>due today</span>
-        </div>
-      </section>
 
       <section className="library-workspace">
         <div className="library-collection">
           <div className="library-controls">
             <label className="search-control">
               <span className="sr-only">Search your words</span>
-              <Icon name="search" size={20} />
+              <Icon name="search" size={18} />
               <input
                 ref={searchRef}
                 type="search"
@@ -313,31 +295,26 @@ function LibraryPage({
               ) : null}
             </label>
 
-            <label className="notebook-library-select">
-              <span className="sr-only">Filter by language</span>
-              <Icon name="globe" size={17} />
-              <select
-                value={language}
-                onChange={(event) => {
-                  setLanguage(event.target.value);
-                  setIsMoreOpen(false);
-                }}
-              >
-                {LANGUAGE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
+            <GlassSelect
+              label="Filter by language"
+              hideLabel
+              icon="globe"
+              value={language}
+              onChange={(value) => {
+                setLanguage(value);
+                setIsMoreOpen(false);
+              }}
+              options={LANGUAGE_OPTIONS}
+            />
 
-            <label className="notebook-library-select">
-              <span className="sr-only">Sort vocabulary</span>
-              <Icon name="sort" size={17} />
-              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
+            <GlassSelect
+              label="Sort words"
+              hideLabel
+              icon="sort"
+              value={sortOrder}
+              onChange={setSortOrder}
+              options={SORT_OPTIONS}
+            />
           </div>
 
           <div
@@ -349,7 +326,7 @@ function LibraryPage({
             onKeyDown={handleListKeyDown}
           >
             <div className="word-list-header" aria-hidden="true">
-              <span>Word index</span>
+              <span>Word</span>
               <span>Review</span>
             </div>
 
@@ -367,35 +344,33 @@ function LibraryPage({
                   onClick={() => openEntry(entry)}
                 >
                   <span className="word-row-title">
-                    <strong>{entry.word}</strong>
+                    <strong className="hand">{entry.word}</strong>
                     <span>{primaryTranslation(entry)}</span>
                   </span>
                   <span className="language-direction">
                     {getLanguageDirection(entry.language)}
                   </span>
-                  <span className="word-row-note">{entry.notes}</span>
+                  {entry.notes ? <span className="word-row-note">{entry.notes}</span> : null}
                   <span className="review-status">
                     <span>{entry.lastReviewedLabel ?? "New word"}</span>
                     <strong>{entry.dueLabel ?? "Due today"}</strong>
                   </span>
-                  <Icon name="chevron-right" size={17} />
+                  <Icon name="chevron-right" size={16} />
                 </button>
               );
             })}
 
             {filteredEntries.length === 0 ? (
               <div className="library-empty-state">
-                <span className="empty-icon" aria-hidden="true">
-                  <Icon name="search" size={26} />
-                </span>
-                <h2>{entries.length === 0 ? "Your next word starts here" : "No words match that search"}</h2>
-                <p>{entries.length === 0 ? "Save a word, add its meaning, and make it yours." : "Try another term or clear the filters to see your library."}</p>
+                <Icon name="search" size={26} />
+                <h2>{entries.length === 0 ? "No words yet" : "No matches"}</h2>
+                <p>{entries.length === 0 ? "Add a word with its translation and a short note." : "Try a different word, or clear the filters."}</p>
                 <button
                   type="button"
                   className="secondary-action"
                   onClick={entries.length === 0 ? onAdd : clearFilters}
                 >
-                  {entries.length === 0 ? "Add your first word" : "Clear filters"}
+                  {entries.length === 0 ? "Add word" : "Clear filters"}
                 </button>
               </div>
             ) : null}
@@ -407,31 +382,29 @@ function LibraryPage({
             </span>
             {filteredEntries.length > 0 ? (
               <span id="word-list-shortcuts" className="collection-shortcuts">
-                <kbd>/</kbd> search
-                <span aria-hidden="true">·</span>
-                <kbd>↑</kbd>
-                <kbd>↓</kbd> move
-                <span aria-hidden="true">·</span>
-                <kbd>Enter</kbd> practice
-                <span aria-hidden="true">·</span>
-                <kbd>E</kbd> edit
-                <span aria-hidden="true">·</span>
-                <kbd>Delete</kbd> remove
+                <span><kbd>/</kbd> search</span>
+                <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+                <span><kbd>Enter</kbd> practice</span>
+                <span><kbd>E</kbd> edit</span>
+                <span><kbd>Delete</kbd> remove</span>
               </span>
             ) : null}
           </p>
         </div>
 
         {visibleSelectedEntry ? (
-          <aside
+          <LiquidGlassSurface
+            as="aside"
             ref={detailRef}
             id={`detail-${visibleSelectedEntry.id}`}
             className="library-detail"
+            variant="panel"
+            radius={20}
             aria-label={`Details for ${visibleSelectedEntry.word}`}
           >
             <div className="detail-heading-row">
               <div>
-                <h2 key={visibleSelectedEntry.id}>{visibleSelectedEntry.word}</h2>
+                <h2 key={visibleSelectedEntry.id} className="hand">{visibleSelectedEntry.word}</h2>
                 <div className="pronunciation-row">
                   <span>{visibleSelectedEntry.pronunciation}</span>
                   <button
@@ -506,37 +479,42 @@ function LibraryPage({
                   aria-controls={isMoreOpen ? "word-more-actions" : undefined}
                   onClick={() => setIsMoreOpen((isOpen) => !isOpen)}
                 >
-                  <Icon name="more" size={20} />
+                  <Icon name="more" size={20} weight="bold" />
                 </button>
-                {isMoreOpen ? (
-                  <div className="more-menu" id="word-more-actions">
-                    <button
-                      ref={deleteButtonRef}
-                      type="button"
-                      onClick={() => requestDelete(visibleSelectedEntry)}
-                    >
-                      <Icon name="trash" size={17} />
-                      Delete word
-                    </button>
-                  </div>
-                ) : null}
+                <AnimatePresence>
+                  {isMoreOpen ? (
+                    <MotionRegion key="actions" motionPreset="menu" className="more-menu" id="word-more-actions">
+                      <button
+                        ref={deleteButtonRef}
+                        type="button"
+                        onClick={() => requestDelete(visibleSelectedEntry)}
+                      >
+                        <Icon name="trash" size={17} />
+                        Delete word
+                      </button>
+                    </MotionRegion>
+                  ) : null}
+                </AnimatePresence>
               </div>
             </div>
-          </aside>
+          </LiquidGlassSurface>
         ) : (
-          <aside
+          <LiquidGlassSurface
+            as="aside"
             ref={detailRef}
             id="library-detail-empty"
             className="library-detail empty-detail"
+            variant="panel"
+            radius={20}
           >
-            <Icon name="book-open" size={34} />
-            <h2>{entries.length === 0 ? "Your library is ready" : "Find your next word"}</h2>
-            <p>{entries.length === 0 ? "Add your first word to begin building a practice queue." : "Clear your filters to browse the words in your library."}</p>
+            <Icon name="book-open" size={30} />
+            <h2>{entries.length === 0 ? "No words yet" : "No word selected"}</h2>
+            <p>{entries.length === 0 ? "Words you add appear here with their translations and notes." : "Nothing matches the current filters. Clear them to see every word."}</p>
             <button type="button" className="primary-action" onClick={entries.length === 0 ? onAdd : clearFilters}>
               <Icon name={entries.length === 0 ? "plus" : "search"} size={18} />
               {entries.length === 0 ? "Add word" : "Clear filters"}
             </button>
-          </aside>
+          </LiquidGlassSurface>
         )}
       </section>
     </main>

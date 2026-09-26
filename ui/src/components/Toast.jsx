@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import Icon from "./Icon.jsx";
-import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 
 function Toast({ message, actionLabel, onAction, onDismiss, duration = 5000 }) {
   useEffect(() => {
@@ -10,11 +10,12 @@ function Toast({ message, actionLabel, onAction, onDismiss, duration = 5000 }) {
 
   return (
     <LiquidGlassSurface
+      motionPreset="toast"
       as="aside"
       id="app-toast"
       className="app-toast"
       variant="menu"
-      radius={18}
+      radius={16}
       intensity={0.94}
       aria-live="polite"
       aria-atomic="true"
@@ -35,7 +36,7 @@ function Toast({ message, actionLabel, onAction, onDismiss, duration = 5000 }) {
         aria-label="Dismiss notification"
         onClick={onDismiss}
       >
-        <Icon name="plus" size={16} />
+        <Icon name="x" size={16} />
       </button>
     </LiquidGlassSurface>
   );

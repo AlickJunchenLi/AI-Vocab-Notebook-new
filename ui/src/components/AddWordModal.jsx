@@ -1,5 +1,6 @@
 import { useState } from "react";
-import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import LiquidGlassSurface from "../motion/MotionSurface.jsx";
+import MotionRegion from "../motion/MotionRegion.jsx";
 import GlassSelect from "./GlassSelect.jsx";
 import Icon from "./Icon.jsx";
 import WordSuggestionInput from "./WordSuggestionInput.jsx";
@@ -58,7 +59,8 @@ function AddWordModal({ entries, onClose, onAdd }) {
   }
 
   return (
-    <div
+    <MotionRegion
+      motionPreset="scrim"
       className="modal-overlay"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
@@ -67,12 +69,13 @@ function AddWordModal({ entries, onClose, onAdd }) {
       }}
     >
       <LiquidGlassSurface
+        motionPreset="dialog"
         as="form"
         ref={dialogRef}
         id="add-word-modal"
         className="add-word-modal add-word-form-modal"
         variant="panel"
-        radius={30}
+        radius={20}
         intensity={1.18}
         edgeOnly
         autoComplete="off"
@@ -84,8 +87,8 @@ function AddWordModal({ entries, onClose, onAdd }) {
       >
         <div className="modal-header">
           <div>
-            <h2 id="add-word-title">Add a new word</h2>
-            <p>Capture it now, then strengthen it through practice.</p>
+            <h2 id="add-word-title">Add a word</h2>
+            <p>It will be due for review today.</p>
           </div>
 
           <button
@@ -94,7 +97,7 @@ function AddWordModal({ entries, onClose, onAdd }) {
             aria-label="Close add word dialog"
             onClick={onClose}
           >
-            <Icon name="plus" size={18} />
+            <Icon name="x" size={18} />
           </button>
         </div>
 
@@ -143,7 +146,7 @@ function AddWordModal({ entries, onClose, onAdd }) {
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              placeholder="Write a short note..."
+              placeholder="Anything that helps you remember it"
             />
           </label>
         </div>
@@ -163,20 +166,16 @@ function AddWordModal({ entries, onClose, onAdd }) {
             Cancel
           </button>
 
-          <LiquidGlassSurface
-            as="button"
+          <button
             type="submit"
             id="submit-add-word-button"
             className="add-button liquid-add-button submit-add-word-button"
-            variant="button"
-            radius={18}
-            intensity={1.1}
           >
-            Save Word
-          </LiquidGlassSurface>
+            Save word
+          </button>
         </div>
       </LiquidGlassSurface>
-    </div>
+    </MotionRegion>
   );
 }
 

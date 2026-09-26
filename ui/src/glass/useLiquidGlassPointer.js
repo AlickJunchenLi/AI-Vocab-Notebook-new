@@ -256,6 +256,8 @@ export function useLiquidGlassPointer({
             traceSwells: traces.swells,
             lightColor: colours.light,
             shadeColor: colours.shade,
+            lightStrength: colours.lightStrength,
+            shadeStrength: colours.shadeStrength,
             opacity: surface.presence,
           },
         });
@@ -350,15 +352,16 @@ export function useLiquidGlassPointer({
     // Refresh coordinates after content changes, scroll, and page transitions.
     const mutationObserver = new MutationObserver(markMeasurementsDirty);
     mutationObserver.observe(group, { childList: true, subtree: true });
-    // The liquid layer's colours come from the theme; read them again when it
-    // changes, and on every frame of the theme fade, which restyles <html>.
+    // The liquid layer's colours come from the theme and the paper tone; read
+    // them again when either changes, and on every frame of the theme fade,
+    // which restyles <html>.
     const themeObserver = new MutationObserver(() => {
       colours = null;
       requestFrame();
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme", "style"],
+      attributeFilter: ["data-theme", "data-paper-tone", "style"],
     });
     group.addEventListener("pointerenter", handlePointerMove, { passive: true });
     group.addEventListener("pointermove", handlePointerMove, { passive: true });

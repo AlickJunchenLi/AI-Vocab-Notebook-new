@@ -61,6 +61,8 @@ uniform float uShininess;
 uniform float uCaustic;
 uniform vec3 uLightColor;
 uniform vec3 uShadeColor;
+uniform float uLightStrength;
+uniform float uShadeStrength;
 uniform float uOpacity;
 uniform float uDebug;
 
@@ -69,6 +71,20 @@ float sdRoundedRect(vec2 p) {
   float radius = min(uRadius, min(halfSize.x, halfSize.y));
   vec2 q = abs(p - halfSize) - halfSize + radius;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+// How deep p sits for the bevel's shape. The exact distance above turns its
+// contours square once they are deeper than the corner radius, with a crease
+// down each corner's diagonal that the lighting picks out as a hard seam.
+// This is a soft maximum of the four edges instead: its outline matches the
+// rounded corner to within half a pixel, and every contour below it stays
+// rounded, so the light turns a corner smoothly at any depth.
+float bevelDepth(vec2 p) {
+  float softness = max(uRadius * 0.4226, 0.5);
+  vec4 edges = vec4(-p.x, p.x - uSize.x, -p.y, p.y - uSize.y);
+  float nearest = max(max(edges.x, edges.y), max(edges.z, edges.w));
+  vec4 weights = exp((edges - nearest) / softness);
+  return -(nearest + softness * log(weights.x + weights.y + weights.z + weights.w));
 }
 
 // Convex bevel: steep at the edge, flattening onto the top of the slab.
@@ -149,7 +165,7 @@ vec2 traceAt(vec2 p) {
 // The bevel's height in pixels. Near the pointer the rim swells: its bevel
 // grows wider.
 float heightAt(vec2 p) {
-  return profile(-sdRoundedRect(p), uBevel * (1.0 + swellAt(p))) * uBevelHeight;
+  return profile(bevelDepth(p), uBevel * (1.0 + swellAt(p))) * uBevelHeight;
 }
 
 void main() {
@@ -192,7 +208,7 @@ void main() {
   // the rim swells, the band widens and brightens with it.
   float swell = swellAt(p);
   float bevel = uBevel * (1.0 + swell);
-  float rimLight = band(depth, bevel * 0.3, bevel * 0.22) * uGlow * (0.6 + swell);
+  float rimLight = band(bevelDepth(p), bevel * 0.3, bevel * 0.22) * uGlow * (0.6 + swell);
   float hairline = band(depth, 0.8, 0.9) * uEdgeContrast * (0.6 + swell);
   // Crisp reflection where a slope faces the lamp, kept off the glass right
   // under the pointer so nothing lights up at the pointer itself.
@@ -209,8 +225,10 @@ void main() {
   float traceLight = trace.x * smoothstep(1.0, uBevel * 0.7, depth);
   float light = (rimLight + specular + max(lens, 0.0)) * attenuation + traceLight;
   float dark = (hairline + max(-lens, 0.0) * 0.6) * attenuation + trace.y;
-  float lightAlpha = clamp(light, 0.0, 1.0) * inside;
-  float darkAlpha = clamp(dark, 0.0, 1.0) * inside;
+  // The paper decides how strong each part is: on light paper the dark line
+  // carries the rim; on dark paper a pale line of ink does.
+  float lightAlpha = clamp(light * uLightStrength, 0.0, 1.0) * inside;
+  float darkAlpha = clamp(dark * uShadeStrength, 0.0, 1.0) * inside;
 
   // Premultiplied, with the shade over the light: the edge's darker line is
   // what makes the glass's rim read, so no light is allowed to wash it out.
@@ -244,6 +262,8 @@ const UNIFORM_KEYS = {
   uCaustic: "caustic",
   uLightColor: "lightColor",
   uShadeColor: "shadeColor",
+  uLightStrength: "lightStrength",
+  uShadeStrength: "shadeStrength",
 };
 
 function createUniforms() {
@@ -273,6 +293,8 @@ function createUniforms() {
     uCaustic: { value: 0 },
     uLightColor: { value: [1, 1, 1] },
     uShadeColor: { value: [0, 0, 0] },
+    uLightStrength: { value: 1 },
+    uShadeStrength: { value: 1 },
     uOpacity: { value: 0 },
     uDebug: { value: 0 },
   };
@@ -342,7 +364,8 @@ export class LiquidLayer {
     uniforms.uResolution.value = [this.canvas.width, this.canvas.height];
     uniforms.uSize.value = [this.width, this.height];
     for (const [uniform, key] of Object.entries(UNIFORM_KEYS)) {
-      uniforms[uniform].value = values[key];
+      // A value the caller leaves out keeps the uniform's default.
+      if (values[key] !== undefined) uniforms[uniform].value = values[key];
     }
     uniforms.uOpacity.value = debug ? fade : values.opacity * fade;
     uniforms.uDebug.value = debug ? 1 : 0;

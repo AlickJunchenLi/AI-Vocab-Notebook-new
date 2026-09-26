@@ -1,8 +1,12 @@
 /*
- * Colour themes. Every brand-tinted colour in the app is an oklch() value
- * relative to these hues, so a theme is just a main hue, a companion hue for
- * the cooler washes, and a chroma scale that keeps saturated colours inside
- * the sRGB gamut. Warm, mint and danger accents are deliberately fixed.
+ * Colour themes. Each theme is an ink and a paper stock to go with it:
+ *   --theme-hue / --theme-hue-2 / --theme-chroma  the ink, a companion hue for
+ *     the glass, and a chroma scale that keeps the ink inside the sRGB gamut;
+ *   --paper-hue / --paper-chroma  the paper, desk, pencil and shadows. The
+ *     paper sits close to the ink's hue but not on it, the way a notebook's
+ *     pages are tinted to suit its ink, and pale hues like pink are kept a
+ *     little quieter.
+ * Every colour below is an oklch() value built from these, in light and dark.
  * The selectors are not tied to :root so a theme swatch can carry its own hue.
  */
 :root,
@@ -10,33 +14,47 @@
   --theme-hue: 285;
   --theme-hue-2: 230;
   --theme-chroma: 1;
+  /* Lilac paper on a dusty violet desk; aubergine in the dark. */
+  --paper-hue: 298;
+  --paper-chroma: 1;
 }
 
 [data-theme="blue"] {
   --theme-hue: 258;
   --theme-hue-2: 218;
   --theme-chroma: 0.9;
+  /* Cool blue-grey, like an exercise book; deep navy in the dark. */
+  --paper-hue: 245;
+  --paper-chroma: 1;
 }
 
 [data-theme="pink"] {
   --theme-hue: 350;
   --theme-hue-2: 315;
   --theme-chroma: 1;
+  /* A warm blush; plum in the dark. */
+  --paper-hue: 8;
+  --paper-chroma: 0.85;
 }
 
 [data-theme="green"] {
   --theme-hue: 158;
   --theme-hue-2: 196;
   --theme-chroma: 0.75;
+  /* Sage; forest in the dark. */
+  --paper-hue: 138;
+  --paper-chroma: 0.9;
 }
 
 /*
- * The theme fade (theme/applyTheme.js) dips this towards 0 so the hue can turn
- * while the page is nearly grey. Colours with a fixed chroma multiply by it;
- * the rest scale with --theme-chroma, which the fade dips along with it.
+ * The theme fade (theme/applyTheme.js) dips this towards 0 so the hues can
+ * turn while everything is nearly grey. Colours with a fixed chroma multiply
+ * by it; the ink scales with --theme-chroma, which the fade dips along with it.
+ * --paper-tint is the paper's chroma for the moment, fade included.
  */
 :root {
   --theme-saturation: 1;
+  --paper-tint: calc(var(--paper-chroma) * var(--theme-saturation));
 }
 
 /* Transitions stay off while the theme changes: they would trail every frame
@@ -48,44 +66,140 @@
   transition: none !important;
 }
 
+/*
+ * Design tokens. The desk, the paper and the pencil are tints of the theme's
+ * paper hue, and the ink is its one strong colour. Text is tinted towards the
+ * paper too, so it sits in the page instead of on it. Glass is a clearer,
+ * cooler slab laid on the paper, so it reads as a different material from
+ * the page under it. Shadows are tinted with the paper hue, never grey.
+ *
+ * Shapes: paper 6px, glass 20px (large) / 16px (small), controls 10px,
+ * switches are pills.
+ * Layers: binding 5, navigation 30, menus 40, dialogs 100, toast 140.
+ */
 :root {
   color-scheme: light;
-  font-family:
-    "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial,
-    "PingFang SC", "Microsoft YaHei", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --font-display:
-    "Iowan Old Style", "Palatino Linotype", Baskerville, Georgia,
-    "Songti SC", serif;
-  --font-ui:
-    "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Arial,
-    "PingFang SC", "Microsoft YaHei", sans-serif;
-  --ink: oklch(28.8% calc(0.051 * var(--theme-saturation)) calc(var(--theme-hue) - 0.6));
-  --ink-soft: oklch(39.6% calc(0.045 * var(--theme-saturation)) calc(var(--theme-hue) + 2.5));
-  --muted: oklch(52.1% calc(0.036 * var(--theme-saturation)) calc(var(--theme-hue) + 4.1));
-  --muted-light: oklch(55.7% calc(0.039 * var(--theme-saturation)) calc(var(--theme-hue) + 5.6));
-  --canvas: #f6f7fb;
-  --surface: rgba(255, 255, 255, 0.68);
-  --surface-strong: rgba(255, 255, 255, 0.86);
-  --line: oklch(51.4% calc(0.104 * var(--theme-chroma)) calc(var(--theme-hue) - 18) / 0.16);
-  --line-strong: oklch(54.6% calc(0.215 * var(--theme-chroma)) calc(var(--theme-hue) - 13.1) / 0.34);
-  --accent: oklch(53.4% calc(0.166 * var(--theme-chroma)) calc(var(--theme-hue) - 0.9));
-  --accent-strong: oklch(46.6% calc(0.17 * var(--theme-chroma)) calc(var(--theme-hue) - 2.2));
-  --accent-soft: oklch(94.7% calc(0.023 * var(--theme-saturation)) calc(var(--theme-hue) + 9.1));
-  --violet: oklch(70.9% calc(0.159 * var(--theme-chroma)) calc(var(--theme-hue) + 8.5));
-  --ice: oklch(86.2% calc(0.074 * var(--theme-chroma)) calc(var(--theme-hue-2) + 13.2));
-  --mint: #5bc9aa;
-  --mint-soft: #e5f8f2;
-  --danger: #c44762;
-  --danger-soft: #fff0f3;
-  --shadow-sm: 0 8px 24px oklch(32.2% calc(0.101 * var(--theme-chroma)) calc(var(--theme-hue) - 17.3) / 0.07);
-  --shadow-md:
-    0 24px 70px oklch(36.5% calc(0.109 * var(--theme-chroma)) calc(var(--theme-hue) - 17.1) / 0.11),
-    0 4px 14px oklch(36.5% calc(0.109 * var(--theme-chroma)) calc(var(--theme-hue) - 17.1) / 0.05);
-  --shadow-button: 0 7px 18px oklch(46.8% calc(0.143 * var(--theme-chroma)) calc(var(--theme-hue) + 3.1) / 0.2);
+
+  --font-ui: "DM Sans", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* Only the words you collect are handwritten. Caveat has no CJK glyphs, so
+     Chinese words fall back to a brush-style Kai face. */
+  --font-hand: "Caveat Variable", "Kaiti SC", "STKaiti", "KaiTi", cursive;
+
+  --canvas: oklch(87% calc(0.036 * var(--paper-tint)) var(--paper-hue));
+  --paper: oklch(95% calc(0.024 * var(--paper-tint)) var(--paper-hue));
+  --paper-raised: oklch(97.5% calc(0.014 * var(--paper-tint)) var(--paper-hue));
+  --paper-rule: oklch(58% calc(0.08 * var(--paper-tint)) var(--paper-hue) / 0.24);
+  --paper-edge: oklch(84.5% calc(0.034 * var(--paper-tint)) var(--paper-hue));
+  --margin-line: oklch(62% calc(0.12 * var(--theme-saturation)) 25 / 0.3);
+  --pencil: oklch(66% calc(0.035 * var(--paper-tint)) var(--paper-hue));
+  --ink: oklch(27% calc(0.028 * var(--paper-tint)) var(--paper-hue));
+  --ink-soft: oklch(37% calc(0.028 * var(--paper-tint)) var(--paper-hue));
+  --muted: oklch(47% calc(0.03 * var(--paper-tint)) var(--paper-hue));
+  --accent: oklch(43% calc(0.1 * var(--theme-chroma)) var(--theme-hue));
+  --accent-strong: oklch(36% calc(0.1 * var(--theme-chroma)) var(--theme-hue));
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, var(--paper));
+  --on-accent: oklch(98% calc(0.01 * var(--paper-tint)) var(--paper-hue));
+  --danger: #a44338;
+  --danger-soft: #f7e9e2;
+
+  --shade: oklch(30% calc(0.05 * var(--paper-tint)) var(--paper-hue));
+  --shadow-paper:
+    0 1px 0 color-mix(in srgb, var(--shade) 9%, transparent),
+    0 18px 40px -18px color-mix(in srgb, var(--shade) 24%, transparent);
+  --shadow-menu:
+    0 2px 6px color-mix(in srgb, var(--shade) 9%, transparent),
+    0 18px 44px -12px color-mix(in srgb, var(--shade) 28%, transparent);
+  --scrim: color-mix(in srgb, oklch(20% calc(0.03 * var(--paper-tint)) var(--paper-hue)) 45%, transparent);
+
+  /* The notebook's cover: a board dyed a deep shade of the ink. */
+  --cover: oklch(33% calc(0.075 * var(--theme-chroma)) var(--theme-hue));
+  --cover-lit: oklch(39% calc(0.08 * var(--theme-chroma)) var(--theme-hue));
+
+  /* Glass on paper. */
+  --glass-fill-top: rgb(255 255 255 / 0.74);
+  --glass-fill-bottom: rgb(255 255 255 / 0.46);
+  --glass-tint: oklch(96% calc(0.018 * var(--theme-saturation)) var(--theme-hue-2) / 0.35);
+  --glass-edge: color-mix(in srgb, var(--shade) 15%, transparent);
+  --glass-rim: rgb(255 255 255 / 0.95);
+  --glass-rim-low: rgb(255 255 255 / 0.4);
+  --glass-underside: color-mix(in srgb, var(--shade) 9%, transparent);
+  --glass-shadow:
+    0 1px 2px color-mix(in srgb, var(--shade) 8%, transparent),
+    0 14px 34px -14px color-mix(in srgb, var(--shade) 32%, transparent);
+  --glass-shadow-lift:
+    0 2px 4px color-mix(in srgb, var(--shade) 9%, transparent),
+    0 20px 40px -16px color-mix(in srgb, var(--shade) 38%, transparent);
+  --glass-blur: 16px;
+  /* The pointer light drawn by the liquid layer: a glow along the rim, and a
+     fine line right at the edge. On pale glass the glow is nearly white and
+     the line is dark ink, which is what carries the effect. */
+  --lg-light-colour: oklch(98% calc(0.03 * var(--theme-chroma)) var(--theme-hue));
+  --lg-light-strength: 1;
+  --lg-shade-colour: oklch(40% calc(0.06 * var(--theme-chroma)) var(--theme-hue));
+  --lg-shade-strength: 1;
+
+  /* Older names still used by the liquid tuning page (liquid.html). */
+  --font-display: var(--font-ui);
+  --line: var(--paper-edge);
+  --line-strong: var(--pencil);
+  --shadow-sm: var(--shadow-paper);
+}
+
+:root[data-paper-tone="dark"] {
+  color-scheme: dark;
+  --canvas: oklch(20.5% calc(0.026 * var(--paper-tint)) var(--paper-hue));
+  --paper: oklch(26.5% calc(0.032 * var(--paper-tint)) var(--paper-hue));
+  --paper-raised: oklch(30% calc(0.034 * var(--paper-tint)) var(--paper-hue));
+  --paper-rule: oklch(80% calc(0.05 * var(--paper-tint)) var(--paper-hue) / 0.12);
+  --paper-edge: oklch(38.5% calc(0.036 * var(--paper-tint)) var(--paper-hue));
+  --margin-line: oklch(70% calc(0.1 * var(--theme-saturation)) 25 / 0.22);
+  --pencil: oklch(58% calc(0.036 * var(--paper-tint)) var(--paper-hue));
+  --ink: oklch(94% calc(0.012 * var(--paper-tint)) var(--paper-hue));
+  --ink-soft: oklch(86% calc(0.018 * var(--paper-tint)) var(--paper-hue));
+  --muted: oklch(74% calc(0.024 * var(--paper-tint)) var(--paper-hue));
+  --accent: oklch(82% calc(0.07 * var(--theme-chroma)) var(--theme-hue));
+  --accent-strong: oklch(88% calc(0.05 * var(--theme-chroma)) var(--theme-hue));
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--paper));
+  --on-accent: oklch(20% calc(0.03 * var(--paper-tint)) var(--paper-hue));
+  --danger: #f0a996;
+  --danger-soft: #4a3129;
+
+  --shade: oklch(8% calc(0.02 * var(--paper-tint)) var(--paper-hue));
+  --shadow-paper:
+    0 1px 0 color-mix(in srgb, var(--shade) 30%, transparent),
+    0 22px 44px -18px color-mix(in srgb, var(--shade) 60%, transparent);
+  --shadow-menu:
+    0 2px 6px color-mix(in srgb, var(--shade) 40%, transparent),
+    0 22px 48px -12px color-mix(in srgb, var(--shade) 70%, transparent);
+  --scrim: color-mix(in srgb, var(--shade) 55%, transparent);
+
+  --cover: oklch(22% calc(0.06 * var(--theme-chroma)) var(--theme-hue));
+  --cover-lit: oklch(27% calc(0.065 * var(--theme-chroma)) var(--theme-hue));
+
+  --glass-fill-top: rgb(255 255 255 / 0.11);
+  --glass-fill-bottom: rgb(255 255 255 / 0.04);
+  --glass-tint: oklch(70% calc(0.03 * var(--theme-saturation)) var(--theme-hue-2) / 0.08);
+  --glass-edge: color-mix(in srgb, var(--shade) 45%, transparent);
+  --glass-rim: rgb(255 255 255 / 0.24);
+  --glass-rim-low: rgb(255 255 255 / 0.06);
+  --glass-underside: color-mix(in srgb, var(--shade) 30%, transparent);
+  --glass-shadow:
+    0 1px 2px color-mix(in srgb, var(--shade) 35%, transparent),
+    0 16px 36px -14px color-mix(in srgb, var(--shade) 70%, transparent);
+  --glass-shadow-lift:
+    0 2px 4px color-mix(in srgb, var(--shade) 38%, transparent),
+    0 22px 44px -16px color-mix(in srgb, var(--shade) 76%, transparent);
+  /* The same effect turned round for dark glass: the edge line is pale ink,
+     and the glow is the ink's own colour, kept soft so it tints the rim
+     instead of whitening it. */
+  --lg-light-colour: oklch(66% calc(0.12 * var(--theme-chroma)) var(--theme-hue));
+  --lg-light-strength: 0.3;
+  --lg-shade-colour: oklch(86% calc(0.08 * var(--theme-chroma)) var(--theme-hue));
+  --lg-shade-strength: 1.15;
 }
 
 * {
@@ -101,18 +215,11 @@ html {
 
 body {
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   overflow-x: hidden;
   background: var(--canvas);
   color: var(--ink);
-}
-
-body,
-button,
-input,
-select,
-textarea {
   font-family: var(--font-ui);
 }
 
@@ -121,6 +228,7 @@ input,
 select,
 textarea {
   font: inherit;
+  font-family: var(--font-ui);
 }
 
 button,
@@ -137,22 +245,18 @@ select:not(:disabled) {
   cursor: pointer;
 }
 
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-[tabindex]:focus-visible {
-  outline: 3px solid oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.28);
+:is(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
 ::selection {
-  background: oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.18);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--ink);
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 @media (prefers-reduced-motion: reduce) {

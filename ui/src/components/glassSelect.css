@@ -1,11 +1,7 @@
 /*
- * Select control layers.
- *
- * The closed trigger borrows the shape of the input beside it - it is a field
- * first and a menu second, so it must not announce itself until it is used. The
- * open list is where the glass shows: a bright translucent slab with a lit top
- * edge, lifted off the page by a shadow, so it reads as sitting above the
- * surface rather than punched into it.
+ * Select control. Closed, it looks like the field beside it: an underlined
+ * line on the page (control) or a bordered input in a dialog (field). Open,
+ * its list is a glass menu; the menu material is shared in App.css.
  */
 
 .glass-select {
@@ -20,8 +16,8 @@
 
 .glass-select-label {
   color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .glass-select-trigger {
@@ -30,61 +26,58 @@
   min-width: 0;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--line);
   outline: 0;
   color: var(--muted);
   text-align: left;
-  transition:
-    border-color 180ms ease,
-    background 180ms ease,
-    box-shadow 180ms ease;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
 .glass-select-control .glass-select-trigger {
-  min-height: 56px;
-  padding: 0 15px;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.56);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 8px 24px oklch(35.6% calc(0.11 * var(--theme-chroma)) calc(var(--theme-hue) - 16.7) / 0.04);
-  backdrop-filter: blur(14px);
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--paper-edge);
+  border-radius: 0;
+  background: transparent;
+}
+
+.glass-select-control .glass-select-trigger:hover {
+  border-bottom-color: var(--pencil);
+}
+
+.glass-select-control .glass-select-trigger:focus-visible,
+.glass-select-control[data-open="true"] .glass-select-trigger {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 1px 0 var(--accent);
 }
 
 .glass-select-field .glass-select-trigger {
-  min-height: 48px;
-  padding: 0 13px;
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.64);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--paper-edge);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper-raised) 80%, transparent);
 }
 
-.glass-select-trigger:hover {
-  border-color: oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.28);
-  background: rgba(255, 255, 255, 0.74);
-}
-
-.glass-select-trigger:focus-visible,
-.glass-select[data-open="true"] .glass-select-trigger {
-  border-color: oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.44);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 0 0 4px oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.07);
+.glass-select-field .glass-select-trigger:focus-visible,
+.glass-select-field[data-open="true"] .glass-select-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .glass-select-value {
   flex: 1;
   overflow: hidden;
-  color: var(--ink-soft);
+  color: var(--ink);
   font-size: 14px;
-  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .glass-select-chevron {
   flex: none;
-  color: var(--muted-light);
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  color: var(--muted);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .glass-select[data-open="true"] .glass-select-chevron {
@@ -98,82 +91,64 @@
   left: 0;
   min-width: 100%;
   max-height: 264px;
-  padding: 6px;
   margin: 0;
+  padding: 6px;
   overflow-y: auto;
-  border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 17px;
+  border-radius: 12px;
   list-style: none;
-  /*
-   * Opaque enough to read against a dense word list. The glass here is carried
-   * by the lit top edge, the blur and the lift - not by transparency, which at
-   * menu size only puts two lots of text on top of each other.
-   */
-  background: linear-gradient(
-    rgba(255, 255, 255, 0.97),
-    oklch(97.3% calc(0.012 * var(--theme-saturation)) calc(var(--theme-hue) - 13.7) / 0.95)
-  );
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    var(--shadow-md);
-  backdrop-filter: blur(26px) saturate(1.4);
-  transform-origin: top center;
-  animation: glassSelectOpen 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: glass-select-open 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .glass-select-menu[data-placement="below"] {
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
 }
 
 .glass-select-menu[data-placement="above"] {
-  bottom: calc(100% + 8px);
-  transform-origin: bottom center;
-  animation-name: glassSelectOpenAbove;
+  bottom: calc(100% + 6px);
+  animation-name: glass-select-open-above;
 }
 
-@keyframes glassSelectOpen {
+@keyframes glass-select-open {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.97);
+    transform: translateY(-4px);
   }
 }
 
-@keyframes glassSelectOpenAbove {
+@keyframes glass-select-open-above {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.97);
+    transform: translateY(4px);
   }
 }
 
 .glass-select-option {
   display: flex;
-  min-height: 42px;
+  min-height: 40px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 12px;
-  border-radius: 12px;
+  padding: 0 10px;
+  border-radius: 8px;
   color: var(--ink-soft);
-  font-size: 13.5px;
-  font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
-  transition: background 140ms ease, color 140ms ease;
 }
 
 /*
  * Active is where the keyboard or the pointer is; selected is what the control
- * currently holds. They are deliberately different marks - a wash for the first,
- * accent weight and a tick for the second - so an arrow key never looks like it
+ * currently holds. They are deliberately different marks, a wash for the first
+ * and weight plus a tick for the second, so an arrow key never looks like it
  * has already changed the value.
  */
 .glass-select-option[data-active="true"] {
-  background: oklch(52.6% calc(0.232 * var(--theme-chroma)) calc(var(--theme-hue) - 14.3) / 0.09);
-  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--ink);
 }
 
 .glass-select-option[aria-selected="true"] {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .glass-select-option .icon {
@@ -183,7 +158,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .glass-select-menu {
-    animation-duration: 1ms;
+    animation: none;
   }
 
   .glass-select-chevron {

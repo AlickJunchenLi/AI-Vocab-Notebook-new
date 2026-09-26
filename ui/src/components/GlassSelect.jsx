@@ -1,4 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { AnimatePresence } from "motion/react";
+import MotionRegion from "../motion/MotionRegion.jsx";
 import Icon from "./Icon.jsx";
 import "./glassSelect.css";
 
@@ -277,34 +279,39 @@ function GlassSelect({
         <Icon name="chevron" size={16} className="glass-select-chevron" />
       </button>
 
-      {isOpen ? (
-        <ul
-          ref={listRef}
-          id={listId}
-          className="glass-select-menu"
-          data-placement={placement}
-          role="listbox"
-          aria-labelledby={labelId}
-          // Keep the trigger focused: the combobox, not the list, owns the keys.
-          onMouseDown={(event) => event.preventDefault()}
-        >
-          {options.map((option, index) => (
-            <li
-              key={option.value}
-              id={`${listId}-option-${index}`}
-              className="glass-select-option"
-              role="option"
-              aria-selected={option.value === value}
-              data-active={index === activeIndex ? "true" : undefined}
-              onClick={() => commit(index)}
-              onPointerMove={() => setActiveIndex(index)}
-            >
-              <span>{option.label}</span>
-              {option.value === value ? <Icon name="check" size={15} /> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <AnimatePresence>
+        {isOpen ? (
+          <MotionRegion
+            key="options"
+            as="ul"
+            motionPreset={placement === "above" ? "menu-above" : "menu"}
+            ref={listRef}
+            id={listId}
+            className="glass-select-menu"
+            data-placement={placement}
+            role="listbox"
+            aria-labelledby={labelId}
+            // Keep the trigger focused: the combobox, not the list, owns the keys.
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            {options.map((option, index) => (
+              <li
+                key={option.value}
+                id={`${listId}-option-${index}`}
+                className="glass-select-option"
+                role="option"
+                aria-selected={option.value === value}
+                data-active={index === activeIndex ? "true" : undefined}
+                onClick={() => commit(index)}
+                onPointerMove={() => setActiveIndex(index)}
+              >
+                <span>{option.label}</span>
+                {option.value === value ? <Icon name="check" size={15} /> : null}
+              </li>
+            ))}
+          </MotionRegion>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

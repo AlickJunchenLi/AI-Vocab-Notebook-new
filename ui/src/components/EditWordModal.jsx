@@ -1,7 +1,14 @@
 import { useState } from "react";
-import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import LiquidGlassSurface from "../motion/MotionSurface.jsx";
+import MotionRegion from "../motion/MotionRegion.jsx";
+import GlassSelect from "./GlassSelect.jsx";
 import Icon from "./Icon.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
+
+const LANGUAGE_OPTIONS = [
+  { value: "English", label: "English" },
+  { value: "Chinese", label: "Chinese" },
+];
 
 function EditWordModal({ entry, onSave, onCancel }) {
   const dialogRef = useDialogFocus(onCancel);
@@ -52,7 +59,8 @@ function EditWordModal({ entry, onSave, onCancel }) {
   }
 
   return (
-    <div
+    <MotionRegion
+      motionPreset="scrim"
       className="modal-overlay"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
@@ -61,12 +69,13 @@ function EditWordModal({ entry, onSave, onCancel }) {
       }}
     >
       <LiquidGlassSurface
+        motionPreset="dialog"
         as="form"
         ref={dialogRef}
         id="edit-word-modal"
         className="add-word-modal add-word-form-modal edit-word-modal"
         variant="panel"
-        radius={30}
+        radius={20}
         intensity={1.18}
         onSubmit={handleSubmit}
         role="dialog"
@@ -77,7 +86,6 @@ function EditWordModal({ entry, onSave, onCancel }) {
         <div className="modal-header">
           <div>
             <h2 id="edit-word-title">Edit word</h2>
-            <p>Keep the details clear and useful for your next review.</p>
           </div>
 
           <button
@@ -86,12 +94,12 @@ function EditWordModal({ entry, onSave, onCancel }) {
             aria-label="Close edit word dialog"
             onClick={onCancel}
           >
-            <Icon name="plus" size={18} />
+            <Icon name="x" size={18} />
           </button>
         </div>
 
         <div className="add-word-form-grid">
-          <label className="form-field">
+          <label className="form-field form-field-word">
             Word
             <input
               value={word}
@@ -100,13 +108,17 @@ function EditWordModal({ entry, onSave, onCancel }) {
             />
           </label>
 
-          <label className="form-field">
-            Language
-            <input
-              value={language}
-              onChange={(event) => setLanguage(event.target.value)}
-            />
-          </label>
+          <GlassSelect
+            variant="field"
+            label="Language"
+            value={language}
+            onChange={setLanguage}
+            options={
+              LANGUAGE_OPTIONS.some((option) => option.value === language)
+                ? LANGUAGE_OPTIONS
+                : [...LANGUAGE_OPTIONS, { value: language, label: language }]
+            }
+          />
 
           <label className="form-field">
             Synonyms
@@ -148,20 +160,16 @@ function EditWordModal({ entry, onSave, onCancel }) {
             Cancel
           </button>
 
-          <LiquidGlassSurface
-            as="button"
+          <button
             type="submit"
             id="save-edit-word-button"
             className="add-button liquid-add-button submit-add-word-button"
-            variant="button"
-            radius={18}
-            intensity={1.1}
           >
-            Save Changes
-          </LiquidGlassSurface>
+            Save changes
+          </button>
         </div>
       </LiquidGlassSurface>
-    </div>
+    </MotionRegion>
   );
 }
 

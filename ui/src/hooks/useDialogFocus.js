@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useIsPresent } from "motion/react";
 
 const FOCUSABLE_SELECTOR = [
   "button:not([disabled])",
@@ -11,13 +12,14 @@ const FOCUSABLE_SELECTOR = [
 
 export function useDialogFocus(onClose) {
   const dialogRef = useRef(null);
+  const isPresent = useIsPresent();
 
   useEffect(() => {
     const dialog = dialogRef.current;
     const previouslyFocused = document.activeElement;
     const previousOverflow = document.body.style.overflow;
 
-    if (!dialog) {
+    if (!dialog || !isPresent) {
       return undefined;
     }
 
@@ -25,7 +27,7 @@ export function useDialogFocus(onClose) {
 
     const autofocusTarget = dialog.querySelector("[data-autofocus]");
     const firstFocusable = dialog.querySelector(FOCUSABLE_SELECTOR);
-    window.requestAnimationFrame(() => {
+    const focusFrame = window.requestAnimationFrame(() => {
       (autofocusTarget ?? firstFocusable ?? dialog).focus();
     });
 
@@ -40,7 +42,8 @@ export function useDialogFocus(onClose) {
         return;
       }
 
-      const focusableElements = [...dialog.querySelectorAll(FOCUSABLE_SELECTOR)];
+      const focusableElements = [...dialog.querySelectorAll(FOCUSABLE_SELECTOR)]
+        .filter((element) => !element.closest("[inert]"));
       if (focusableElements.length === 0) {
         event.preventDefault();
         dialog.focus();
@@ -62,13 +65,14 @@ export function useDialogFocus(onClose) {
     dialog.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      window.cancelAnimationFrame(focusFrame);
       dialog.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
       if (previouslyFocused instanceof HTMLElement) {
         previouslyFocused.focus();
       }
     };
-  }, [onClose]);
+  }, [onClose, isPresent]);
 
   return dialogRef;
 }

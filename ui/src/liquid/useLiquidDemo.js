@@ -170,6 +170,8 @@ export function useLiquidDemo({ stageRef, settingsRef, debugRef, invalidateRef, 
               traceSwells: traces.swells,
               lightColor: colours.light,
               shadeColor: colours.shade,
+              lightStrength: colours.lightStrength,
+              shadeStrength: colours.shadeStrength,
               opacity: state.presence,
             },
           });

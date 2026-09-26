@@ -3,64 +3,52 @@
 }
 
 .daily-note .daily-note-heading {
-  margin: 0 0 14px;
-  color: var(--text-primary, #293441);
-  font-family: var(--font-hand, "Caveat", cursive);
-  font-size: 28px;
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 17px;
   font-weight: 600;
-  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
+/* Written straight onto the ruled page. */
 .daily-note .daily-note-field {
   display: block;
-  box-sizing: border-box;
   width: 100%;
-  min-height: 128px;
-  padding: 0 4px;
+  min-height: 160px;
+  padding: 0 2px;
   border: 0;
   border-radius: 0;
   background-color: transparent;
   background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0,
-    transparent 31px,
-    var(--paper-rule, #cdd4d6) 31px,
-    var(--paper-rule, #cdd4d6) 32px
+    transparent 0 31px,
+    var(--paper-rule) 31px 32px
   );
   background-attachment: local;
-  color: var(--accent, #315a80);
-  caret-color: var(--accent, #315a80);
-  font-family: var(--font-hand, "Caveat", cursive);
-  font-size: 26px;
-  font-weight: 400;
+  color: var(--ink);
+  caret-color: var(--accent);
+  font-size: 15px;
   line-height: 32px;
   resize: vertical;
 }
 
 .daily-note .daily-note-field::placeholder {
-  color: var(--text-secondary, #646c73);
-  opacity: 1;
+  color: var(--muted);
+  opacity: 0.9;
 }
 
 .daily-note .daily-note-field:focus-visible {
-  outline: 2px solid var(--accent, #315a80);
+  outline: 2px solid var(--accent);
   outline-offset: 6px;
+  border-radius: 2px;
 }
 
 .daily-note .daily-note-status {
-  margin: 12px 0 0;
-  color: var(--text-secondary, #646c73);
-  font-size: 11px;
-  line-height: 1.5;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .daily-note .daily-note-status[data-error] {
-  color: var(--text-primary, #293441);
+  color: var(--danger);
   font-weight: 600;
-}
-
-@media (max-width: 640px) {
-  .daily-note .daily-note-heading {
-    font-size: 26px;
-  }
 }

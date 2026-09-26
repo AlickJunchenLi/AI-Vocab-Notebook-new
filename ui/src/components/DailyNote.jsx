@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import MotionRegion from "../motion/MotionRegion.jsx";
 import "../dailyNote.css";
 
 function readTodayNote() {
@@ -38,13 +39,13 @@ function DailyNote({ headingId }) {
   }
 
   return (
-    <section className="daily-note" aria-labelledby={labelId}>
-      <h2 id={labelId} className="daily-note-heading">A note for today</h2>
+    <MotionRegion as="section" reveal className="daily-note" aria-labelledby={labelId}>
+      <h2 id={labelId} className="daily-note-heading">Today’s note</h2>
       <textarea
         className="daily-note-field"
         aria-labelledby={labelId}
         aria-describedby={statusId}
-        placeholder="Something I want to remember…"
+        placeholder="Anything you want to remember from today"
         rows={4}
         value={note.text}
         onChange={updateNote}
@@ -53,17 +54,18 @@ function DailyNote({ headingId }) {
       <p
         id={statusId}
         className="daily-note-status"
+        key={note.status}
         data-error={note.status === "unavailable" || undefined}
         role="status"
         aria-live="polite"
       >
         {note.status === "saved"
-          ? "Saved on this device"
+          ? "Saved"
           : note.status === "unavailable"
-            ? "Cannot save on this device. Keep a copy before leaving."
-            : "Your words stay on this device"}
+            ? "This browser is not saving. Copy the note before you leave."
+            : "Saves as you type"}
       </p>
-    </section>
+    </MotionRegion>
   );
 }
 

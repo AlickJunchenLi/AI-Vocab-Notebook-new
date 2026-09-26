@@ -1,0 +1,263 @@
+/*
+ * Motion intensity 4/10: a small paper lift, a settling tab, a quick ink mark.
+ * Entries establish hierarchy; controls acknowledge input; exits explain dismissal.
+ * Only transform and opacity move. Reading surfaces stay still while in use.
+ */
+.notebook-app {
+  --motion-fast: 140ms;
+  --motion-control: 220ms;
+  --motion-enter: 320ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Motion owns these elements; don't also run the former CSS entrances. */
+.notebook-app [data-motion],
+.notebook-app .page-transition {
+  animation: none;
+}
+
+.notebook-app [data-motion][inert] {
+  pointer-events: none;
+}
+
+[data-motion="menu"] { transform-origin: top center; }
+[data-motion="menu-above"] { transform-origin: bottom center; }
+.appearance-menu[data-motion] { transform-origin: top right; }
+
+/* The selected segment travels beneath stationary, readable labels. */
+.progress-period-switcher,
+.segmented {
+  position: relative;
+  isolation: isolate;
+}
+
+.progress-period-switcher::before,
+.segmented::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 3px auto 3px 3px;
+  width: calc((100% - 8px) / 2);
+  border-radius: 8px;
+  background: var(--paper-raised);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), inset 0 0 0 1px var(--paper-edge);
+  transform: translateX(0);
+}
+
+.progress-period-switcher[data-period="month"]::before,
+.segmented:has(.segmented-option:last-child input:checked)::before {
+  transform: translateX(calc(100% + 2px));
+}
+
+.notebook-app .progress-period-button-active,
+.notebook-app .segmented-option input:checked + span {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Keep the real progress value accessible; animate the visual fill by scale. */
+.practice-progress-bar > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.notebook-app .progress-rhythm-point::before {
+  transition: none;
+  transform-origin: center bottom;
+}
+
+.word-row::before {
+  content: "";
+  position: absolute;
+  inset: 12px auto 12px 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleY(0.4);
+}
+
+.notebook-app .word-row.selected {
+  box-shadow: none;
+}
+
+.word-row.selected::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* One short reading order, with delays capped well below a quarter second. */
+  .page-header,
+  .today-header,
+  .library-controls,
+  .practice-session-panel,
+  .library-empty-state,
+  .progress-history-empty,
+  .form-error {
+    animation: notebook-arrive var(--motion-enter) var(--motion-ease) both;
+  }
+
+  .page-header,
+  .today-header { --motion-distance: 4px; }
+  .library-controls { --motion-distance: 4px; animation-duration: 240ms; }
+  .practice-session-panel { animation-delay: 50ms; }
+  .form-error { --motion-distance: 3px; animation-duration: 180ms; }
+
+  .detail-heading-row h2,
+  .detail-definition-list {
+    animation: notebook-arrive 220ms var(--motion-ease) both;
+    --motion-distance: 4px;
+  }
+
+  .detail-definition-list > div {
+    animation: notebook-arrive 260ms var(--motion-ease) both;
+    --motion-distance: 3px;
+  }
+
+  .detail-definition-list > div:nth-child(2) { animation-delay: 30ms; }
+  .detail-definition-list > div:nth-child(3) { animation-delay: 60ms; }
+
+  .nav-item,
+  .switch-thumb,
+  .glass-select-chevron,
+  .progress-period-switcher::before,
+  .segmented::before {
+    transition: transform var(--motion-control) var(--motion-ease);
+  }
+
+  .practice-progress-bar > span {
+    transition: transform 360ms var(--motion-ease);
+  }
+
+  .word-row::before {
+    transition: transform var(--motion-control) var(--motion-ease), opacity var(--motion-fast) ease;
+  }
+
+  :is(.primary-action, .header-add-button, .secondary-action, .secondary-button,
+      .practice-reveal-button, .practice-reset-button, .submit-add-word-button,
+      .confirm-delete-button, .practice-assessment-button, .icon-button,
+      .close-button, .app-toast-action, .app-toast-dismiss, .appearance-toggle,
+      .glass-select-trigger, .today-featured-word, .clear-search) {
+    transition: transform var(--motion-control) var(--motion-ease);
+  }
+
+  :is(.icon-button, .close-button, .app-toast-action, .app-toast-dismiss,
+      .appearance-toggle, .glass-select-trigger, .today-featured-word,
+      .clear-search):active:not(:disabled) {
+    transform: scale(0.96);
+    transition-duration: 80ms;
+  }
+
+  :is(.primary-action, .header-add-button, .secondary-action, .secondary-button,
+      .practice-reveal-button, .practice-reset-button, .submit-add-word-button,
+      .confirm-delete-button, .practice-assessment-button):active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 80ms;
+  }
+
+  .today-recent-card > .liquid-glass-content {
+    transition: transform var(--motion-control) var(--motion-ease);
+  }
+
+  /* Surface entrances and hover feedback use different elements, so they don't fight. */
+  .notebook-app .today-recent-card:hover,
+  .notebook-app .today-recent-card:active {
+    transform: none;
+  }
+
+  .today-recent-card:active > .liquid-glass-content { transform: scale(0.985); }
+
+  :is(.text-link, .today-weakest button, .word-row, .more-menu button) > .icon,
+  .word-row-title,
+  .today-featured-word,
+  .ink-swatch {
+    transition: transform var(--motion-control) var(--motion-ease);
+  }
+
+  .ink-option:has(input:checked) .ink-swatch {
+    animation: notebook-confirm 260ms var(--motion-ease);
+  }
+
+  .practice-completion-icon,
+  .practice-session-item-reviewed .practice-session-number .icon {
+    animation: notebook-confirm 360ms var(--motion-ease) both;
+  }
+
+  .today-days .is-done .icon {
+    animation: notebook-confirm 300ms var(--motion-ease) both;
+    animation-delay: calc(var(--motion-index, 0) * 30ms);
+  }
+
+  .daily-note-status {
+    animation: notebook-arrive 180ms var(--motion-ease) both;
+    --motion-distance: 2px;
+  }
+
+  .progress-rhythm-point::before {
+    animation: notebook-bar 460ms var(--motion-ease) both;
+    animation-delay: calc(var(--motion-index, 0) * 35ms);
+  }
+
+  .progress-rhythm-value {
+    animation: notebook-arrive 260ms var(--motion-ease) both;
+    animation-delay: calc(100ms + var(--motion-index, 0) * 35ms);
+    --motion-distance: 3px;
+  }
+
+  .practice-completion-stat {
+    animation: notebook-arrive 320ms var(--motion-ease) both;
+  }
+
+  .practice-completion-stat:nth-child(2) { animation-delay: 40ms; }
+  .practice-completion-stat:nth-child(3) { animation-delay: 80ms; }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  :is(.primary-action, .header-add-button, .secondary-action, .secondary-button,
+      .practice-reveal-button, .practice-reset-button, .submit-add-word-button,
+      .practice-assessment-button):hover:not(:active):not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .today-recent-card:hover:not(:active) > .liquid-glass-content { transform: translateY(-2px); }
+  .today-featured-word:hover:not(:active) { transform: translateX(2px); }
+  .text-link:hover > .icon { transform: translateX(2px); }
+  .today-weakest button:hover > .icon,
+  .word-row:hover > .icon { transform: translateX(3px); }
+  .word-row:hover .word-row-title { transform: translateX(2px); }
+  .icon-button:hover:not(:active),
+  .close-button:hover:not(:active) { transform: translateY(-1px); }
+}
+
+@keyframes notebook-arrive {
+  from { opacity: 0; transform: translateY(var(--motion-distance, 6px)); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes notebook-confirm {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes notebook-bar {
+  from { transform: translateX(-50%) scaleY(0); }
+  to { transform: translateX(-50%) scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notebook-app *,
+  .notebook-app *::before,
+  .notebook-app *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .notebook-app button:active,
+  .notebook-app .today-recent-card:hover { transform: none; }
+}

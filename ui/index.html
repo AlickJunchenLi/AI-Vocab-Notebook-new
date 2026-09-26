@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f7f5ed" />
-    <meta name="description" content="Your personal vocabulary notebook. Collect words, keep notes, and practice a little every day." />
+    <meta name="theme-color" content="#c1d7eb" />
+    <meta name="description" content="A personal vocabulary notebook. Collect words, keep notes, and review them each day." />
     <title>Vocabulary Notebook</title>
     <script>
       // Apply the saved colour theme before first paint (see src/theme/themes.js).
@@ -20,7 +20,10 @@
         // Fall back to the default theme.
       }
       try {
-        document.documentElement.dataset.paperTone = localStorage.getItem("notebook.paper-tone") === "dark" ? "dark" : "light";
+        // The browser bar colour is matched to the theme's desk once the app
+        // starts (syncThemeColor in src/theme/applyTheme.js).
+        var dark = localStorage.getItem("notebook.paper-tone") === "dark";
+        document.documentElement.dataset.paperTone = dark ? "dark" : "light";
       } catch (error) {
         document.documentElement.dataset.paperTone = "light";
       }

@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import "./glass/liquidGlass.css";
 import "./App.css";
+import LiquidGlassGroup from "./glass/LiquidGlassGroup.jsx";
 import TopMenu from "./components/TopMenu.jsx";
 import AddWordModal from "./components/AddWordModal.jsx";
 import EditWordModal from "./components/EditWordModal.jsx";
 import DeleteConfirmModal from "./components/DeleteConfirmModal.jsx";
 import Toast from "./components/Toast.jsx";
+import NotebookOpening from "./components/NotebookOpening.jsx";
+import { shouldOpenNotebook } from "./components/notebookOpening.js";
 import TodayPage from "./pages/TodayPage.jsx";
 import LibraryPage from "./pages/LibraryPage.jsx";
 import PracticePage from "./pages/PracticePage.jsx";
 import ProgressPage from "./pages/ProgressPage.jsx";
 import { mockEntries } from "./data/mockEntries.js";
-import { applyTheme } from "./theme/applyTheme.js";
+import { applyTheme, syncThemeColor } from "./theme/applyTheme.js";
 import { loadTheme, saveTheme } from "./theme/themes.js";
-import "./paper.css";
 
 const STORAGE_KEY = "ai-vocabulary-notebook.entries.v3";
 const PAGE_IDS = new Set(["today", "library", "practice", "progress"]);
@@ -64,6 +67,13 @@ function App() {
       return true;
     }
   });
+  const [glassEnabled, setGlassEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem("notebook.liquid-glass") !== "off";
+    } catch {
+      return true;
+    }
+  });
   const [storageAvailable, setStorageAvailable] = useState(() => {
     try {
       window.localStorage.getItem(STORAGE_KEY);
@@ -73,17 +83,29 @@ function App() {
     }
   });
 
+  const [isOpening, setIsOpening] = useState(shouldOpenNotebook);
+  const finishOpening = useCallback(() => setIsOpening(false), []);
   const [theme, setTheme] = useState(loadTheme);
   const [darkPaper, setDarkPaper] = useState(() => document.documentElement.dataset.paperTone === "dark");
 
-  function togglePaperTone() {
-    const next = !darkPaper;
-    setDarkPaper(next);
-    document.documentElement.dataset.paperTone = next ? "dark" : "light";
+  function changePaperTone(dark) {
+    setDarkPaper(dark);
+    document.documentElement.dataset.paperTone = dark ? "dark" : "light";
+    syncThemeColor();
     try {
-      window.localStorage.setItem("notebook.paper-tone", next ? "dark" : "light");
+      window.localStorage.setItem("notebook.paper-tone", dark ? "dark" : "light");
     } catch {
       // The chosen paper still applies for this visit.
+    }
+  }
+
+  function toggleGlass() {
+    const enabled = !glassEnabled;
+    setGlassEnabled(enabled);
+    try {
+      window.localStorage.setItem("notebook.liquid-glass", enabled ? "on" : "off");
+    } catch {
+      // The appearance control also works when browser storage is unavailable.
     }
   }
 
@@ -146,9 +168,15 @@ function App() {
     applyTheme(theme);
   }, [theme]);
 
+  // The first theme is applied by index.html before React starts, so the
+  // browser bars are matched to it here.
+  useEffect(() => {
+    syncThemeColor();
+  }, []);
+
   useEffect(() => {
     const pageName = activePage[0].toUpperCase() + activePage.slice(1);
-    document.title = `${pageName} · AI Vocabulary Notebook`;
+    document.title = `${pageName} - Vocabulary Notebook`;
   }, [activePage]);
 
   function commitNavigation(page) {
@@ -305,7 +333,7 @@ function App() {
   }
 
   return (
-    <div className="app notebook-app" data-ruled={ruledPaper}>
+    <LiquidGlassGroup className="app notebook-app" data-ruled={ruledPaper} enabled={glassEnabled}>
       <a className="skip-link" href="#main-content" onClick={(event) => {
         event.preventDefault();
         document.getElementById("main-content")?.focus();
@@ -317,86 +345,106 @@ function App() {
         ruledPaper={ruledPaper}
         onToggleRuling={toggleRuling}
         darkPaper={darkPaper}
-        onTogglePaperTone={togglePaperTone}
+        onPaperToneChange={changePaperTone}
+        glassEnabled={glassEnabled}
+        onToggleGlass={toggleGlass}
         theme={theme}
         onThemeChange={changeTheme}
       />
 
       <div className="notebook-book">
-      <div className="notebook-binding" aria-hidden="true">{Array.from({ length: 9 }, (_, index) => <i key={index} />)}</div>
-      <div className="page-transition" id="main-content" tabIndex={-1} key={activePage}>
-        {activePage === "today" ? (
-          <TodayPage
-            entries={entries}
-            onStartReview={handleStartReview}
-            onSelectEntry={handleSelectFromToday}
-            onAdd={() => setIsAddModalOpen(true)}
+        <div className="notebook-binding" aria-hidden="true">
+          {Array.from({ length: 9 }, (_, index) => <i key={index} />)}
+        </div>
+        <div className="page-transition" id="main-content" tabIndex={-1} key={activePage}>
+          {activePage === "today" ? (
+            <TodayPage
+              entries={entries}
+              onStartReview={handleStartReview}
+              onSelectEntry={handleSelectFromToday}
+              onAdd={() => setIsAddModalOpen(true)}
+            />
+          ) : null}
+
+          {activePage === "library" ? (
+            <LibraryPage
+              key={libraryVisit}
+              entries={entries}
+              selectedEntry={selectedEntry}
+              onSelect={(entry) => setSelectedId(entry.id)}
+              onAdd={() => setIsAddModalOpen(true)}
+              onEdit={setEditingEntry}
+              onDelete={setEntryToDelete}
+              onPractice={handleStartPractice}
+            />
+          ) : null}
+
+          {activePage === "practice" ? (
+            <PracticePage
+              entries={practiceEntries}
+              onPracticeEntry={handlePracticeEntry}
+            />
+          ) : null}
+
+          {activePage === "progress" ? <ProgressPage entries={entries} /> : null}
+        </div>
+        <footer className="notebook-footer">
+          <p data-error={!storageAvailable || undefined}>
+            {storageAvailable
+              ? "Your words are saved in this browser."
+              : "This browser is not saving changes. They will be lost when you leave."}
+          </p>
+        </footer>
+        {isOpening ? (
+          <NotebookOpening
+            words={entries.length}
+            languages={new Set(entries.map((entry) => entry.language)).size}
+            onDone={finishOpening}
           />
         ) : null}
-
-        {activePage === "library" ? (
-          <LibraryPage
-            key={libraryVisit}
-            entries={entries}
-            selectedEntry={selectedEntry}
-            onSelect={(entry) => setSelectedId(entry.id)}
-            onAdd={() => setIsAddModalOpen(true)}
-            onEdit={setEditingEntry}
-            onDelete={setEntryToDelete}
-            onPractice={handleStartPractice}
-          />
-        ) : null}
-
-        {activePage === "practice" ? (
-          <PracticePage
-            entries={practiceEntries}
-            onPracticeEntry={handlePracticeEntry}
-          />
-        ) : null}
-
-        {activePage === "progress" ? <ProgressPage entries={entries} /> : null}
       </div>
-      <footer className="notebook-footer">
-        <span>{storageAvailable ? "Kept on this device" : "Storage unavailable. Changes last for this visit."}</span>
-        <span className="page-folio">{[...PAGE_IDS].indexOf(activePage) + 1} / 4</span>
-        <span>Your vocabulary notebook</span>
-      </footer>
-      </div>
 
-      {isAddModalOpen ? (
-        <AddWordModal
-          entries={entries}
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={handleAddEntry}
-        />
-      ) : null}
+      <AnimatePresence>
+        {isAddModalOpen ? (
+          <AddWordModal
+            key="add-word"
+            entries={entries}
+            onClose={() => setIsAddModalOpen(false)}
+            onAdd={handleAddEntry}
+          />
+        ) : null}
 
-      {editingEntry ? (
-        <EditWordModal
-          entry={editingEntry}
-          onSave={handleSaveEdit}
-          onCancel={() => setEditingEntry(null)}
-        />
-      ) : null}
+        {editingEntry ? (
+          <EditWordModal
+            key={`edit-${editingEntry.id}`}
+            entry={editingEntry}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditingEntry(null)}
+          />
+        ) : null}
 
-      {entryToDelete ? (
-        <DeleteConfirmModal
-          entry={entryToDelete}
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setEntryToDelete(null)}
-        />
-      ) : null}
+        {entryToDelete ? (
+          <DeleteConfirmModal
+            key={`delete-${entryToDelete.id}`}
+            entry={entryToDelete}
+            onConfirm={handleConfirmDelete}
+            onCancel={() => setEntryToDelete(null)}
+          />
+        ) : null}
+      </AnimatePresence>
 
-      {toast ? (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          actionLabel={pendingDeletion ? "Undo" : undefined}
-          onAction={pendingDeletion ? handleUndoDelete : undefined}
-          onDismiss={dismissToast}
-        />
-      ) : null}
-    </div>
+      <AnimatePresence mode="wait">
+        {toast ? (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            actionLabel={pendingDeletion ? "Undo" : undefined}
+            onAction={pendingDeletion ? handleUndoDelete : undefined}
+            onDismiss={dismissToast}
+          />
+        ) : null}
+      </AnimatePresence>
+    </LiquidGlassGroup>
   );
 }
 

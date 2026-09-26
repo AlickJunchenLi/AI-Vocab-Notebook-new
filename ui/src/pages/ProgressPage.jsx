@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../components/Icon.jsx";
-import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import LiquidGlassSurface from "../motion/MotionSurface.jsx";
+import MotionRegion from "../motion/MotionRegion.jsx";
 import "../studyNotebook.css";
 
 const MASTERY_LEVELS = [
@@ -136,23 +137,22 @@ function getLanguageStats(entries) {
   });
 }
 
-function getRecallRate(entries) {
-  if (entries.length === 0) {
-    return null;
-  }
-
+function getRecall(entries) {
   const explicitRates = entries
     .filter((entry) => entry?.reviewCount !== 0 || entry?.lastReviewedAt)
     .map((entry) => toPercentage(entry?.recallRate ?? entry?.recall))
     .filter((value) => value !== null);
 
-  if (explicitRates.length > 0) {
-    return Math.round(
-      explicitRates.reduce((sum, value) => sum + value, 0) / explicitRates.length
-    );
+  if (explicitRates.length === 0) {
+    return { rate: null, count: 0 };
   }
 
-  return null;
+  return {
+    rate: Math.round(
+      explicitRates.reduce((sum, value) => sum + value, 0) / explicitRates.length
+    ),
+    count: explicitRates.length,
+  };
 }
 
 function getRecallChange(entries) {
@@ -212,7 +212,7 @@ function ProgressPage({ entries }) {
   );
   const reviewTotal = getRecordedTotal(vocabularyEntries, reviewPeriod);
   const largestReviewValue = Math.max(...(reviewSeries || []).map((point) => point.value), 1);
-  const recallRate = getRecallRate(vocabularyEntries);
+  const { rate: recallRate, count: recallCount } = getRecall(vocabularyEntries);
   const recallChange = getRecallChange(vocabularyEntries);
   const languageStats = getLanguageStats(vocabularyEntries);
   const recentEntries = vocabularyEntries
@@ -227,12 +227,10 @@ function ProgressPage({ entries }) {
     .map(({ entry }) => entry);
 
   return (
-    <main className="progress-page" aria-labelledby="progress-page-title">
-      <header className="progress-page-header">
-        <h1 id="progress-page-title">My study log</h1>
-        <p className="progress-page-description">
-          A record of the words you keep coming back to.
-        </p>
+    <main className="page progress-page" aria-labelledby="progress-page-title">
+      <header className="page-header">
+        <h1 id="progress-page-title">Progress</h1>
+        <p>Reviews, recall and mastery across your words.</p>
       </header>
 
       <div className="progress-overview-grid">
@@ -241,18 +239,15 @@ function ProgressPage({ entries }) {
           id="progress-review-rhythm"
           className="progress-rhythm-card"
           variant="panel"
-          radius={28}
-          intensity={1.08}
+          radius={20}
           aria-labelledby="progress-rhythm-title"
         >
           <header className="progress-card-header">
-            <div>
-              <p className="progress-card-eyebrow">A little, often</p>
-              <h2 id="progress-rhythm-title">Back to the words</h2>
-            </div>
+            <h2 id="progress-rhythm-title">Reviews</h2>
 
             <div
               className="progress-period-switcher"
+              data-period={reviewPeriod}
               role="group"
               aria-label="Review period"
             >
@@ -278,17 +273,18 @@ function ProgressPage({ entries }) {
             {reviewTotal === undefined ? "No recorded history for this period" : <><strong>{reviewTotal}</strong> reviews {period.summary}</>}
           </p>
 
-          {reviewSeries ? <figure className="progress-rhythm-figure">
-            <figcaption className="progress-rhythm-caption">
+          {reviewSeries ? <figure key={reviewPeriod} className="progress-rhythm-figure">
+            <figcaption className="sr-only">
               {reviewPeriod === "week" ? "Recorded reviews by day" : "Recorded reviews by week"}
             </figcaption>
             <ol className="progress-rhythm-plot">
-              {reviewSeries.map((point) => (
+              {reviewSeries.map((point, index) => (
                 <li
                   key={point.label}
                   className="progress-rhythm-point"
                   style={{
                     "--progress-point": `${(point.value / largestReviewValue) * 72}%`,
+                    "--motion-index": index,
                   }}
                   aria-label={`${point.label}: ${point.value} ${
                     point.value === 1 ? "review" : "reviews"
@@ -302,52 +298,48 @@ function ProgressPage({ entries }) {
             </ol>
           </figure> : <div className="progress-history-empty">
             <Icon name="book-open" size={28} />
-            <p>{reviewTotal !== undefined ? "The total is here; the dates aren’t recorded yet." : reviewPeriod === "month" ? "No monthly history has been recorded yet." : "Your first review is the start of this page."}</p>
-            <span>{reviewPeriod === "month" ? "Daily reviews are kept on the Week page." : "Practice a few words to leave a mark here."}</span>
+            <p>{reviewTotal !== undefined ? "This period has a total, but no dates were recorded." : reviewPeriod === "month" ? "No monthly history yet." : "No reviews recorded this week."}</p>
+            <span>{reviewPeriod === "month" ? "Switch to Week to see reviews by day." : "Reviews you finish in Practice appear here."}</span>
           </div>}
         </LiquidGlassSurface>
 
         <LiquidGlassSurface
           as="section"
           id="progress-recall-card"
+          delay={0.05}
           className="progress-recall-card"
           variant="panel"
-          radius={28}
-          intensity={1.12}
+          radius={20}
           aria-labelledby="progress-recall-title"
         >
           <header className="progress-card-header">
-            <h2 id="progress-recall-title">What’s sticking</h2>
+            <h2 id="progress-recall-title">Recall</h2>
           </header>
 
-          <div
-            className="progress-recall-ring"
-            role="img"
-            aria-label={recallRate === null ? "No recall rate recorded yet" : `${recallRate}% recorded recall rate`}
-          >
-            <strong>{recallRate === null ? "N/A" : `${recallRate}%`}</strong>
-            <span>Recorded recall</span>
-          </div>
-
-          <p className="progress-recall-change">
-            {recallChange === null
-              ? recallRate === null ? "A fresh page. Keep practicing." : "A little more remembered."
-              : `${recallChange >= 0 ? "+" : ""}${recallChange}% vs last period`}
+          <p className="progress-recall-figure">
+            <strong>{recallRate === null ? "None yet" : `${recallRate}%`}</strong>
+            <span>{recallRate === null ? "Recall appears after your first review." : "Average recall"}</span>
           </p>
+
+          {recallRate !== null ? (
+            <p className="progress-recall-change">
+              {recallChange === null
+                ? `Across ${recallCount} reviewed ${recallCount === 1 ? "word" : "words"}`
+                : `${recallChange >= 0 ? "+" : ""}${recallChange}% since last period`}
+            </p>
+          ) : null}
         </LiquidGlassSurface>
       </div>
 
-      <LiquidGlassSurface
+      <MotionRegion
         as="section"
+        reveal
         id="progress-language-mastery"
         className="progress-mastery-card"
-        variant="panel"
-        radius={28}
-        intensity={1.04}
         aria-labelledby="progress-mastery-title"
       >
         <header className="progress-mastery-header">
-          <h2 id="progress-mastery-title">Where my words stand</h2>
+          <h2 id="progress-mastery-title">Mastery by language</h2>
           <ul className="progress-mastery-legend" aria-label="Mastery levels">
             {MASTERY_LEVELS.map((level) => (
               <li key={level.key} className={`progress-legend-${level.key}`}>
@@ -397,21 +389,19 @@ function ProgressPage({ entries }) {
             Add words to see mastery by language.
           </p>
         )}
-      </LiquidGlassSurface>
+      </MotionRegion>
 
-      <LiquidGlassSurface
+      <MotionRegion
         as="section"
+        reveal
         id="progress-recent-activity"
         className="progress-activity-card"
-        variant="panel"
-        radius={28}
-        intensity={1.02}
         aria-labelledby="progress-activity-title"
       >
         <header className="progress-card-header">
           <h2 id="progress-activity-title">Recent activity</h2>
           <span className="progress-activity-count">
-            {vocabularyEntries.length} total {vocabularyEntries.length === 1 ? "word" : "words"}
+            {vocabularyEntries.length} {vocabularyEntries.length === 1 ? "word" : "words"} in total
           </span>
         </header>
 
@@ -427,7 +417,7 @@ function ProgressPage({ entries }) {
                 </span>
                 <span className="progress-activity-copy">
                   <span>
-                    <strong>{entry.word}</strong> {getActivityCopy(entry)}
+                    <strong className="hand">{entry.word}</strong> {getActivityCopy(entry)}
                   </span>
                   <time dateTime={entry.lastReviewedAt || entry.updatedAt || undefined}>
                     {entry.lastReviewedLabel || "Recently"}
@@ -438,10 +428,10 @@ function ProgressPage({ entries }) {
           </ul>
         ) : (
           <p className="progress-activity-empty">
-            Your review activity will appear here.
+            Words you review appear here.
           </p>
         )}
-      </LiquidGlassSurface>
+      </MotionRegion>
     </main>
   );
 }
