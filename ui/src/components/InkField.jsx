@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { useHandwriting } from "../motion/handwriting.js";
 import { splitGlyphs, strokeDuration, strokeFor, strokeGap } from "../motion/inkStrokes.js";
@@ -91,14 +91,14 @@ function write(ink, value, animate) {
 
 function inkReducer(ink, action) {
   if (action.type === "settle") {
-    if (!ink.glyphs.some((glyph) => glyph.key === action.key)) {
+    if (!ink.glyphs.some((glyph) => action.keys.has(glyph.key))) {
       return ink;
     }
 
     return {
       ...ink,
       glyphs: ink.glyphs.map((glyph) =>
-        glyph.key === action.key ? { text: glyph.text, key: 0 } : glyph,
+        action.keys.has(glyph.key) ? { text: glyph.text, key: 0 } : glyph,
       ),
     };
   }
@@ -158,8 +158,33 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
   const overlayRef = useRef(null);
   const textRef = useRef(null);
   const aimedByPointer = useRef(false);
+  const settled = useRef({ keys: new Set(), frame: 0 });
   const [composing, setComposing] = useState(false);
   const [ink, dispatch] = useReducer(inkReducer, text, createInk);
+  // The same elements while nothing is being written, so a re-render of the
+  // form around the field (every keystroke in any field) skips the overlay.
+  const written = useMemo(() => renderGlyphs(ink.glyphs), [ink.glyphs]);
+
+  useEffect(() => {
+    const pending = settled.current;
+    return () => window.cancelAnimationFrame(pending.frame);
+  }, []);
+
+  // Strokes that finish in the same frame are joined back into the text in
+  // one go, rather than one re-render each.
+  function settle(key) {
+    const pending = settled.current;
+    pending.keys.add(key);
+
+    if (!pending.frame) {
+      pending.frame = window.requestAnimationFrame(() => {
+        const keys = pending.keys;
+        pending.keys = new Set();
+        pending.frame = 0;
+        dispatch({ type: "settle", keys });
+      });
+    }
+  }
 
   useImperativeHandle(ref, () => fieldRef.current, []);
 
@@ -172,12 +197,19 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
   }, [composing, handwriting, ink.value, reduce, text]);
 
   // Follow the field's scroll, so a long line or a long note stays in step.
+  // The overlay is only touched when the scroll has actually moved.
   const follow = useCallback(() => {
     const field = fieldRef.current;
-    const written = textRef.current;
+    const layer = textRef.current;
 
-    if (field && written) {
-      written.style.transform = `translate(${-field.scrollLeft}px, ${-field.scrollTop}px)`;
+    if (!field || !layer) {
+      return;
+    }
+
+    const transform = `translate(${-field.scrollLeft}px, ${-field.scrollTop}px)`;
+
+    if (layer.style.transform !== transform) {
+      layer.style.transform = transform;
     }
   }, []);
 
@@ -185,9 +217,9 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
   const align = useCallback(() => {
     const field = fieldRef.current;
     const overlay = overlayRef.current;
-    const written = textRef.current;
+    const layer = textRef.current;
 
-    if (!field || !overlay || !written) {
+    if (!field || !overlay || !layer) {
       return;
     }
 
@@ -219,7 +251,7 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
       const borders = px("borderLeftWidth") + px("borderRightWidth");
       const scrollbar = Math.max(0, field.offsetWidth - field.clientWidth - Math.round(borders));
       const inside = width - borders - scrollbar - px("paddingLeft") - px("paddingRight");
-      written.style.width = `${Math.max(0, inside)}px`;
+      layer.style.width = `${Math.max(0, inside)}px`;
     }
 
     follow();
@@ -335,7 +367,7 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
       />
 
       {handwriting ? (
-        <span ref={overlayRef} className="ink-field-overlay" aria-hidden="true">
+        <span ref={overlayRef} className="ink-field-overlay" aria-hidden="true" data-layout-ignore>
           <span className="ink-field-view">
             <span
               ref={textRef}
@@ -344,11 +376,11 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
                 const key = Number(event.target.dataset?.inkKey);
 
                 if (key) {
-                  dispatch({ type: "settle", key });
+                  settle(key);
                 }
               }}
             >
-              {renderGlyphs(ink.glyphs)}
+              {written}
             </span>
           </span>
         </span>

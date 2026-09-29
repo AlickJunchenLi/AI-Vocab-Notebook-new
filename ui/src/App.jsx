@@ -1,23 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import "./glass/liquidGlass.css";
 import "./App.css";
 import LiquidGlassGroup from "./glass/LiquidGlassGroup.jsx";
 import TopMenu from "./components/TopMenu.jsx";
-import AddWordModal from "./components/AddWordModal.jsx";
-import EditWordModal from "./components/EditWordModal.jsx";
-import DeleteConfirmModal from "./components/DeleteConfirmModal.jsx";
+// The pages after Today, the word dialogs and the tour load on demand
+// (lazyParts.js), but their styles stay in the first stylesheet, at the
+// places they always had in it, so nothing is restyled when they arrive.
+import "./components/glassSelect.css";
 import Toast from "./components/Toast.jsx";
 import NotebookOpening from "./components/NotebookOpening.jsx";
 import { shouldOpenNotebook } from "./components/notebookOpening.js";
 import TodayPage from "./pages/TodayPage.jsx";
-import LibraryPage from "./pages/LibraryPage.jsx";
-import PracticePage from "./pages/PracticePage.jsx";
-import ProgressPage from "./pages/ProgressPage.jsx";
+import "./libraryNotebook.css";
+import "./studyNotebook.css";
 import PageTurn from "./motion/PageTurn.jsx";
 import PageFrame from "./motion/PageFrame.jsx";
 import NotebookBinding from "./components/NotebookBinding.jsx";
-import TourGuide from "./tour/TourGuide.jsx";
+import {
+  AddWordModal,
+  DeleteConfirmModal,
+  EditWordModal,
+  LibraryPage,
+  PracticePage,
+  ProgressPage,
+  TourGuide,
+  preloadWhenIdle,
+} from "./lazyParts.js";
 import { loadTourStatus, saveTourSeen } from "./tour/tourSteps.js";
 import { HandwritingContext, loadHandwriting, saveHandwriting } from "./motion/handwriting.js";
 import { mockEntries } from "./data/mockEntries.js";
@@ -212,6 +221,9 @@ function App() {
     syncThemeColor();
   }, []);
 
+  // Fetch the other pages, the dialogs and the tour once the notebook is idle.
+  useEffect(() => preloadWhenIdle(), []);
+
   useEffect(() => {
     const pageName = activePage[0].toUpperCase() + activePage.slice(1);
     document.title = `${pageName} - Vocabulary Notebook`;
@@ -399,39 +411,41 @@ function App() {
           <PageFrame page={activePage}>
             <AnimatePresence mode="wait" initial={false} custom={view.turn}>
               <PageTurn className="page-transition" id="main-content" tabIndex={-1} key={activePage} turn={view.turn}>
-                {activePage === "today" ? (
-                  <TodayPage
-                    entries={entries}
-                    onStartReview={handleStartReview}
-                    onSelectEntry={handleSelectFromToday}
-                    onAdd={() => setIsAddModalOpen(true)}
-                    showTourInvite={tourStatus === "new" && !isTourOpen}
-                    onStartTour={() => setIsTourOpen(true)}
-                    onDismissTour={putTourAway}
-                  />
-                ) : null}
+                <Suspense fallback={null}>
+                  {activePage === "today" ? (
+                    <TodayPage
+                      entries={entries}
+                      onStartReview={handleStartReview}
+                      onSelectEntry={handleSelectFromToday}
+                      onAdd={() => setIsAddModalOpen(true)}
+                      showTourInvite={tourStatus === "new" && !isTourOpen}
+                      onStartTour={() => setIsTourOpen(true)}
+                      onDismissTour={putTourAway}
+                    />
+                  ) : null}
 
-                {activePage === "library" ? (
-                  <LibraryPage
-                    key={libraryVisit}
-                    entries={entries}
-                    selectedEntry={selectedEntry}
-                    onSelect={(entry) => setSelectedId(entry.id)}
-                    onAdd={() => setIsAddModalOpen(true)}
-                    onEdit={setEditingEntry}
-                    onDelete={setEntryToDelete}
-                    onPractice={handleStartPractice}
-                  />
-                ) : null}
+                  {activePage === "library" ? (
+                    <LibraryPage
+                      key={libraryVisit}
+                      entries={entries}
+                      selectedEntry={selectedEntry}
+                      onSelect={(entry) => setSelectedId(entry.id)}
+                      onAdd={() => setIsAddModalOpen(true)}
+                      onEdit={setEditingEntry}
+                      onDelete={setEntryToDelete}
+                      onPractice={handleStartPractice}
+                    />
+                  ) : null}
 
-                {activePage === "practice" ? (
-                  <PracticePage
-                    entries={practiceEntries}
-                    onPracticeEntry={handlePracticeEntry}
-                  />
-                ) : null}
+                  {activePage === "practice" ? (
+                    <PracticePage
+                      entries={practiceEntries}
+                      onPracticeEntry={handlePracticeEntry}
+                    />
+                  ) : null}
 
-                {activePage === "progress" ? <ProgressPage entries={entries} /> : null}
+                  {activePage === "progress" ? <ProgressPage entries={entries} /> : null}
+                </Suspense>
               </PageTurn>
             </AnimatePresence>
           </PageFrame>
@@ -451,45 +465,49 @@ function App() {
           ) : null}
         </div>
 
-        <AnimatePresence>
-          {isAddModalOpen ? (
-            <AddWordModal
-              key="add-word"
-              entries={entries}
-              onClose={() => setIsAddModalOpen(false)}
-              onAdd={handleAddEntry}
-            />
-          ) : null}
+        <Suspense fallback={null}>
+          <AnimatePresence>
+            {isAddModalOpen ? (
+              <AddWordModal
+                key="add-word"
+                entries={entries}
+                onClose={() => setIsAddModalOpen(false)}
+                onAdd={handleAddEntry}
+              />
+            ) : null}
 
-          {editingEntry ? (
-            <EditWordModal
-              key={`edit-${editingEntry.id}`}
-              entry={editingEntry}
-              onSave={handleSaveEdit}
-              onCancel={() => setEditingEntry(null)}
-            />
-          ) : null}
+            {editingEntry ? (
+              <EditWordModal
+                key={`edit-${editingEntry.id}`}
+                entry={editingEntry}
+                onSave={handleSaveEdit}
+                onCancel={() => setEditingEntry(null)}
+              />
+            ) : null}
 
-          {entryToDelete ? (
-            <DeleteConfirmModal
-              key={`delete-${entryToDelete.id}`}
-              entry={entryToDelete}
-              onConfirm={handleConfirmDelete}
-              onCancel={() => setEntryToDelete(null)}
-            />
-          ) : null}
-        </AnimatePresence>
+            {entryToDelete ? (
+              <DeleteConfirmModal
+                key={`delete-${entryToDelete.id}`}
+                entry={entryToDelete}
+                onConfirm={handleConfirmDelete}
+                onCancel={() => setEntryToDelete(null)}
+              />
+            ) : null}
+          </AnimatePresence>
+        </Suspense>
 
-        <AnimatePresence>
-          {isTourOpen ? (
-            <TourGuide
-              key="tour"
-              activePage={activePage}
-              onNavigate={navigateTo}
-              onClose={endTour}
-            />
-          ) : null}
-        </AnimatePresence>
+        <Suspense fallback={null}>
+          <AnimatePresence>
+            {isTourOpen ? (
+              <TourGuide
+                key="tour"
+                activePage={activePage}
+                onNavigate={navigateTo}
+                onClose={endTour}
+              />
+            ) : null}
+          </AnimatePresence>
+        </Suspense>
 
         <AnimatePresence mode="wait">
           {toast ? (

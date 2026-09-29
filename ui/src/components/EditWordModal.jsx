@@ -6,6 +6,7 @@ import Icon from "./Icon.jsx";
 import InkField from "./InkField.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
 import { nudge } from "../motion/nudge.js";
+import useSmoothLayout from "../motion/useSmoothLayout.js";
 
 const LANGUAGE_OPTIONS = [
   { value: "English", label: "English" },
@@ -14,6 +15,8 @@ const LANGUAGE_OPTIONS = [
 
 function EditWordModal({ entry, onSave, onCancel }) {
   const dialogRef = useDialogFocus(onCancel);
+  // An error appearing eases the sheet taller instead of jumping.
+  useSmoothLayout(dialogRef, { height: true });
   const [formError, setFormError] = useState("");
   const [word, setWord] = useState(entry.word);
   const [language, setLanguage] = useState(entry.language);

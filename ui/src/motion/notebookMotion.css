@@ -38,9 +38,21 @@
   display: flow-root;
 }
 
-.page-frame[data-turning] {
+.page-frame:is([data-turning], [data-settling]) {
   overflow-x: visible;
   overflow-y: clip;
+}
+
+/* A container easing to a new size (useSmoothLayout.js) clips what doesn't
+   fit yet, so a growing card unrolls instead of spilling over what follows.
+   A scroll container is hidden instead, which keeps its scroll position. */
+.notebook-app [data-smoothing="clip"] {
+  overflow: clip;
+  overflow-clip-margin: 8px;
+}
+
+.notebook-app [data-smoothing="hide"] {
+  overflow: hidden;
 }
 
 [data-motion="menu"] { transform-origin: top center; }

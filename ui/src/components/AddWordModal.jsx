@@ -7,6 +7,7 @@ import InkField from "./InkField.jsx";
 import WordSuggestionInput from "./WordSuggestionInput.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
 import { nudge } from "../motion/nudge.js";
+import useSmoothLayout from "../motion/useSmoothLayout.js";
 
 const LANGUAGE_OPTIONS = [
   { value: "English", label: "English" },
@@ -15,6 +16,8 @@ const LANGUAGE_OPTIONS = [
 
 function AddWordModal({ entries, onClose, onAdd }) {
   const dialogRef = useDialogFocus(onClose);
+  // An error appearing eases the sheet taller instead of jumping.
+  useSmoothLayout(dialogRef, { height: true });
   const [formError, setFormError] = useState("");
   const [formData, setFormData] = useState({
     word: "",

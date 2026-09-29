@@ -9,7 +9,7 @@ import {
   stepSpring,
 } from "./liquidField.js";
 import { readLiquidColours } from "./liquidColours.js";
-import { LiquidLayerPool } from "./liquidGlassGL.js";
+import { LiquidLayerPool } from "./liquidLayerPool.js";
 
 /*
  * The pointer acts as a small lamp held just above the page, and nothing is
@@ -69,7 +69,8 @@ export function useLiquidGlassPointer({
     const forcedColors = window.matchMedia("(forced-colors: active)");
     const radius = Math.max(1, Number(spillRadius) || 220);
     const surfaceLimit = clamp(Math.floor(Number(maxActiveSurfaces) || 0), 0, 12);
-    const pool = new LiquidLayerPool(LIQUID_LAYERS);
+    // Once the layers' code arrives, draw for a pointer that is already here.
+    const pool = new LiquidLayerPool(LIQUID_LAYERS, () => requestFrame());
     const pointer = {
       active: false,
       positioned: false,
@@ -382,7 +383,7 @@ export function useLiquidGlassPointer({
     return () => {
       reset();
       cancelPrewarm?.();
-      pool.destroy();
+      pool.destroy(true);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
       themeObserver.disconnect();

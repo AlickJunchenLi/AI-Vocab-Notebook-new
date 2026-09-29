@@ -1,5 +1,5 @@
 import { Mesh, Program, Renderer, Triangle } from "ogl";
-import { approach, SIDE_COUNT } from "./liquidField.js";
+import { SIDE_COUNT } from "./liquidField.js";
 import "./liquidLayer.css";
 
 const VERTEX = /* glsl */ `
@@ -382,107 +382,5 @@ export class LiquidLayer {
   destroy() {
     this.renderer.gl.getExtension("WEBGL_lose_context")?.loseContext();
     this.canvas.remove();
-  }
-}
-
-/*
- * A small pool of layers, so only the surfaces nearest the pointer pay for
- * WebGL. A surface that drops out of the pool fades out on its own canvas
- * before the canvas is reused; `failed` turns true if WebGL is unavailable or
- * a context is lost, and stays true.
- */
-export class LiquidLayerPool {
-  constructor(size = 2) {
-    this.size = size;
-    this.slots = [];
-    this.failed = false;
-  }
-
-  /*
-   * `requests` are ordered most important first: { key, element, width,
-   * height, pixelRatio, values }. Returns true while any layer is fading.
-   */
-  sync(requests, delta, debug = false) {
-    if (this.failed) return false;
-    const wanted = new Map();
-    for (const request of requests) {
-      if (wanted.size >= this.size) break;
-      wanted.set(request.key, request);
-    }
-
-    for (const key of wanted.keys()) {
-      if (this.slots.some((slot) => slot.key === key)) continue;
-      const slot = this.claimSlot(wanted);
-      if (!slot) return false;
-      slot.key = key;
-      slot.fade = 0;
-    }
-
-    let fading = false;
-    for (const slot of this.slots) {
-      if (slot.key === null) continue;
-      const request = wanted.get(slot.key);
-      // A surface leaving the pool keeps drawing its last frame while it fades.
-      if (request) slot.request = request;
-      const target = request ? 1 : 0;
-      slot.fade = approach(slot.fade, target, 10, delta);
-      if (slot.fade !== target) fading = true;
-      if (slot.fade === 0 && !request) {
-        slot.layer.detach();
-        slot.key = null;
-        slot.request = null;
-        continue;
-      }
-      const { element, width, height, pixelRatio, values } = slot.request;
-      slot.layer.attach(element);
-      slot.layer.resize(width, height, pixelRatio);
-      slot.layer.render(values, slot.fade, debug);
-      if (slot.layer.lost) this.failed = true;
-    }
-    if (this.failed) this.destroy();
-    return fading;
-  }
-
-  // Creates and warms every layer ahead of time; call it when the page is idle.
-  prewarm() {
-    while (!this.failed && this.slots.length < this.size) this.createSlot()?.layer.warm();
-  }
-
-  // Takes every layer off its surface at once, without fading.
-  hide() {
-    for (const slot of this.slots) {
-      slot.layer.detach();
-      slot.key = null;
-      slot.request = null;
-      slot.fade = 0;
-    }
-  }
-
-  createSlot() {
-    try {
-      const slot = { layer: new LiquidLayer(), key: null, fade: 0, request: null };
-      this.slots.push(slot);
-      return slot;
-    } catch {
-      this.failed = true;
-      return null;
-    }
-  }
-
-  claimSlot(wanted) {
-    const idle = this.slots.find((slot) => slot.key === null);
-    if (idle) return idle;
-    if (this.slots.length < this.size) return this.createSlot();
-    // Every layer is busy, so at least one is fading out: take the faintest.
-    let victim = null;
-    for (const slot of this.slots) {
-      if (!wanted.has(slot.key) && (!victim || slot.fade < victim.fade)) victim = slot;
-    }
-    return victim;
-  }
-
-  destroy() {
-    for (const slot of this.slots) slot.layer.destroy();
-    this.slots = [];
   }
 }

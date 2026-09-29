@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../motion/MotionSurface.jsx";
+import useSmoothLayout from "../motion/useSmoothLayout.js";
 import "../studyNotebook.css";
 
 const ASSESSMENTS = [
@@ -38,6 +39,13 @@ function PracticePage({ entries, onPracticeEntry }) {
   const hasEntries = sessionEntries.length > 0;
   const isComplete = hasEntries && currentIndex >= sessionEntries.length;
   const currentEntry = isComplete ? null : sessionEntries[currentIndex];
+
+  // The meaning card eases the stage open below the prompt, and closed again
+  // for the next word; the reveal button eases to the width of its new label.
+  const stageRef = useRef(null);
+  useSmoothLayout(stageRef, { height: true }, isComplete);
+  useSmoothLayout(revealButtonRef, { width: true }, currentEntry?.id ?? currentIndex);
+
   const confidentResponses = sessionResults.filter(
     (result) => result.assessment === "good" || result.assessment === "easy"
   ).length;
@@ -210,7 +218,7 @@ function PracticePage({ entries, onPracticeEntry }) {
       </header>
 
       <div className="practice-layout">
-        <div className="practice-stage" aria-live="polite">
+        <div ref={stageRef} className="practice-stage" aria-live="polite">
           <LiquidGlassSurface
             key={currentEntry.id ?? currentIndex}
             as="article"

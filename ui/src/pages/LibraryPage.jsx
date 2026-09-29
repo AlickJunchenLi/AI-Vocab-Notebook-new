@@ -5,6 +5,7 @@ import GlassSelect from "../components/GlassSelect.jsx";
 import InkField from "../components/InkField.jsx";
 import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 import MotionRegion from "../motion/MotionRegion.jsx";
+import useSmoothLayout from "../motion/useSmoothLayout.js";
 import "../libraryNotebook.css";
 
 const LANGUAGE_OPTIONS = [
@@ -144,6 +145,13 @@ function LibraryPage({
     filteredEntries[0] ??
     null;
   const languageCount = new Set(entries.map((entry) => entry.language)).size;
+
+  // Filtering, sorting, adding or removing a word: the rows slide to their
+  // new places and the list eases to its new length, so the count below it
+  // and the foot of the page glide along. The open entry eases to the height
+  // of the next word's details.
+  useSmoothLayout(wordListRef, { height: true, flip: ".word-row" });
+  useSmoothLayout(detailRef, { height: true }, visibleSelectedEntry ? "entry" : "empty");
   const dueCount = entries.filter((entry) => {
     const dueLabel = String(entry.dueLabel || "Due today").toLowerCase();
     return dueLabel.includes("due") || dueLabel.includes("review again");

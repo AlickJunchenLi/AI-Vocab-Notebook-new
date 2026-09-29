@@ -8,7 +8,7 @@ import {
   stepSpring,
 } from "../glass/liquidField.js";
 import { readLiquidColours } from "../glass/liquidColours.js";
-import { LiquidLayerPool } from "../glass/liquidGlassGL.js";
+import { LiquidLayerPool } from "../glass/liquidLayerPool.js";
 
 /*
  * Drives the prototype with the pointer model the app will use: a smoothed

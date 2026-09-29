@@ -5,13 +5,15 @@
  * and placeholder are not) and the overlay above it shows the same text in
  * the hand. A glyph being written is painted through its own text with a
  * gradient whose edge (--ink-reach) travels the way a pen would: across,
- * down, round, a dab or a brush sweep (motion/inkStrokes.js). A slightly
- * darker nib leads the stroke, the way fresh ink pools at the pen.
+ * down, round, a dab or a brush sweep (motion/inkStrokes.js). The edge is
+ * feathered wide, so the ink flows on rather than being wiped in, and a
+ * faintly darker nib leads it, the way fresh ink pools at the pen. The pen
+ * eases into each stroke and lifts off gently at its end.
  */
 @property --ink-reach {
   syntax: "<percentage>";
   inherits: false;
-  initial-value: 130%;
+  initial-value: 150%;
 }
 
 @property --focus-reach {
@@ -78,11 +80,12 @@
   -webkit-text-fill-color: currentColor;
   pointer-events: none;
   user-select: none;
-  --ink-nib: color-mix(in oklab, currentColor 70%, black);
+  --ink-nib: color-mix(in oklab, currentColor 84%, black);
+  --ink-pen: cubic-bezier(0.35, 0.05, 0.2, 1);
 }
 
 :root[data-paper-tone="dark"] .ink-field-overlay {
-  --ink-nib: color-mix(in oklab, currentColor 70%, white);
+  --ink-nib: color-mix(in oklab, currentColor 82%, white);
 }
 
 :is(.word-combobox, .form-field-word) .ink-field-overlay {
@@ -124,24 +127,24 @@
 /* Across, like most letters, dashes and lines. */
 .ink-glyph[data-stroke="sweep"] {
   background-image: linear-gradient(90deg,
-    currentColor calc(var(--ink-reach) - 24%),
-    var(--ink-nib) calc(var(--ink-reach) - 9%),
+    currentColor calc(var(--ink-reach) - 42%),
+    var(--ink-nib) calc(var(--ink-reach) - 20%),
     transparent var(--ink-reach));
 }
 
 /* Right to left, for Arabic and Hebrew. */
 .ink-glyph[data-stroke="back"] {
   background-image: linear-gradient(270deg,
-    currentColor calc(var(--ink-reach) - 24%),
-    var(--ink-nib) calc(var(--ink-reach) - 9%),
+    currentColor calc(var(--ink-reach) - 42%),
+    var(--ink-nib) calc(var(--ink-reach) - 20%),
     transparent var(--ink-reach));
 }
 
 /* From the top, like digits, brackets, bars, quotes and ! or ?. */
 .ink-glyph[data-stroke="down"] {
   background-image: linear-gradient(180deg,
-    currentColor calc(var(--ink-reach) - 24%),
-    var(--ink-nib) calc(var(--ink-reach) - 9%),
+    currentColor calc(var(--ink-reach) - 42%),
+    var(--ink-nib) calc(var(--ink-reach) - 20%),
     transparent var(--ink-reach));
 }
 
@@ -149,22 +152,22 @@
 .ink-glyph[data-stroke="loop"] {
   background-image: conic-gradient(from 40deg at 50% 58%,
     transparent calc(100% - var(--ink-reach)),
-    var(--ink-nib) calc(108% - var(--ink-reach)),
-    currentColor calc(122% - var(--ink-reach)));
+    var(--ink-nib) calc(114% - var(--ink-reach)),
+    currentColor calc(136% - var(--ink-reach)));
 }
 
 /* A dab of ink spreading from the nib, for full stops and commas. */
 .ink-glyph[data-stroke="dot"] {
   background-image: radial-gradient(circle farthest-side at 50% 60%,
-    currentColor calc(var(--ink-reach) - 30%),
+    currentColor calc(var(--ink-reach) - 50%),
     transparent var(--ink-reach));
 }
 
 /* A brush sweep from the top left, the way a character's strokes run. */
 .ink-glyph[data-stroke="brush"] {
   background-image: linear-gradient(135deg,
-    currentColor calc(var(--ink-reach) - 30%),
-    var(--ink-nib) calc(var(--ink-reach) - 12%),
+    currentColor calc(var(--ink-reach) - 48%),
+    var(--ink-nib) calc(var(--ink-reach) - 24%),
     transparent var(--ink-reach));
 }
 
@@ -176,7 +179,7 @@
 
 @keyframes ink-write {
   from { --ink-reach: 0%; }
-  to { --ink-reach: 130%; }
+  to { --ink-reach: 150%; }
 }
 
 @keyframes ink-stamp {
@@ -212,11 +215,12 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .ink-glyph {
-    animation: ink-write var(--ink-time, 200ms) cubic-bezier(0.45, 0.05, 0.3, 1) var(--ink-delay, 0ms) backwards;
+    animation: ink-write var(--ink-time, 280ms) var(--ink-pen) var(--ink-delay, 0ms) backwards;
   }
 
+  /* A brush lingers a moment at the start of a character. */
   .ink-glyph[data-stroke="brush"] {
-    animation-timing-function: cubic-bezier(0.55, 0.1, 0.3, 1);
+    animation-timing-function: cubic-bezier(0.5, 0.08, 0.25, 1);
   }
 
   .ink-glyph[data-stroke="stamp"] {

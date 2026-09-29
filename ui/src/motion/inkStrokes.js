@@ -29,15 +29,17 @@ const STROKES = [
   ["down", /^[1-9|!¡?¿:;()[\]{}/\\"“”«»‹›^（）「」『』【】《》〈〉：；！？]$/u],
 ];
 
-// How long each movement takes, in milliseconds.
+// How long each movement takes, in milliseconds. Long enough for the eye to
+// follow the pen, short enough that fast typing never falls behind: strokes
+// simply overlap.
 const DURATIONS = {
-  sweep: 200,
-  back: 200,
-  down: 180,
-  dot: 130,
-  loop: 280,
-  brush: 320,
-  stamp: 260,
+  sweep: 280,
+  back: 280,
+  down: 250,
+  dot: 190,
+  loop: 380,
+  brush: 440,
+  stamp: 300,
 };
 
 export function strokeFor(glyph) {
@@ -58,5 +60,5 @@ export function strokeDuration(stroke) {
  * whole line never takes much longer than half a second to start.
  */
 export function strokeGap(count) {
-  return count <= 1 ? 0 : Math.min(34, 560 / count);
+  return count <= 1 ? 0 : Math.min(38, 560 / count);
 }
