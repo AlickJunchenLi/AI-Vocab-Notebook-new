@@ -1,6 +1,6 @@
 # Vocabulary Notebook
 
-A small place to collect words and practise remembering them. The browser app has a daily view, a searchable library, practice cards, and a progress page. It starts with sample English and Chinese words so you can try it straight away.
+A small place to collect words and practise remembering them. The browser app has a daily view, a searchable library, practice cards, and a progress page. It starts with sample English and Chinese words so you can try it straight away, and the **Tour** button in its header shows you around in about a minute.
 
 ## Run the app
 

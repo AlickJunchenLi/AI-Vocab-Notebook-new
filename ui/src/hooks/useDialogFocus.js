@@ -10,7 +10,9 @@ const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
-export function useDialogFocus(onClose) {
+// `returnFocusTo` is a selector for where focus goes on closing when the
+// control that opened the dialog is no longer on the page.
+export function useDialogFocus(onClose, returnFocusTo) {
   const dialogRef = useRef(null);
   const isPresent = useIsPresent();
 
@@ -68,11 +70,16 @@ export function useDialogFocus(onClose) {
       window.cancelAnimationFrame(focusFrame);
       dialog.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
-      if (previouslyFocused instanceof HTMLElement) {
-        previouslyFocused.focus();
-      }
+      // Safari doesn't focus a button when it is clicked, so the opener can
+      // be the page itself; that counts as no opener.
+      const opener = previouslyFocused instanceof HTMLElement &&
+        previouslyFocused !== document.body && previouslyFocused.isConnected
+        ? previouslyFocused
+        : null;
+      const returnTarget = opener ?? (returnFocusTo && document.querySelector(returnFocusTo));
+      returnTarget?.focus({ preventScroll: true });
     };
-  }, [onClose, isPresent]);
+  }, [onClose, isPresent, returnFocusTo]);
 
   return dialogRef;
 }

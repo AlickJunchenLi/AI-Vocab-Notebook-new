@@ -1,7 +1,8 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import MotionRegion from "../motion/MotionRegion.jsx";
 import Icon from "./Icon.jsx";
+import InkField from "./InkField.jsx";
 
 const MAX_SUGGESTIONS = 5;
 
@@ -20,6 +21,7 @@ function getDirection(language) {
 function WordSuggestionInput({ value, onChange, entries = [] }) {
   const listboxId = useId();
   const inputRef = useRef(null);
+  const markerRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -45,6 +47,42 @@ function WordSuggestionInput({ value, onChange, entries = [] }) {
   const showSuggestions = isOpen && suggestions.length > 0;
   const resolvedActiveIndex = Math.min(activeIndex, suggestions.length - 1);
   const activeSuggestion = suggestions[resolvedActiveIndex] ?? null;
+
+  // One highlight glides to the active option. It is placed without moving
+  // when the list opens, and glides from then on; the option it lands on is
+  // kept in view as the arrow keys run down a long list.
+  useLayoutEffect(() => {
+    const marker = markerRef.current;
+    const option = showSuggestions
+      ? document.getElementById(`${listboxId}-option-${resolvedActiveIndex}`)
+      : null;
+
+    if (!marker || !option) {
+      return undefined;
+    }
+
+    const list = option.parentElement;
+    const top = option.offsetTop;
+    const bottom = top + option.offsetHeight;
+    marker.style.height = `${option.offsetHeight}px`;
+    marker.style.transform = `translateY(${top}px)`;
+
+    // Scroll only the list, never the dialog or the page behind it.
+    if (top < list.scrollTop) {
+      list.scrollTop = top;
+    } else if (bottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = bottom - list.clientHeight;
+    }
+
+    if (marker.dataset.placed !== undefined) {
+      return undefined;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      marker.dataset.placed = "";
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [listboxId, resolvedActiveIndex, showSuggestions, suggestions]);
 
   function openSuggestions() {
     if (suggestions.length > 0) {
@@ -112,7 +150,7 @@ function WordSuggestionInput({ value, onChange, entries = [] }) {
           }
         }}
       >
-        <input
+        <InkField
           ref={inputRef}
           id={`${listboxId}-input`}
           name="vocabulary-entry"
@@ -131,7 +169,13 @@ function WordSuggestionInput({ value, onChange, entries = [] }) {
             setActiveIndex(0);
             setIsOpen(true);
           }}
-          onFocus={openSuggestions}
+          onFocus={() => {
+            // The dialog focuses this field as it opens; an empty field
+            // keeps the form clear until you type or press the down arrow.
+            if (value.trim()) {
+              openSuggestions();
+            }
+          }}
           onKeyDownCapture={(event) => {
             if (event.key === "Escape" && showSuggestions) {
               event.preventDefault();
@@ -153,6 +197,7 @@ function WordSuggestionInput({ value, onChange, entries = [] }) {
               </div>
 
               <div id={listboxId} className="word-suggestion-list" role="listbox">
+                <span ref={markerRef} className="word-suggestion-marker" aria-hidden="true" />
                 {suggestions.map((entry, index) => {
                   const isActive = index === resolvedActiveIndex;
 

@@ -89,6 +89,11 @@
      Chinese words fall back to a brush-style Kai face. */
   --font-hand: "Caveat Variable", "Kaiti SC", "STKaiti", "KaiTi", cursive;
 
+  /* Easing. Movement settles out of a quick start; colour and fades ease in
+     and out, so nothing snaps from one state to the next. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+
   --canvas: oklch(87% calc(0.036 * var(--paper-tint)) var(--paper-hue));
   --paper: oklch(95% calc(0.024 * var(--paper-tint)) var(--paper-hue));
   --paper-raised: oklch(97.5% calc(0.014 * var(--paper-tint)) var(--paper-hue));
@@ -102,6 +107,8 @@
   --accent: oklch(43% calc(0.1 * var(--theme-chroma)) var(--theme-hue));
   --accent-strong: oklch(36% calc(0.1 * var(--theme-chroma)) var(--theme-hue));
   --accent-soft: color-mix(in srgb, var(--accent) 8%, var(--paper));
+  /* A highlighter stroke in a pale wash of the ink, behind handwritten words. */
+  --highlighter: oklch(88% calc(0.06 * var(--theme-chroma)) var(--theme-hue) / 0.75);
   --on-accent: oklch(98% calc(0.01 * var(--paper-tint)) var(--paper-hue));
   --danger: #a44338;
   --danger-soft: #f7e9e2;
@@ -164,6 +171,8 @@
   --accent: oklch(82% calc(0.07 * var(--theme-chroma)) var(--theme-hue));
   --accent-strong: oklch(88% calc(0.05 * var(--theme-chroma)) var(--theme-hue));
   --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--paper));
+  /* On dark paper the pale ink sits on a deeper stroke instead. */
+  --highlighter: oklch(42% calc(0.08 * var(--theme-chroma)) var(--theme-hue) / 0.6);
   --on-accent: oklch(20% calc(0.03 * var(--paper-tint)) var(--paper-hue));
   --danger: #f0a996;
   --danger-soft: #4a3129;
@@ -211,6 +220,12 @@ html {
   min-height: 100%;
   background: var(--canvas);
   scroll-behavior: smooth;
+  /* Room for the scrollbar is kept even when a page is short enough not to
+     need one, or a dialog stops the page scrolling, so the notebook never
+     shifts sideways as you move between pages. */
+  scrollbar-gutter: stable;
+  /* Anything scrolled into view stops clear of the sticky header. */
+  scroll-padding-top: var(--sticky-offset, 0px);
 }
 
 body {

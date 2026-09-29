@@ -29,6 +29,9 @@
   font-size: 15px;
   line-height: 32px;
   resize: vertical;
+  outline: 2px solid transparent;
+  outline-offset: 12px;
+  transition: outline-color 240ms var(--ease-soft), outline-offset 360ms var(--ease-out);
 }
 
 .daily-note .daily-note-field::placeholder {
@@ -36,8 +39,9 @@
   opacity: 0.9;
 }
 
+/* The keyboard's focus ring closes in on the page rather than snapping on. */
 .daily-note .daily-note-field:focus-visible {
-  outline: 2px solid var(--accent);
+  outline-color: var(--accent);
   outline-offset: 6px;
   border-radius: 2px;
 }

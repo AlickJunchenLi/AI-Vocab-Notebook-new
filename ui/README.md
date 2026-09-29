@@ -18,6 +18,7 @@ The **Appearance** button in the header opens one menu for everything about how 
 - **Ink**: Lavender, **Blue** (default), Pink or Green. Each comes with its own paper stock: lilac paper on a dusty violet desk, cool blue-grey exercise-book paper, warm blush, or sage. On dark paper they become aubergine, navy, plum and forest. Each swatch shows its paper around its ink.
 - **Paper**: light or dark.
 - **Ruled lines** on the note, the word list and other written areas.
+- **Handwriting** (on by default): what you type is written in by hand, stroke by stroke, as described under Writing as you type.
 - **Glass edge light**: the cursor effect described below.
 
 Every choice is saved on this device. The ink and paper are applied before the first paint, so the page never flashes the defaults.
@@ -26,19 +27,54 @@ Each theme is five numbers in `src/index.css`: the ink's hue, a companion hue fo
 
 ## Look and type
 
-The pages are written on paper and the containers (cards, the open library entry, dialogs, menus and the toast) are liquid glass laid on top of it. Only the words you collect are handwritten, in Caveat (Chinese words fall back to a Kai face); everything else is set in DM Sans. Icons come from [Phosphor](https://phosphoricons.com).
+The pages are written on paper and the containers (cards, the open library entry, dialogs, menus and the toast) are liquid glass laid on top of it. The words you collect are handwritten, in Caveat (Chinese words fall back to a Kai face), and so are the titles of the tour's notes, so a hint never looks like one of the notebook's own controls. With **Handwriting** on, everything you type (the word and its details, the library search and today's note) is written in the same hand; everything else is set in DM Sans. Icons come from [Phosphor](https://phosphoricons.com).
+
+## Layout
+
+The header stays at the top of the window as you scroll, so the page tabs and **Add word** are always in reach; it has the desk behind it and gains a soft edge once the page slides under it. On narrow screens only the row of tabs stays; the brand and buttons above it scroll away. Anything scrolled into view, and the open library entry, stops clear of it (`--sticky-offset` in `src/App.css`).
+
+The notebook is at least as tall as the window. Its rings keep a fixed pitch, like a real spiral binding, so a longer page simply has more of them and moving between pages never slides the rings already there (`src/components/NotebookBinding.jsx`, `--ring-pitch`). When the page changes, the notebook eases from the old page's height to the new one's instead of jumping (`src/motion/PageFrame.jsx`), and a ring added as it grows drops into place. The window always keeps room for its scrollbar (`scrollbar-gutter: stable`), so neither a short page nor an open dialog shifts the notebook sideways.
+
+On Today, Word of the day matches the height of the Review beside it. In **Add word**, suggestions from your library appear once you start typing (or press ↓), so the empty form isn't covered when it opens.
+
+## Tour
+
+The first time the notebook is opened, a note on Today offers a one-minute tour; it never starts by itself, and **Not now** puts it away for good. The header's **Tour** button runs it at any time. Seven short notes each point at one thing: the page tabs, Add word, today's review, the library, practice, progress, and finally the Tour button itself. A step on another page turns the notebook to it first. The part being described is lit and circled in ink while the rest of the page dims; the note, a taped slip of paper, sits beside it, or along the foot of the screen on a phone. Next and Back (or → and ←) move through the notes, Escape or × ends the tour, focus stays in the note while it is open, and afterwards returns to whatever opened it (or to the Tour button). The steps and their wording are `src/tour/tourSteps.js`; the notes are placed by `src/tour/placeNote.js`. Whether the tour has been seen is kept in this browser (`notebook.tour`).
 
 ## Opening
 
 Each time the notebook loads, it arrives closed: a cloth-bound cover in a deep shade of the current ink, with a paper label in the middle showing the title and how many words and languages the notebook holds. The cover rests for a moment, then fades away to show today's page, just under a second in all. Any key, click, scroll or touch skips it, and it is left out entirely when reduced motion is requested. The notebook waits for its fonts before it first renders (at most 0.8s, in `src/main.jsx`), so the title is drawn in its final face from the first frame. The cover is `src/components/NotebookOpening.jsx`; its look and timing are the `.notebook-opening` rules in `src/App.css` (`--cover-delay` and `--cover-time`); its colours are the `--cover` tokens in `src/index.css`.
 
+## Writing as you type
+
+With **Handwriting** on, each character you type is written onto the page with the pen movement a hand would use for it, and not only letters:
+
+- most letters, dashes and lines are drawn left to right;
+- digits, brackets, bars, quotes, `!` and `?` from the top down;
+- loops (`o`, `0`, `@`, `%`, `&`, `°`, `*`) round and anticlockwise;
+- full stops and commas as a dab of ink spreading from the nib;
+- Chinese, Japanese and Korean characters with a brush sweep from the top left, a little slower;
+- Arabic and Hebrew right to left;
+- emoji are pressed on like a stamp.
+
+A slightly darker nib leads each stroke, the way fresh ink pools at the pen. A paste or a picked suggestion is written out one character after another, and the whole line starts within about half a second. Deleting simply removes the character. While an input method is composing (pinyin, for instance) the field shows its own text, and the committed characters are written in when you confirm them.
+
+The field underneath is still a real input: the caret, selection, spell check and screen readers work as before. The overlay copies the field's type, padding and scroll, so each glyph lands exactly over the field's own hidden text, lines wrap in the same places, and a long line scrolls with the caret. `src/components/InkField.jsx` draws it, `src/motion/inkStrokes.js` decides the stroke for each character (whole graphemes, so an emoji or an accented letter is one glyph), and `src/components/inkField.css` paints the strokes. The switch is kept in this browser (`notebook.handwriting`). With reduced motion, what you type appears at once, still in the hand.
+
 ## Motion
 
-The motion follows the notebook's calm study rhythm (taste-skill motion intensity 4/10). Cards lift into view by 8px, review prompts arrive from 12px to the right, and menus and dialogs settle into place before fading out in 120ms. Below-the-fold notes, cards and progress sections reveal once as they enter the viewport. Tabs, paper/period segments, switches, selected word markers, buttons, progress bars and completion checks give brief feedback; reading surfaces do not loop or float.
+The motion follows the notebook's calm study rhythm (taste-skill motion intensity 5/10) and borrows from the desk rather than from app chrome. Cards lift into view by 8px, review prompts arrive from 12px to the right, and menus unfold from their trigger before fading out in 180ms. Colour changes and fades ease in and out rather than switching (`--ease-soft` in `src/index.css`), and dismissals ease out instead of being cut off. Below-the-fold notes, cards and progress sections reveal once as they enter the viewport. Reading surfaces do not loop or float.
 
-`src/motion/useNotebookMotion.js` owns the shared entrance/exit presets. `MotionSurface` adds motion to the existing glass component without changing its DOM, while `MotionRegion` handles plain elements. `src/motion/notebookMotion.css` owns control feedback and small CSS sequences. Motion runs through `LazyMotion` with `domAnimation`, without drag or layout-measurement features. Only opacity and transforms are animated by this layer, and stagger delays stay below 220ms.
+- **Pages.** The tabs are sibling pages, so changing tab slides sideways: a tab to the right brings its page in from 18px to the right while the old page slips 12px the other way and fades in 160ms (`src/motion/PageTurn.jsx`); the notebook's height eases to the new page over 460ms. Pressing a tab pushes it into the page before it rises to the front. Neither page travels far enough to read as a page flip.
+- **Dialogs.** Add word, Edit word and Delete settle like a sheet laid on the desk: they arrive 14px low, at 97% and turned 0.6°, and straighten on a soft spring with almost no overshoot (about 380ms). The form's fields fill in down the page 25ms apart. They lift straight off when dismissed. Saving without a word gives the Word field a short side-to-side shake (`src/motion/nudge.js`).
+- **Pointing.** The handwritten words you can open (library rows, weakest words, recent cards and the word of the day) take a stroke of highlighter across their lower half, drawn left to right in about 340ms; it fades rather than being undrawn when the pointer leaves. Text links are underlined in pencil and inked over on hover. The brand mark tips up a little. Hover effects need a mouse or trackpad, so touch screens never show a stray highlight.
+- **Pressing.** Ink buttons press into the page (their shadow turns inward, 1px down, 98%); other buttons scale to 98% or 96%, all in 110ms, and ease back in 280ms.
+- **Focus.** Clicking into a boxed field inks its outline in from the point you clicked, spreading both ways round the box while a soft ring of ink grows around it, and its label takes the ink; from the keyboard the ink starts at the beginning of the text. The library search inks its pencil line over, left to right. Leaving, the ink fades rather than being undrawn. In **Add word**, the highlight in the suggestions glides from one word to the next as you move with the arrow keys or the pointer.
+- **Writing.** A word that becomes the subject (the open library entry, the practice card, the word you are about to delete) is written in from left to right in 380ms. Ticks (this week's days, reviewed cards, the session summary and the toast) are written from their short stroke to their long one.
 
-Reduced motion uses immediate states in both React and CSS, with no hover travel. Exiting menus, dialogs and toasts become inert immediately. Dialog focus and scroll locking are released at dismissal rather than after the exit animation; pending autofocus frames are cancelled on cleanup. The practice progress indicator retains its accessible value and text while its visual fill animates with `scaleX`.
+`src/motion/useNotebookMotion.js` owns the shared entrance/exit presets. `MotionSurface` adds motion to the existing glass component without changing its DOM, while `MotionRegion` handles plain elements. `src/motion/notebookMotion.css` owns control feedback and small CSS sequences. Motion runs through `LazyMotion` with `domAnimation`, without drag or layout-measurement features. Movement is opacity and transform only; the writing and tick reveals are a clip-path on a single word or icon and leave no clip behind. Stagger delays stay below 220ms, and the form's entrance leaves no transform on its fields, so the Language menu still opens over the fields below it. The highlighter is the `--highlighter` token in `src/index.css`, a pale wash of the ink on light paper and a deeper stroke under the pale ink on dark paper.
+
+Reduced motion uses immediate states in both React and CSS, with no hover travel: pages swap in place, dialogs appear without settling, words and ticks are simply there, focus ink and the suggestion highlight are simply in place, and the shake is skipped. The highlighter and the inked link still appear on hover, at once, because they show state rather than movement. Exiting menus, dialogs, toasts and the previous page become inert immediately. Dialog focus and scroll locking are released at dismissal rather than after the exit animation; pending autofocus frames are cancelled on cleanup. The practice progress indicator retains its accessible value and text while its visual fill animates with `scaleX`.
 
 ## Liquid glass
 
@@ -61,8 +97,10 @@ The shared material and pointer behavior are in `src/glass/`. The notebook shell
 | Library word list | `Delete` | Open the removal confirmation |
 | Practice | `Space` | Reveal meaning |
 | Practice | `1`–`4` | Rate Again, Hard, Good, or Easy |
+| Tour | `→` / `←` | Next or previous note |
+| Tour | `Esc` | End the tour |
 
-Practice shortcuts do not run while a dialog or text field is active. The first Tab stop provides a skip-to-content link.
+Practice and library shortcuts do not run while a dialog, the tour or a text field is active. The first Tab stop provides a skip-to-content link.
 
 ## Verification
 
@@ -71,3 +109,6 @@ Practice shortcuts do not run while a dialog or text field is active. The first 
 - Desktop and mobile layout checks, including the page tabs and the weekly progress chart, on light and dark paper.
 - Cursor lifecycle checks for settling, pointer leave, reduced motion, disabled mode, touch input, and cleanup.
 - Liquid layer checks for which surfaces get a layer (including nested surfaces and open dialogs), ink and paper changes, the Glass edge light switch, and the CSS fallback after a lost WebGL context.
+- Page switches in headless Chrome: ring positions and pitch before and after each switch, the notebook's height frame by frame, a steady page width, and switching from far down the page through the sticky header.
+- Handwriting in the Add word and Edit word dialogs, the library search and today's note, on light and dark paper: the overlay matching its field's box to the fraction of a pixel, text drawn in a contrasting colour under it landing exactly beneath each glyph (including wrapped lines, Chinese and emoji), strokes paused part-way, horizontal scrolling, input-method composition, and the switch turning it off and on.
+- The tour at desktop and phone sizes and with reduced motion: every note on screen and clear of what it points at, focus kept in the note and returned afterwards, arrow keys, Escape, and the stored "seen" state.

@@ -3,7 +3,9 @@ import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 import MotionRegion from "../motion/MotionRegion.jsx";
 import GlassSelect from "./GlassSelect.jsx";
 import Icon from "./Icon.jsx";
+import InkField from "./InkField.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
+import { nudge } from "../motion/nudge.js";
 
 const LANGUAGE_OPTIONS = [
   { value: "English", label: "English" },
@@ -43,6 +45,7 @@ function EditWordModal({ entry, onSave, onCancel }) {
 
     if (word.trim() === "" || language.trim() === "") {
       setFormError("A word and language are required before saving.");
+      nudge(dialogRef.current?.querySelector(".add-word-form-grid > :first-child"));
       return;
     }
 
@@ -101,7 +104,7 @@ function EditWordModal({ entry, onSave, onCancel }) {
         <div className="add-word-form-grid">
           <label className="form-field form-field-word">
             Word
-            <input
+            <InkField
               value={word}
               onChange={(event) => setWord(event.target.value)}
               data-autofocus
@@ -122,7 +125,7 @@ function EditWordModal({ entry, onSave, onCancel }) {
 
           <label className="form-field">
             Synonyms
-            <input
+            <InkField
               value={synonymsText}
               onChange={(event) => setSynonymsText(event.target.value)}
             />
@@ -130,7 +133,7 @@ function EditWordModal({ entry, onSave, onCancel }) {
 
           <label className="form-field">
             Translations
-            <input
+            <InkField
               value={translationsText}
               onChange={(event) => setTranslationsText(event.target.value)}
             />
@@ -138,7 +141,8 @@ function EditWordModal({ entry, onSave, onCancel }) {
 
           <label className="form-field form-field-wide">
             Notes
-            <textarea
+            <InkField
+              as="textarea"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
             />

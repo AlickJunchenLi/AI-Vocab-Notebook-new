@@ -3,8 +3,10 @@ import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 import MotionRegion from "../motion/MotionRegion.jsx";
 import GlassSelect from "./GlassSelect.jsx";
 import Icon from "./Icon.jsx";
+import InkField from "./InkField.jsx";
 import WordSuggestionInput from "./WordSuggestionInput.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
+import { nudge } from "../motion/nudge.js";
 
 const LANGUAGE_OPTIONS = [
   { value: "English", label: "English" },
@@ -43,6 +45,7 @@ function AddWordModal({ entries, onClose, onAdd }) {
 
     if (formData.word.trim() === "" || formData.language.trim() === "") {
       setFormError("Add a word and choose its language before saving.");
+      nudge(dialogRef.current?.querySelector(".add-word-form-grid > :first-child"));
       return;
     }
 
@@ -122,7 +125,7 @@ function AddWordModal({ entries, onClose, onAdd }) {
 
           <label className="form-field">
             Synonyms
-            <input
+            <InkField
               name="synonyms"
               value={formData.synonyms}
               onChange={handleChange}
@@ -132,7 +135,7 @@ function AddWordModal({ entries, onClose, onAdd }) {
 
           <label className="form-field">
             Translations
-            <input
+            <InkField
               name="translations"
               value={formData.translations}
               onChange={handleChange}
@@ -142,7 +145,8 @@ function AddWordModal({ entries, onClose, onAdd }) {
 
           <label className="form-field form-field-wide">
             Notes
-            <textarea
+            <InkField
+              as="textarea"
               name="notes"
               value={formData.notes}
               onChange={handleChange}

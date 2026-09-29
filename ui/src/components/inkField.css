@@ -1,0 +1,233 @@
+/*
+ * Text fields that are written on (InkField.jsx).
+ *
+ * With Handwriting on, the field's own text is hidden (its caret, selection
+ * and placeholder are not) and the overlay above it shows the same text in
+ * the hand. A glyph being written is painted through its own text with a
+ * gradient whose edge (--ink-reach) travels the way a pen would: across,
+ * down, round, a dab or a brush sweep (motion/inkStrokes.js). A slightly
+ * darker nib leads the stroke, the way fresh ink pools at the pen.
+ */
+@property --ink-reach {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 130%;
+}
+
+@property --focus-reach {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.ink-field {
+  position: relative;
+  display: block;
+  min-width: 0;
+  isolation: isolate;
+}
+
+.ink-field > :is(input, textarea) {
+  display: block;
+}
+
+.ink-field[data-ink] > :is(input, textarea) {
+  font-family: var(--font-hand);
+  font-size: 21px;
+  font-weight: 500;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--accent);
+}
+
+/* The word itself keeps its larger hand. */
+:is(.word-combobox, .form-field-word) .ink-field[data-ink] > input {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.ink-field[data-ink] > :is(input, textarea)::placeholder {
+  -webkit-text-fill-color: currentColor;
+}
+
+.ink-field[data-ink] > :is(input, textarea)::selection {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* While an input method composes, the field shows its own text. */
+.ink-field[data-composing] > :is(input, textarea) {
+  -webkit-text-fill-color: currentColor;
+}
+
+.ink-field[data-composing] .ink-field-overlay {
+  visibility: hidden;
+}
+
+.ink-field-overlay {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  margin: 0;
+  overflow: hidden;
+  border-style: solid;
+  border-color: transparent;
+  background: none;
+  color: var(--ink);
+  -webkit-text-fill-color: currentColor;
+  pointer-events: none;
+  user-select: none;
+  --ink-nib: color-mix(in oklab, currentColor 70%, black);
+}
+
+:root[data-paper-tone="dark"] .ink-field-overlay {
+  --ink-nib: color-mix(in oklab, currentColor 70%, white);
+}
+
+:is(.word-combobox, .form-field-word) .ink-field-overlay {
+  color: var(--accent);
+}
+
+/* A single line is clipped where the field clips it, at its content box. */
+.ink-field-view {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-self: stretch;
+  align-items: center;
+  overflow: hidden;
+}
+
+.ink-field:not([data-multiline]) .ink-field-text {
+  flex: none;
+  white-space: pre;
+}
+
+.ink-field[data-multiline] :is(.ink-field-overlay, .ink-field-view, .ink-field-text) {
+  display: block;
+}
+
+/*
+ * The padding lets the paint reach the loops and tails of the hand, which
+ * run past a glyph's own box; the negative margin gives the room back, so
+ * nothing moves.
+ */
+.ink-glyph {
+  margin: -0.4em -0.25em;
+  padding: 0.4em 0.25em;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Across, like most letters, dashes and lines. */
+.ink-glyph[data-stroke="sweep"] {
+  background-image: linear-gradient(90deg,
+    currentColor calc(var(--ink-reach) - 24%),
+    var(--ink-nib) calc(var(--ink-reach) - 9%),
+    transparent var(--ink-reach));
+}
+
+/* Right to left, for Arabic and Hebrew. */
+.ink-glyph[data-stroke="back"] {
+  background-image: linear-gradient(270deg,
+    currentColor calc(var(--ink-reach) - 24%),
+    var(--ink-nib) calc(var(--ink-reach) - 9%),
+    transparent var(--ink-reach));
+}
+
+/* From the top, like digits, brackets, bars, quotes and ! or ?. */
+.ink-glyph[data-stroke="down"] {
+  background-image: linear-gradient(180deg,
+    currentColor calc(var(--ink-reach) - 24%),
+    var(--ink-nib) calc(var(--ink-reach) - 9%),
+    transparent var(--ink-reach));
+}
+
+/* Round, anticlockwise from the top right, like o, 0, @ and %. */
+.ink-glyph[data-stroke="loop"] {
+  background-image: conic-gradient(from 40deg at 50% 58%,
+    transparent calc(100% - var(--ink-reach)),
+    var(--ink-nib) calc(108% - var(--ink-reach)),
+    currentColor calc(122% - var(--ink-reach)));
+}
+
+/* A dab of ink spreading from the nib, for full stops and commas. */
+.ink-glyph[data-stroke="dot"] {
+  background-image: radial-gradient(circle farthest-side at 50% 60%,
+    currentColor calc(var(--ink-reach) - 30%),
+    transparent var(--ink-reach));
+}
+
+/* A brush sweep from the top left, the way a character's strokes run. */
+.ink-glyph[data-stroke="brush"] {
+  background-image: linear-gradient(135deg,
+    currentColor calc(var(--ink-reach) - 30%),
+    var(--ink-nib) calc(var(--ink-reach) - 12%),
+    transparent var(--ink-reach));
+}
+
+/* Emoji keep their own colours and are pressed on like a stamp. */
+.ink-glyph[data-stroke="stamp"] {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+@keyframes ink-write {
+  from { --ink-reach: 0%; }
+  to { --ink-reach: 130%; }
+}
+
+@keyframes ink-stamp {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/*
+ * Focus. A boxed field's outline is inked in from where it was clicked,
+ * spreading both ways round the box, while a soft ring of ink grows around
+ * it. Leaving, the outline fades rather than being undrawn, then resets out
+ * of sight (the highlighter in notebookMotion.css does the same).
+ */
+.form-field .ink-field::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border: 1.5px solid var(--accent);
+  border-radius: 10px;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle at var(--focus-x, 12px) var(--focus-y, 50%),
+    #000 var(--focus-reach), transparent calc(var(--focus-reach) + 32px));
+  mask-image: radial-gradient(circle at var(--focus-x, 12px) var(--focus-y, 50%),
+    #000 var(--focus-reach), transparent calc(var(--focus-reach) + 32px));
+}
+
+.form-field .ink-field:focus-within::after {
+  --focus-reach: calc(var(--focus-span, 480px) + 32px);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ink-glyph {
+    animation: ink-write var(--ink-time, 200ms) cubic-bezier(0.45, 0.05, 0.3, 1) var(--ink-delay, 0ms) backwards;
+  }
+
+  .ink-glyph[data-stroke="brush"] {
+    animation-timing-function: cubic-bezier(0.55, 0.1, 0.3, 1);
+  }
+
+  .ink-glyph[data-stroke="stamp"] {
+    animation-name: ink-stamp;
+  }
+
+  .form-field .ink-field::after {
+    transition: opacity 220ms cubic-bezier(0.4, 0, 0.2, 1), --focus-reach 0s linear 220ms;
+  }
+
+  .form-field .ink-field:focus-within::after {
+    transition: opacity 120ms linear, --focus-reach 560ms cubic-bezier(0.45, 0.05, 0.25, 1);
+  }
+}

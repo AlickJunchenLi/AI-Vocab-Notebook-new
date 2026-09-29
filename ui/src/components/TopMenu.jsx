@@ -35,12 +35,15 @@ function TopMenu({
   activePage,
   onNavigate,
   onAdd,
+  onStartTour,
   ruledPaper,
   onToggleRuling,
   darkPaper,
   onPaperToneChange,
   glassEnabled,
   onToggleGlass,
+  handwriting,
+  onToggleHandwriting,
   theme,
   onThemeChange,
 }) {
@@ -202,6 +205,12 @@ function TopMenu({
                     label="Ruled lines"
                   />
                   <Switch
+                    checked={handwriting}
+                    onChange={onToggleHandwriting}
+                    label="Handwriting"
+                    hint="What you type is written in, stroke by stroke"
+                  />
+                  <Switch
                     checked={glassEnabled}
                     onChange={onToggleGlass}
                     label="Glass edge light"
@@ -212,6 +221,17 @@ function TopMenu({
             ) : null}
           </AnimatePresence>
         </div>
+
+        <button
+          type="button"
+          className="tour-toggle"
+          aria-label="Take the tour"
+          title="Take the tour"
+          onClick={onStartTour}
+        >
+          <Icon name="help" size={18} />
+          <span>Tour</span>
+        </button>
 
         <button type="button" className="header-add-button" aria-label="Add word" onClick={onAdd}>
           <Icon name="plus" size={18} weight="bold" />

@@ -19,6 +19,7 @@
 }
 
 .search-control {
+  position: relative;
   display: flex;
   grid-column: 1 / -1;
   min-height: 46px;
@@ -27,15 +28,44 @@
   padding: 0 2px;
   border-bottom: 1px solid var(--pencil);
   color: var(--muted);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: color 240ms var(--ease-soft);
+}
+
+/* Focus inks the pencil line over, left to right, as a link's is on hover.
+   Leaving, the ink fades rather than being undrawn. */
+.search-control::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+  transition: opacity 220ms var(--ease-soft), transform 0s linear 220ms;
 }
 
 .search-control:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 1px 0 var(--accent);
+  color: var(--accent);
+}
+
+.search-control:focus-within::after {
+  opacity: 1;
+  transform: scaleX(1);
+  transition: opacity 100ms linear, transform 460ms var(--motion-pen, ease-out);
+}
+
+.search-control > .ink-field {
+  min-width: 0;
+  flex: 1;
 }
 
 .search-control input {
+  width: 100%;
   min-width: 0;
   min-height: 44px;
   flex: 1;
@@ -97,7 +127,7 @@
   background: transparent;
   color: var(--ink);
   text-align: left;
-  transition: background-color 160ms ease;
+  transition: background-color 220ms var(--ease-soft);
 }
 
 .notebook-app[data-ruled="false"] .word-row {
@@ -232,10 +262,11 @@
 
 /* The open entry */
 
+/* The open entry stays in view below the sticky header (App.css). */
 .library-detail {
   position: sticky;
-  top: 24px;
-  scroll-margin-top: 24px;
+  top: var(--sticky-offset);
+  scroll-margin-top: var(--sticky-offset);
 }
 
 .library-detail > .liquid-glass-content {

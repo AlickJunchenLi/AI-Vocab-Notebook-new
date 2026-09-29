@@ -1,5 +1,7 @@
+import { AnimatePresence } from "motion/react";
 import Icon from "../components/Icon.jsx";
 import DailyNote from "../components/DailyNote.jsx";
+import TourInvite from "../tour/TourInvite.jsx";
 import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 import MotionRegion from "../motion/MotionRegion.jsx";
 import "../todayNotebook.css";
@@ -21,7 +23,15 @@ function dayOfYear(date) {
   return Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86_400_000);
 }
 
-export default function TodayPage({ entries, onStartReview, onSelectEntry, onAdd }) {
+export default function TodayPage({
+  entries,
+  onStartReview,
+  onSelectEntry,
+  onAdd,
+  showTourInvite = false,
+  onStartTour,
+  onDismissTour,
+}) {
   const words = Array.isArray(entries) ? entries : [];
   const now = new Date();
   const todayIndex = (now.getDay() + 6) % 7;
@@ -57,6 +67,12 @@ export default function TodayPage({ entries, onStartReview, onSelectEntry, onAdd
           </dl>
         ) : null}
       </header>
+
+      <AnimatePresence>
+        {showTourInvite ? (
+          <TourInvite key="tour-invite" onStart={onStartTour} onDismiss={onDismissTour} />
+        ) : null}
+      </AnimatePresence>
 
       {words.length ? (
         <div className="today-spread">

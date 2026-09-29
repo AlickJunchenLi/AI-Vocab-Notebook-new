@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import Icon from "../components/Icon.jsx";
 import GlassSelect from "../components/GlassSelect.jsx";
+import InkField from "../components/InkField.jsx";
 import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 import MotionRegion from "../motion/MotionRegion.jsx";
 import "../libraryNotebook.css";
@@ -268,7 +269,7 @@ function LibraryPage({
             <label className="search-control">
               <span className="sr-only">Search your words</span>
               <Icon name="search" size={18} />
-              <input
+              <InkField
                 ref={searchRef}
                 type="search"
                 placeholder="Search your words"
@@ -483,7 +484,7 @@ function LibraryPage({
                 </button>
                 <AnimatePresence>
                   {isMoreOpen ? (
-                    <MotionRegion key="actions" motionPreset="menu" className="more-menu" id="word-more-actions">
+                    <MotionRegion key="actions" motionPreset="menu-above" className="more-menu" id="word-more-actions">
                       <button
                         ref={deleteButtonRef}
                         type="button"

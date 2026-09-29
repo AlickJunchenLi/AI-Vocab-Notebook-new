@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import MotionRegion from "../motion/MotionRegion.jsx";
+import InkField from "./InkField.jsx";
 import "../dailyNote.css";
 
 function readTodayNote() {
@@ -41,7 +42,8 @@ function DailyNote({ headingId }) {
   return (
     <MotionRegion as="section" reveal className="daily-note" aria-labelledby={labelId}>
       <h2 id={labelId} className="daily-note-heading">Today’s note</h2>
-      <textarea
+      <InkField
+        as="textarea"
         className="daily-note-field"
         aria-labelledby={labelId}
         aria-describedby={statusId}
