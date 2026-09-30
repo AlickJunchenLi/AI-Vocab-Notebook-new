@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
-import { m, useIsPresent, useMotionValue, useReducedMotion } from "motion/react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { animate, m, useIsPresent, useMotionValue, useReducedMotion } from "motion/react";
 import Icon from "../components/Icon.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
 import { TOUR_STEPS } from "./tourSteps.js";
@@ -9,8 +9,15 @@ import { placeNote, spotlightFor } from "./placeNote.js";
 import "./tour.css";
 
 const EASE = [0.22, 1, 0.36, 1];
+// The highlight and its note glide between targets, easing in and out.
+const GLIDE_EASE = [0.4, 0, 0.2, 1];
 // A step whose target never appears falls back to a centred note.
 const GIVE_UP_AFTER = 1600;
+// The page scrolls only when less than this share of the target is on
+// screen; otherwise it stays still and the highlight goes to the target.
+const SHOWN_ENOUGH = 0.6;
+// A scroll the page can't finish (it is too short) stops being waited on.
+const SCROLL_WAIT = 1000;
 const GEOMETRY_PROPERTIES = new Set([
   "transform", "translate", "scale", "rotate", "width", "height",
   "minWidth", "maxWidth", "minHeight", "maxHeight", "top", "right", "bottom", "left",
@@ -29,33 +36,41 @@ function findTarget(selectors) {
   return null;
 }
 
-// Finish scrolling before measuring the destination. A smooth scroll would
-// move the target underneath its indicator and give the step two placements.
-function bringIntoView(element, step) {
-  const behavior = "instant";
-
-  if (step.scrollTop) {
-    if (window.scrollY > 0) {
-      window.scrollTo({ top: 0, behavior });
-    }
-    return;
-  }
-
+// Where to scroll so the step's target can be seen, or null to leave the page
+// where it is. A target that is mostly on screen is lit where it stands; the
+// page moves only for one that is mostly out of sight.
+function scrollFor(element, step) {
   const rect = element.getBoundingClientRect();
-  const top = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+  // Header targets count from the top of the window, the rest from below the
+  // sticky header.
+  const top = step.scrollTop ? 0 : parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
   const docked = window.innerWidth < 560;
-  const bottom = window.innerHeight * (docked ? 0.55 : 0.92);
-  const atStart = step.align === "start" ? rect.top <= top + 24 : rect.top >= top;
+  // A note docked along the foot of a phone screen covers its lower part.
+  const bottom = window.innerHeight * (docked ? 0.55 : 1);
+  const visible = Math.min(rect.bottom, bottom) - Math.max(rect.top, top);
 
-  if (atStart && rect.top >= top - 1 && rect.bottom <= bottom) {
-    return;
+  if (visible >= Math.min(rect.height, bottom - top) * SHOWN_ENOUGH) {
+    return null;
   }
 
   const tall = rect.height > (bottom - top) * 0.8;
-  element.scrollIntoView({
-    block: tall || docked || step.align === "start" ? "start" : "center",
-    behavior,
-  });
+  let offset = rect.top + rect.height / 2 - (top + bottom) / 2;
+
+  if (step.scrollTop) {
+    offset = -window.scrollY;
+  } else if (tall || docked) {
+    offset = rect.top - top;
+  }
+
+  const limit = Math.max(document.documentElement.scrollHeight - window.innerHeight, 0);
+  const next = Math.min(Math.max(window.scrollY + offset, 0), limit);
+  return Math.abs(next - window.scrollY) < 1 ? null : next;
+}
+
+// Longer moves take a little longer, so every glide feels equally unhurried.
+function glideFor(from, to) {
+  const distance = Math.max(...to.map((value, position) => Math.abs(value - from[position])));
+  return { duration: Math.min(0.45 + distance / 2000, 0.75), ease: GLIDE_EASE };
 }
 
 function isTargetSettling(target) {
@@ -96,8 +111,11 @@ function TourGuide({ activePage, onNavigate, onClose }) {
   const { index, request } = selection;
   const step = TOUR_STEPS[index];
   const isLast = index === TOUR_STEPS.length - 1;
+  // The step the highlight last arrived at. Until the first arrival nothing
+  // is shown; after it, the highlight stays up and glides between steps.
   const [positionedTarget, setPositionedTarget] = useState(null);
   const positioned = positionedTarget?.request === request && positionedTarget?.page === activePage;
+  const hasPlaced = useRef(false);
   const reduce = useReducedMotion();
   const isPresent = useIsPresent();
   // Started from the invitation, which is gone by the end: focus then goes to
@@ -127,9 +145,11 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     }
   }, [isPresent, step.page, activePage, onNavigate]);
 
-  // Prepare the page and scroll first, then show the instruction at its final
-  // destination. Later geometry changes are followed directly, without a
-  // spring trailing behind the target or switching the arrow mid-flight.
+  // Wait for the step's page and target to come to rest, scrolling only when
+  // the target is out of sight. Then the highlight and the note glide once,
+  // from where they were straight to the target, and after that follow it
+  // directly, so they never trail behind the page or drift through the
+  // places it passes on the way.
   useEffect(() => {
     const note = noteRef.current;
 
@@ -140,9 +160,41 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     const values = [spotX, spotY, spotWidth, spotHeight, noteX, noteY];
     let frame = 0;
     let target = null;
-    let scrolled = false;
-    let shown = false;
+    let checked = false;
+    let scrolling = null;
+    let previous = null;
+    let placed = false;
+    let arrived = false;
+    // The destination of a glide on its way, and where its arrow will point.
+    let heading = null;
+    let latest = null;
+    let glide = 0;
+    let cancelled = false;
     const startedAt = performance.now();
+
+    function point(where) {
+      note.dataset.side = where.side;
+      note.style.setProperty("--tour-arrow", `${where.arrow}px`);
+    }
+
+    function arrive() {
+      arrived = true;
+      heading = null;
+      point(latest);
+      setPositionedTarget({ request, page: activePage });
+    }
+
+    function glideTo(next) {
+      const run = ++glide;
+      const transition = glideFor(values.map((value) => value.get()), next);
+
+      heading = next;
+      Promise.all(values.map((value, position) => animate(value, next[position], transition))).then(() => {
+        if (!cancelled && run === glide) {
+          arrive();
+        }
+      });
+    }
 
     function place(rect) {
       const view = { width: window.innerWidth, height: window.innerHeight };
@@ -164,22 +216,69 @@ function TourGuide({ activePage, onNavigate, onClose }) {
       }
 
       const next = [spot.x, spot.y, spot.width, spot.height, where.x, where.y];
+      latest = where;
+
+      // Already on the way: steer toward where the target is now.
+      if (heading) {
+        if (next.some((value, position) => Math.abs(value - heading[position]) > 0.5)) {
+          glideTo(next);
+        }
+        return;
+      }
+
+      if (hasPlaced.current && !arrived && !reduce) {
+        glideTo(next);
+        return;
+      }
 
       values.forEach((value, position) => {
-        value.set(next[position]);
+        value.jump(next[position]);
       });
-      note.dataset.side = where.side;
-      note.style.setProperty("--tour-arrow", `${where.arrow}px`);
 
-      if (!shown) {
-        shown = true;
-        // Motion values render on the next frame. Reveal only after those
-        // styles land, so the note never flashes at the previous coordinates.
-        frame = window.requestAnimationFrame(() => {
-          frame = 0;
-          setPositionedTarget({ request, page: activePage });
-        });
+      if (arrived) {
+        point(where);
+        return;
       }
+
+      hasPlaced.current = true;
+      // Motion values render on the next frame. Reveal only after those
+      // styles land, so the note never flashes at the previous coordinates.
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        arrive();
+      });
+    }
+
+    // Whether the target has come to rest: the page has finished turning,
+    // any scroll toward it has arrived, and it hasn't moved since last frame.
+    function isReady(now) {
+      const late = now - startedAt > GIVE_UP_AFTER;
+
+      if (!checked) {
+        // A page that is still short can clamp the scroll before the new
+        // target fits. Also avoid measuring the incoming page's transform.
+        if (isTargetSettling(target) && !late) {
+          return false;
+        }
+
+        checked = true;
+        const top = scrollFor(target, step);
+
+        if (top !== null) {
+          scrolling = { top, until: now + SCROLL_WAIT };
+          window.scrollTo({ top, behavior: reduce ? "instant" : "smooth" });
+        }
+        return false;
+      }
+
+      if (scrolling && Math.abs(window.scrollY - scrolling.top) >= 1 && now < scrolling.until) {
+        return false;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const still = previous && ["x", "y", "width", "height"].every((key) => Math.abs(rect[key] - previous[key]) < 0.5);
+      previous = rect;
+      return still || late;
     }
 
     function tick(now) {
@@ -189,7 +288,8 @@ function TourGuide({ activePage, onNavigate, onClose }) {
         if (target) sizes?.unobserve(target);
         target = findTarget(step.target);
         if (target) sizes?.observe(target);
-        scrolled = false;
+        checked = placed;
+        previous = null;
       }
 
       if (activePage !== step.page || !target) {
@@ -201,15 +301,12 @@ function TourGuide({ activePage, onNavigate, onClose }) {
         return;
       }
 
-      if (!scrolled) {
-        // A page that is still short can clamp the scroll before the new
-        // target fits. Also avoid measuring the incoming page's transform.
-        if (!isTargetSettling(target) || now - startedAt > GIVE_UP_AFTER) {
-          bringIntoView(target, step);
-          scrolled = true;
+      if (!placed) {
+        if (!isReady(now)) {
+          frame = window.requestAnimationFrame(tick);
+          return;
         }
-        frame = window.requestAnimationFrame(tick);
-        return;
+        placed = true;
       }
 
       place(target.getBoundingClientRect());
@@ -222,7 +319,11 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     }
 
     function resize() {
-      scrolled = false;
+      const top = placed && target ? scrollFor(target, step) : null;
+
+      if (top !== null) {
+        window.scrollTo({ top, behavior: "instant" });
+      }
       follow();
     }
 
@@ -233,12 +334,13 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     window.addEventListener("scroll", follow, { passive: true, capture: true });
 
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(frame);
       sizes?.disconnect();
       window.removeEventListener("resize", resize);
       window.removeEventListener("scroll", follow, true);
     };
-  }, [request, step, activePage, isPresent, noteRef, spotX, spotY, spotWidth, spotHeight, noteX, noteY]);
+  }, [request, step, activePage, isPresent, reduce, noteRef, spotX, spotY, spotWidth, spotHeight, noteX, noteY]);
 
   function handleKeyDown(event) {
     if (event.key === "ArrowRight" && !isLast) {
@@ -254,7 +356,8 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     <m.div
       className="tour"
       data-motion="tour"
-      data-locating={!positioned || undefined}
+      data-placing={!positionedTarget || undefined}
+      data-moving={!positioned || undefined}
       inert={!isPresent || undefined}
       initial={reduce ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -268,7 +371,8 @@ function TourGuide({ activePage, onNavigate, onClose }) {
         aria-hidden="true"
         style={{ x: spotX, y: spotY, width: spotWidth, height: spotHeight }}
       >
-        <svg key={`${step.id}-${positioned}`} className="tour-pen" focusable="false">
+        {/* The ring of the step it last arrived at; a new one is drawn on arrival. */}
+        <svg key={positionedTarget?.request ?? "none"} className="tour-pen" focusable="false">
           <rect width="100%" height="100%" rx="11" pathLength="1" />
         </svg>
       </m.div>

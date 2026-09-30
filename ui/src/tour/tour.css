@@ -19,15 +19,22 @@
   inset: 0;
 }
 
-/* Hide the previous placement while the destination page settles. The
-   dialog stays mounted, preserving keyboard focus during quick step changes. */
-.tour[data-locating] .tour-blocker {
+/* Until the first target is found the whole page dims and the note waits
+   out of sight. The dialog stays mounted, preserving keyboard focus. */
+.tour[data-placing] .tour-blocker {
   background: var(--scrim);
 }
 
-.tour[data-locating] :is(.tour-spotlight, .tour-note) {
+.tour[data-placing] :is(.tour-spotlight, .tour-note) {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Between targets the highlight and the note stay up and glide across; the
+   ink ring and the note's arrow lift off and come back once they arrive. */
+.tour[data-moving] .tour-pen,
+.tour[data-moving] .tour-note::after {
+  opacity: 0;
 }
 
 /* A clear window onto the target; the rest of the page dims around it. */
@@ -263,8 +270,13 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .tour-pen,
+  .tour-note::after {
+    transition: opacity var(--motion-fast, 180ms) var(--motion-soft, ease);
+  }
+
   /* The ring is drawn once the spotlight has reached its target. */
   .tour-pen rect {
-    animation: tour-pen 520ms var(--motion-pen, ease-out) 200ms backwards;
+    animation: tour-pen 520ms var(--motion-pen, ease-out) 80ms backwards;
   }
 }

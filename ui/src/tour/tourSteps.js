@@ -3,10 +3,8 @@
  * in a sentence or two (people skim these and forget long ones). `page` is
  * the page the step needs; `target` lists selectors to try in order, so an
  * empty notebook still has something to point at; `scrollTop` keeps header
- * targets in view on small screens, where only the tabs stay pinned; `align:
- * "start"` scrolls a wide target up under the header to leave the note room
- * below it; `sides` is where the note prefers to sit; `keys` are the
- * shortcuts worth knowing.
+ * targets in view on small screens, where only the tabs stay pinned; `sides`
+ * is where the note prefers to sit; `keys` are the shortcuts worth knowing.
  */
 export const TOUR_STEPS = [
   {
@@ -54,8 +52,6 @@ export const TOUR_STEPS = [
     id: "progress",
     page: "progress",
     target: [".progress-overview-grid"],
-    // Too wide for the note to sit beside it: lift it to the top instead.
-    align: "start",
     title: "Watch it add up",
     body: "Your reviews by week or month, your average recall, and how far each language has come.",
   },
