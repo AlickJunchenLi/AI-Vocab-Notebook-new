@@ -18,7 +18,7 @@ The **Appearance** button in the header opens one menu for everything about how 
 - **Ink**: Lavender, **Blue** (default), Pink or Green. Each comes with its own paper stock: lilac paper on a dusty violet desk, cool blue-grey exercise-book paper, warm blush, or sage. On dark paper they become aubergine, navy, plum and forest. Each swatch shows its paper around its ink.
 - **Paper**: light or dark.
 - **Ruled lines** on the note, the word list and other written areas.
-- **Handwriting** (on by default): what you type is written in by hand, stroke by stroke, as described under Writing as you type.
+- **Handwriting** (on by default): what you type is shown in the hand, each character fading in, as described under Writing as you type.
 - **Glass edge light**: the cursor effect described below.
 
 Every choice is saved on this device. The ink and paper are applied before the first paint, so the page never flashes the defaults.
@@ -47,19 +47,9 @@ Each time the notebook loads, it arrives closed: a cloth-bound cover in a deep s
 
 ## Writing as you type
 
-With **Handwriting** on, each character you type is written onto the page with the pen movement a hand would use for it, and not only letters:
+With **Handwriting** on, what you type is shown in the hand, and each character you type (letters, digits, symbols, Chinese characters and emoji alike) fades in on its own, starting at once and easing out over about a third of a second, so fast typing never falls behind. A paste or a picked suggestion fades in one character after another, and the whole line starts within about half a second. Deleting simply removes the character. While an input method is composing (pinyin, for instance) the field shows its own text, and the committed characters fade in when you confirm them.
 
-- most letters, dashes and lines are drawn left to right;
-- digits, brackets, bars, quotes, `!` and `?` from the top down;
-- loops (`o`, `0`, `@`, `%`, `&`, `°`, `*`) round and anticlockwise;
-- full stops and commas as a dab of ink spreading from the nib;
-- Chinese, Japanese and Korean characters with a brush sweep from the top left, a little slower;
-- Arabic and Hebrew right to left;
-- emoji are pressed on like a stamp.
-
-A small pen writes each character: its tip travels over the glyph along that stroke's path (up and down across a letter, down a digit or a bracket, round a loop, a tap for a full stop, the strokes of a Chinese character), glides on to the next one as you type, and lifts off the page and fades when you stop. The ink shows from the first frame and runs at a steady pen speed with a darker band at its edge, where it pools at the nib (about 0.23s for a letter, a little longer for loops and Chinese characters, so fast typing simply overlaps strokes). It goes on wet, a brighter wash of the ink, and dries to its own colour over the next moment. A paste or a picked suggestion is written out one character after another, and the whole line starts within about half a second. Deleting simply removes the character. While an input method is composing (pinyin, for instance) the field shows its own text, and the committed characters are written in when you confirm them.
-
-The field underneath is still a real input: the caret, selection, spell check and screen readers work as before. The overlay copies the field's type, padding and scroll, so each glyph lands exactly over the field's own hidden text, lines wrap in the same places, and a long line scrolls with the caret. `src/components/InkField.jsx` draws it, `src/motion/inkPen.js` moves the pen (on transforms only, so it stays smooth while the page is busy), `src/motion/inkStrokes.js` decides the stroke for each character (whole graphemes, so an emoji or an accented letter is one glyph), and `src/components/inkField.css` paints the strokes. The switch is kept in this browser (`notebook.handwriting`). With reduced motion, what you type appears at once, still in the hand, and the pen stays away.
+The field underneath is still a real input: the caret, selection, spell check and screen readers work as before. The overlay copies the field's type, padding and scroll, so each glyph lands exactly over the field's own hidden text, lines wrap in the same places, and a long line scrolls with the caret. `src/components/InkField.jsx` draws it, `src/motion/inkGlyphs.js` splits the text into characters (whole graphemes, so an emoji or an accented letter is one glyph) and times them, and `src/components/inkField.css` fades them in. The switch is kept in this browser (`notebook.handwriting`). With reduced motion, what you type appears at once, still in the hand.
 
 ## Motion
 
@@ -121,5 +111,5 @@ Practice and library shortcuts do not run while a dialog, the tour or a text fie
 - Page switches in headless Chrome: ring positions and pitch before and after each switch, the notebook's height frame by frame, a steady page width, and switching from far down the page through the sticky header.
 - Layout movement: the library list's rows sliding and its height easing while filtering, the practice stage and reveal button easing on reveal, the Add word sheet easing when its error appears, the notebook easing on a sudden change of page height, and no easing while typing or opening menus.
 - Loading: the production bundle split into the first page and on-demand parts, font preload links in the built page, the other parts and the WebGL layer fetched after the first page, and icons drawn as before.
-- Handwriting in the Add word and Edit word dialogs, the library search and today's note, on light and dark paper: the overlay matching its field's box to the fraction of a pixel, text drawn in a contrasting colour under it landing exactly beneath each glyph (including wrapped lines, Chinese and emoji), strokes paused part-way, horizontal scrolling, input-method composition, and the switch turning it off and on.
+- Handwriting in the Add word and Edit word dialogs, the library search and today's note, on light and dark paper: the overlay matching its field's box to the fraction of a pixel, text drawn in a contrasting colour under it landing exactly beneath each glyph (including wrapped lines, Chinese and emoji), fade-ins paused part-way, horizontal scrolling, input-method composition, and the switch turning it off and on.
 - The tour at desktop and phone sizes and with reduced motion: every note on screen and clear of what it points at, focus kept in the note and returned afterwards, arrow keys, Escape, and the stored "seen" state.

@@ -208,7 +208,7 @@ function TopMenu({
                     checked={handwriting}
                     onChange={onToggleHandwriting}
                     label="Handwriting"
-                    hint="What you type is written in, stroke by stroke"
+                    hint="What you type is shown in the hand, fading in"
                   />
                   <Switch
                     checked={glassEnabled}

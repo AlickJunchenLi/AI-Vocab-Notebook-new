@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { useHandwriting } from "../motion/handwriting.js";
-import { writeWithPen } from "../motion/inkPen.js";
-import { splitGlyphs, strokeDuration, strokeFor, strokeGap } from "../motion/inkStrokes.js";
+import { fadeGap, fadesIn, splitGlyphs } from "../motion/inkGlyphs.js";
 import "./inkField.css";
 
 /*
  * A text field that is written on rather than typed into. With Handwriting on
  * (Appearance), the field's own text is hidden and an overlay shows the same
- * text in the hand, laid exactly over it: each new glyph is written in with
- * the pen movement that suits it (motion/inkStrokes.js), a pen tip travels
- * over it as it is written (motion/inkPen.js), and its ink goes on wet and
- * dries; glyphs already written and dry stay as plain text. The field stays a real input, so the caret,
+ * text in the hand, laid exactly over it: each new glyph fades in on its own
+ * (motion/inkGlyphs.js), and glyphs already shown stay as plain text. The field stays a real input, so the caret,
  * selection, spell check, autofill and screen readers all work as before.
  * While an input method is composing (pinyin, for instance) the field shows
  * its own text, and the committed characters are written in afterwards.
@@ -38,12 +35,11 @@ function createInk(value) {
     value,
     nextKey: 1,
     glyphs: splitGlyphs(value).map((text) => ({ text, key: 0 })),
-    batch: null,
   };
 }
 
-// Glyphs are compared with the last text written: what's new between the
-// unchanged start and end is written in, what's gone is simply gone.
+// Glyphs are compared with the last text shown: what's new between the
+// unchanged start and end fades in, what's gone is simply gone.
 function write(ink, value, animate) {
   const next = splitGlyphs(value);
   const previous = ink.glyphs;
@@ -62,37 +58,25 @@ function write(ink, value, animate) {
   }
 
   const inserted = next.slice(start, nextEnd);
-  const gap = animate ? strokeGap(inserted.filter(strokeFor).length) : 0;
+  const gap = animate ? fadeGap(inserted.filter(fadesIn).length) : 0;
   let nextKey = ink.nextKey;
   let order = 0;
 
   const written = inserted.map((text) => {
-    const stroke = animate ? strokeFor(text) : null;
-
-    if (!stroke) {
+    if (!animate || !fadesIn(text)) {
       return { text, key: 0 };
     }
 
-    const glyph = {
-      text,
-      key: nextKey,
-      stroke,
-      delay: Math.round(order * gap),
-      duration: strokeDuration(stroke),
-    };
+    const glyph = { text, key: nextKey, delay: Math.round(order * gap) };
     nextKey += 1;
     order += 1;
     return glyph;
   });
 
-  // The glyphs this change writes, for the pen to go over.
-  const batch = written.filter((glyph) => glyph.key);
-
   return {
     value,
     nextKey,
     glyphs: [...previous.slice(0, start), ...written, ...previous.slice(previousEnd)],
-    batch: batch.length ? batch : null,
   };
 }
 
@@ -113,8 +97,8 @@ function inkReducer(ink, action) {
   return write(ink, action.value, action.animate);
 }
 
-// Written glyphs are joined back into plain text; only those still being
-// written (or drying) are elements of their own.
+// Glyphs already shown are joined back into plain text; only those still
+// fading in are elements of their own.
 function renderGlyphs(glyphs) {
   const nodes = [];
   let run = "";
@@ -134,12 +118,8 @@ function renderGlyphs(glyphs) {
       <span
         key={glyph.key}
         className="ink-glyph"
-        data-stroke={glyph.stroke}
         data-ink-key={glyph.key}
-        style={{
-          "--ink-delay": `${glyph.delay}ms`,
-          "--ink-time": `${glyph.duration}ms`,
-        }}
+        style={glyph.delay ? { animationDelay: `${glyph.delay}ms` } : undefined}
       >
         {glyph.text}
       </span>,
@@ -164,9 +144,6 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
   const fieldRef = useRef(null);
   const overlayRef = useRef(null);
   const textRef = useRef(null);
-  const penRef = useRef(null);
-  const nibRef = useRef(null);
-  const penMotion = useRef(null);
   const aimedByPointer = useRef(false);
   const settled = useRef({ keys: new Set(), frame: 0 });
   const [composing, setComposing] = useState(false);
@@ -180,27 +157,8 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
     return () => window.cancelAnimationFrame(pending.frame);
   }, []);
 
-  // The pen goes over what was just written, from wherever it was.
-  useLayoutEffect(() => {
-    const layer = textRef.current;
-    const pen = penRef.current;
-    const nib = nibRef.current;
-
-    if (!ink.batch || !handwriting || reduce || !layer || !pen || !nib) {
-      return;
-    }
-
-    penMotion.current = writeWithPen({
-      layer,
-      pen,
-      nib,
-      glyphs: ink.batch,
-      previous: penMotion.current,
-    }) ?? penMotion.current;
-  }, [handwriting, ink.batch, reduce]);
-
-  // Strokes that finish in the same frame are joined back into the text in
-  // one go, rather than one re-render each.
+  // Glyphs that finish fading in the same frame are joined back into the
+  // text in one go, rather than one re-render each.
   function settle(key) {
     const pending = settled.current;
     pending.keys.add(key);
@@ -217,8 +175,8 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
 
   useImperativeHandle(ref, () => fieldRef.current, []);
 
-  // Keep up with the field. Nothing is written while an input method is
-  // composing; its committed text is written in once it's done.
+  // Keep up with the field. Nothing fades in while an input method is
+  // composing; its committed text fades in once it's done.
   useLayoutEffect(() => {
     if (!composing && ink.value !== text) {
       dispatch({ type: "write", value: text, animate: handwriting && !reduce });
@@ -404,16 +362,12 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
               onAnimationEnd={(event) => {
                 const key = Number(event.target.dataset?.inkKey);
 
-                // A glyph is done once its ink has dried.
-                if (key && event.animationName === "ink-dry") {
+                if (key) {
                   settle(key);
                 }
               }}
             >
               {written}
-              <span ref={penRef} className="ink-pen">
-                <span ref={nibRef} className="ink-pen-nib" />
-              </span>
             </span>
           </span>
         </span>

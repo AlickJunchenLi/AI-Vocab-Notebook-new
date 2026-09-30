@@ -3,20 +3,9 @@
  *
  * With Handwriting on, the field's own text is hidden (its caret, selection
  * and placeholder are not) and the overlay above it shows the same text in
- * the hand. A glyph being written is painted through its own text with a
- * gradient whose edge (--ink-reach) travels the way a pen would: across,
- * down, round, a dab or a brush sweep (motion/inkStrokes.js). Ink starts to
- * show on the first frame and runs at a steady pen speed, with a darker band
- * at its edge where it pools at the nib. It goes on wet, a brighter wash of
- * the ink, and dries to its own colour once the stroke is done. A pen tip
- * rides the edge (.ink-pen, motion/inkPen.js).
+ * the hand. Each new glyph fades in on its own (.ink-glyph), easing in
+ * softly so the ink seems to soak into the page rather than switch on.
  */
-@property --ink-reach {
-  syntax: "<percentage>";
-  inherits: false;
-  initial-value: 130%;
-}
-
 @property --focus-reach {
   syntax: "<length>";
   inherits: false;
@@ -77,25 +66,14 @@
   border-style: solid;
   border-color: transparent;
   background: none;
-  color: var(--ink-color);
+  color: var(--ink);
   -webkit-text-fill-color: currentColor;
   pointer-events: none;
   user-select: none;
-  /* The ink when dry, wet, and pooled at the nib. */
-  --ink-color: var(--ink);
-  --ink-wet: color-mix(in oklab, var(--accent) 74%, white);
-  --ink-nib: color-mix(in oklab, currentColor 62%, black);
-  /* A steady pen: moving from the first frame, easing only at the end. */
-  --ink-pen: cubic-bezier(0.3, 0.15, 0.35, 1);
-}
-
-:root[data-paper-tone="dark"] .ink-field-overlay {
-  --ink-wet: color-mix(in oklab, var(--accent) 64%, white);
-  --ink-nib: color-mix(in oklab, currentColor 60%, white);
 }
 
 :is(.word-combobox, .form-field-word) .ink-field-overlay {
-  --ink-color: var(--accent);
+  color: var(--accent);
 }
 
 /* A single line is clipped where the field clips it, at its content box. */
@@ -108,10 +86,6 @@
   overflow: hidden;
 }
 
-.ink-field-text {
-  position: relative;
-}
-
 .ink-field:not([data-multiline]) .ink-field-text {
   flex: none;
   white-space: pre;
@@ -121,136 +95,9 @@
   display: block;
 }
 
-/*
- * The padding lets the paint reach the loops and tails of the hand, which
- * run past a glyph's own box; the negative margin gives the room back, so
- * nothing moves. It is kept narrow across, so the ink's edge reaches the
- * glyph itself almost as soon as it starts.
- */
-.ink-glyph {
-  margin: -0.4em -0.12em;
-  padding: 0.4em 0.12em;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* Across, like most letters, dashes and lines. */
-.ink-glyph[data-stroke="sweep"] {
-  background-image: linear-gradient(90deg,
-    currentColor calc(var(--ink-reach) - 26%),
-    var(--ink-nib) calc(var(--ink-reach) - 11%),
-    transparent var(--ink-reach));
-}
-
-/* Right to left, for Arabic and Hebrew. */
-.ink-glyph[data-stroke="back"] {
-  background-image: linear-gradient(270deg,
-    currentColor calc(var(--ink-reach) - 26%),
-    var(--ink-nib) calc(var(--ink-reach) - 11%),
-    transparent var(--ink-reach));
-}
-
-/* From the top, like digits, brackets, bars, quotes and ! or ?. */
-.ink-glyph[data-stroke="down"] {
-  background-image: linear-gradient(180deg,
-    currentColor calc(var(--ink-reach) - 26%),
-    var(--ink-nib) calc(var(--ink-reach) - 11%),
-    transparent var(--ink-reach));
-}
-
-/* Round, anticlockwise from the top right, like o, 0, @ and %. */
-.ink-glyph[data-stroke="loop"] {
-  background-image: conic-gradient(from 40deg at 50% 58%,
-    transparent calc(100% - var(--ink-reach)),
-    var(--ink-nib) calc(110% - var(--ink-reach)),
-    currentColor calc(124% - var(--ink-reach)));
-}
-
-/* A dab of ink spreading from the nib, for full stops and commas. */
-.ink-glyph[data-stroke="dot"] {
-  background-image: radial-gradient(circle farthest-side at 50% 60%,
-    currentColor calc(var(--ink-reach) - 30%),
-    transparent var(--ink-reach));
-}
-
-/* A brush sweep from the top left, the way a character's strokes run. */
-.ink-glyph[data-stroke="brush"] {
-  background-image: linear-gradient(135deg,
-    currentColor calc(var(--ink-reach) - 28%),
-    var(--ink-nib) calc(var(--ink-reach) - 13%),
-    transparent var(--ink-reach));
-}
-
-/* Emoji keep their own colours and are pressed on like a stamp. */
-.ink-glyph[data-stroke="stamp"] {
-  background: none;
-  -webkit-text-fill-color: currentColor;
-}
-
-@keyframes ink-write {
-  from { --ink-reach: 12%; }
-  to { --ink-reach: 130%; }
-}
-
-/* Wet while the stroke is made, then drying to the ink's own colour. */
-@keyframes ink-dry {
-  0%, 30% { color: var(--ink-wet); }
-  to { color: var(--ink-color); }
-}
-
-@keyframes ink-stamp {
+@keyframes ink-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-/*
- * The pen: its tip is the element's origin. The outer element moves across
- * and fades, the inner one moves up and down (motion/inkPen.js). Drawn as a
- * slim pen leaning away from the line, dark at the nib, with a bead of wet
- * ink where it touches the page.
- */
-.ink-pen,
-.ink-pen-nib {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-
-.ink-pen {
-  z-index: 1;
-  opacity: 0;
-}
-
-.ink-pen-nib::before {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: -0.06em;
-  width: 0.12em;
-  height: 1.15em;
-  border-radius: 0.12em 0.12em 0.06em 0.06em;
-  background: linear-gradient(to top,
-    var(--ink-nib) 0 22%,
-    color-mix(in oklab, var(--ink-nib) 72%, transparent) 22%,
-    transparent 100%);
-  transform: rotate(32deg);
-  transform-origin: 50% 100%;
-}
-
-.ink-pen-nib::after {
-  content: "";
-  position: absolute;
-  top: -0.085em;
-  left: -0.085em;
-  width: 0.17em;
-  height: 0.17em;
-  border-radius: 50%;
-  background: var(--ink-wet);
-  box-shadow: 0 0 0 0.03em color-mix(in oklab, var(--ink-nib) 40%, transparent);
 }
 
 /*
@@ -280,19 +127,9 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  /* Starts at once and eases out, so fast typing never falls behind. */
   .ink-glyph {
-    animation:
-      ink-write var(--ink-time, 230ms) var(--ink-pen) var(--ink-delay, 0ms) backwards,
-      ink-dry calc(var(--ink-time, 230ms) + 700ms) cubic-bezier(0.4, 0, 0.6, 1) var(--ink-delay, 0ms) backwards;
-  }
-
-  /* A brush presses in a moment at the start of a character. */
-  .ink-glyph[data-stroke="brush"] {
-    animation-timing-function: cubic-bezier(0.42, 0.1, 0.3, 1), cubic-bezier(0.4, 0, 0.6, 1);
-  }
-
-  .ink-glyph[data-stroke="stamp"] {
-    animation-name: ink-stamp, ink-dry;
+    animation: ink-fade-in 320ms cubic-bezier(0.25, 0.1, 0.25, 1) backwards;
   }
 
   .form-field .ink-field::after {
