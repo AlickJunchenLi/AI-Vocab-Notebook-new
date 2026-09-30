@@ -19,6 +19,17 @@
   inset: 0;
 }
 
+/* Hide the previous placement while the destination page settles. The
+   dialog stays mounted, preserving keyboard focus during quick step changes. */
+.tour[data-locating] .tour-blocker {
+  background: var(--scrim);
+}
+
+.tour[data-locating] :is(.tour-spotlight, .tour-note) {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* A clear window onto the target; the rest of the page dims around it. */
 .tour-spotlight {
   position: absolute;

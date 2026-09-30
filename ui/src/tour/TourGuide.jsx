@@ -1,22 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { m, useIsPresent, useReducedMotion, useSpring } from "motion/react";
+import { useCallback, useEffect, useId, useState } from "react";
+import { m, useIsPresent, useMotionValue, useReducedMotion } from "motion/react";
 import Icon from "../components/Icon.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
-import useSmoothLayout from "../motion/useSmoothLayout.js";
 import { TOUR_STEPS } from "./tourSteps.js";
 import { placeNote, spotlightFor } from "./placeNote.js";
 import "./tour.css";
 
 const EASE = [0.22, 1, 0.36, 1];
-// The spotlight and the note glide to each new target without overshooting.
-const GLIDE = { stiffness: 260, damping: 34, mass: 1 };
-// After a step changes, its target is followed for this long while the page
-// turns and scrolls it into place; a step whose target never appears falls
-// back to a centred note.
-const FOLLOW_FOR = 900;
+// A step whose target never appears falls back to a centred note.
 const GIVE_UP_AFTER = 1600;
+const GEOMETRY_PROPERTIES = new Set([
+  "transform", "translate", "scale", "rotate", "width", "height",
+  "minWidth", "maxWidth", "minHeight", "maxHeight", "top", "right", "bottom", "left",
+  "marginTop", "marginRight", "marginBottom", "marginLeft", "paddingTop", "paddingBottom",
+]);
 
 function findTarget(selectors) {
   for (const selector of selectors) {
@@ -30,10 +29,10 @@ function findTarget(selectors) {
   return null;
 }
 
-// Scroll only when the target isn't already comfortably in view. "auto"
-// follows the page's scroll-behavior: smooth, or instant under reduced motion.
+// Finish scrolling before measuring the destination. A smooth scroll would
+// move the target underneath its indicator and give the step two placements.
 function bringIntoView(element, step) {
-  const behavior = "auto";
+  const behavior = "instant";
 
   if (step.scrollTop) {
     if (window.scrollY > 0) {
@@ -59,6 +58,32 @@ function bringIntoView(element, step) {
   });
 }
 
+function isTargetSettling(target) {
+  const frame = target.closest(".page-frame");
+
+  if (frame?.matches("[data-turning], [data-settling]")) {
+    return true;
+  }
+
+  // Incoming pages and cards slide in independently. Their visual bounds
+  // become the destination only after those entrances have finished.
+  for (let element = target; element && element !== document.body; element = element.parentElement) {
+    if (element.getAnimations().some((animation) => {
+      const effect = animation.effect;
+      // The header's scroll-driven shadow never finishes, but does not move
+      // the target. Only finite animations of actual geometry hold placement.
+      return (animation.playState === "running" || animation.pending) &&
+        animation.timeline === document.timeline && effect &&
+        Number.isFinite(effect.getComputedTiming().endTime) &&
+        effect.getKeyframes().some((keyframe) => Object.keys(keyframe).some((property) => GEOMETRY_PROPERTIES.has(property)));
+    })) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /*
  * The guided tour: a short run of notes, each pinned beside one part of the
  * notebook, which is lit and circled in ink while the rest of the page dims.
@@ -67,30 +92,32 @@ function bringIntoView(element, step) {
  * keys step back and forth.
  */
 function TourGuide({ activePage, onNavigate, onClose }) {
-  const [index, setIndex] = useState(0);
+  const [selection, setSelection] = useState({ index: 0, request: 0 });
+  const { index, request } = selection;
   const step = TOUR_STEPS[index];
   const isLast = index === TOUR_STEPS.length - 1;
+  const [positionedTarget, setPositionedTarget] = useState(null);
+  const positioned = positionedTarget?.request === request && positionedTarget?.page === activePage;
   const reduce = useReducedMotion();
   const isPresent = useIsPresent();
   // Started from the invitation, which is gone by the end: focus then goes to
   // the header's Tour button.
   const noteRef = useDialogFocus(onClose, ".tour-toggle");
-  // Each step's note eases to the height of its words, its buttons gliding
-  // with its edge; the placement below follows it as it does.
-  useSmoothLayout(noteRef, { height: true, flip: ":scope > *", enter: false });
   const titleId = useId();
   const bodyId = useId();
-  const placed = useRef(false);
-
-  const spotX = useSpring(0, GLIDE);
-  const spotY = useSpring(0, GLIDE);
-  const spotWidth = useSpring(0, GLIDE);
-  const spotHeight = useSpring(0, GLIDE);
-  const noteX = useSpring(0, GLIDE);
-  const noteY = useSpring(0, GLIDE);
+  const spotX = useMotionValue(0);
+  const spotY = useMotionValue(0);
+  const spotWidth = useMotionValue(0);
+  const spotHeight = useMotionValue(0);
+  const noteX = useMotionValue(0);
+  const noteY = useMotionValue(0);
 
   const goTo = useCallback((next) => {
-    setIndex(Math.min(Math.max(next, 0), TOUR_STEPS.length - 1));
+    const nextIndex = Math.min(Math.max(next, 0), TOUR_STEPS.length - 1);
+    setSelection((previous) => previous.index === nextIndex ? previous : {
+      index: nextIndex,
+      request: previous.request + 1,
+    });
   }, []);
 
   // Each step belongs to a page; turn to it first.
@@ -100,9 +127,9 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     }
   }, [isPresent, step.page, activePage, onNavigate]);
 
-  // Find the step's target, bring it into view and keep the spotlight and the
-  // note on it while it settles. Positions go straight to motion values, so
-  // following the target never re-renders the tour.
+  // Prepare the page and scroll first, then show the instruction at its final
+  // destination. Later geometry changes are followed directly, without a
+  // spring trailing behind the target or switching the arrow mid-flight.
   useEffect(() => {
     const note = noteRef.current;
 
@@ -114,7 +141,7 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     let frame = 0;
     let target = null;
     let scrolled = false;
-    let followUntil = 0;
+    let shown = false;
     const startedAt = performance.now();
 
     function place(rect) {
@@ -138,64 +165,80 @@ function TourGuide({ activePage, onNavigate, onClose }) {
 
       const next = [spot.x, spot.y, spot.width, spot.height, where.x, where.y];
 
-      // The first placement, and every placement under reduced motion, is
-      // immediate; after that the spotlight and note glide.
       values.forEach((value, position) => {
-        if (reduce || !placed.current) {
-          value.jump(next[position]);
-        } else {
-          value.set(next[position]);
-        }
+        value.set(next[position]);
       });
-      placed.current = true;
       note.dataset.side = where.side;
       note.style.setProperty("--tour-arrow", `${where.arrow}px`);
+
+      if (!shown) {
+        shown = true;
+        // Motion values render on the next frame. Reveal only after those
+        // styles land, so the note never flashes at the previous coordinates.
+        frame = window.requestAnimationFrame(() => {
+          frame = 0;
+          setPositionedTarget({ request, page: activePage });
+        });
+      }
     }
 
     function tick(now) {
       frame = 0;
 
       if (!target || !target.isConnected || target.closest("[inert]")) {
+        if (target) sizes?.unobserve(target);
         target = findTarget(step.target);
+        if (target) sizes?.observe(target);
         scrolled = false;
       }
 
-      // Scroll once the notebook has finished growing to the new page, so a
-      // page that is still short can't cut the scroll off early.
-      if (target && !scrolled && !document.querySelector(".page-frame[data-turning]")) {
-        bringIntoView(target, step);
-        scrolled = true;
-        followUntil = now + FOLLOW_FOR;
-      }
-
-      if (target) {
-        place(target.getBoundingClientRect());
-      } else if (now - startedAt > GIVE_UP_AFTER) {
-        place(null);
+      if (activePage !== step.page || !target) {
+        if (now - startedAt > GIVE_UP_AFTER) {
+          place(null);
+          return;
+        }
+        frame = window.requestAnimationFrame(tick);
         return;
       }
 
-      if (!target || !scrolled || now < followUntil) {
+      if (!scrolled) {
+        // A page that is still short can clamp the scroll before the new
+        // target fits. Also avoid measuring the incoming page's transform.
+        if (!isTargetSettling(target) || now - startedAt > GIVE_UP_AFTER) {
+          bringIntoView(target, step);
+          scrolled = true;
+        }
         frame = window.requestAnimationFrame(tick);
+        return;
       }
+
+      place(target.getBoundingClientRect());
     }
 
     function follow() {
-      followUntil = performance.now() + 300;
-
       if (!frame) {
         frame = window.requestAnimationFrame(tick);
       }
     }
 
+    function resize() {
+      scrolled = false;
+      follow();
+    }
+
+    const sizes = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(follow);
+    sizes?.observe(note);
     frame = window.requestAnimationFrame(tick);
-    window.addEventListener("resize", follow);
+    window.addEventListener("resize", resize);
+    window.addEventListener("scroll", follow, { passive: true, capture: true });
 
     return () => {
       window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", follow);
+      sizes?.disconnect();
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("scroll", follow, true);
     };
-  }, [index, step, reduce, isPresent, noteRef, spotX, spotY, spotWidth, spotHeight, noteX, noteY]);
+  }, [request, step, activePage, isPresent, noteRef, spotX, spotY, spotWidth, spotHeight, noteX, noteY]);
 
   function handleKeyDown(event) {
     if (event.key === "ArrowRight" && !isLast) {
@@ -211,6 +254,7 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     <m.div
       className="tour"
       data-motion="tour"
+      data-locating={!positioned || undefined}
       inert={!isPresent || undefined}
       initial={reduce ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -224,7 +268,7 @@ function TourGuide({ activePage, onNavigate, onClose }) {
         aria-hidden="true"
         style={{ x: spotX, y: spotY, width: spotWidth, height: spotHeight }}
       >
-        <svg key={step.id} className="tour-pen" focusable="false">
+        <svg key={`${step.id}-${positioned}`} className="tour-pen" focusable="false">
           <rect width="100%" height="100%" rx="11" pathLength="1" />
         </svg>
       </m.div>
@@ -236,6 +280,7 @@ function TourGuide({ activePage, onNavigate, onClose }) {
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={bodyId}
+        aria-busy={!positioned}
         tabIndex={-1}
         style={{ x: noteX, y: noteY }}
         onKeyDown={handleKeyDown}
