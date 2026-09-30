@@ -265,7 +265,13 @@
 
   .page-header,
   .today-header { --motion-distance: 4px; }
-  .library-controls { --motion-distance: 4px; animation-duration: 240ms; }
+  /* Fill runs backwards only: a lasting transform would make the controls a
+     stacking context and trap the Sort and Language menus beneath the words. */
+  .library-controls {
+    --motion-distance: 4px;
+    animation-duration: 240ms;
+    animation-fill-mode: backwards;
+  }
   .practice-session-panel { animation-delay: 50ms; }
   .form-error { --motion-distance: 3px; animation-duration: 180ms; }
 
