@@ -27,8 +27,9 @@ import { useEffect } from "react";
  * change on every keystroke (the handwriting overlay) are marked
  * data-layout-ignore and never count as a change.
  *
- * The motion is gentle rather than snappy: it starts softly, settles slowly,
- * and takes longer the further things have to go (layoutTiming), and a
+ * The motion is gentle rather than snappy: it sets off promptly but smoothly,
+ * settles slowly, and takes longer the further things have to go
+ * (layoutTiming), and a
  * container and the children sliding inside it share one timing, so they
  * move as one. A child that arrives fades in just after the room for it has
  * begun to open; a child that leaves fades out where it was (a copy of it,
@@ -47,13 +48,29 @@ import { useEffect } from "react";
  * re-attaches the observers when the ref moves to another element.
  */
 
-// Soft to start, long to settle; shared with PageFrame and the page turn.
-export const LAYOUT_EASE = "cubic-bezier(0.4, 0.1, 0.2, 1)";
+/*
+ * A spring that comes to rest without overshooting: it sets off from rest but
+ * gathers speed within the first seventh of the time, then spends the rest
+ * slowing down, so a card opens promptly and settles gently. Played as a
+ * linear() curve sampled from the spring; a browser without linear() gets
+ * the nearest cubic-bezier. Shared with PageFrame.
+ */
+function springEase(stiffness, samples) {
+  const at = (t) => 1 - (1 + stiffness * t) * Math.exp(-stiffness * t);
+  const end = at(1);
+  const points = Array.from({ length: samples + 1 }, (_, index) => (at(index / samples) / end).toFixed(4));
+  return `linear(${points.join(", ")})`;
+}
 
-// About a third of a second for a small shift, up to 0.72s for a long one.
+export const LAYOUT_EASE = typeof CSS !== "undefined" && CSS.supports?.("transition-timing-function", "linear(0, 1)")
+  ? springEase(6.5, 48)
+  : "cubic-bezier(0.25, 0.7, 0.2, 1)";
+
+// Under half a second for a small shift, up to 0.8s for a long one; the last
+// part of each is the spring settling.
 export function layoutTiming(distance) {
   return {
-    duration: Math.round(Math.min(720, 340 + Math.abs(distance) * 0.7)),
+    duration: Math.round(Math.min(800, 400 + Math.abs(distance) * 0.75)),
     easing: LAYOUT_EASE,
   };
 }
