@@ -12,7 +12,10 @@ import { useEffect } from "react";
  *   useSmoothLayout(ref, { height: true, flip: ":scope > .word-row" }, key)
  *
  * `flip` is a selector run inside the container (so ":scope > *" is its
- * children, ":scope > .liquid-glass-content > *" a glass surface's). A
+ * children, ":scope > .liquid-glass-content > *" a glass surface's). `enter`
+ * says which of them fade in when they arrive: all of them (true), none
+ * (false, for children with an entrance of their own), or those matching a
+ * selector. A
  * container can widen the room it leaves for shadows and decorations while it
  * clips (see data-smoothing below) with --smooth-clip-margin.
  *
@@ -332,7 +335,7 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
 
           if (before) {
             slides.push([child, offsetOf(child, before, positionOf(child, base))]);
-          } else if (enter) {
+          } else if (enter === true || (typeof enter === "string" && child.matches(enter))) {
             arriving.push(child);
           }
         }

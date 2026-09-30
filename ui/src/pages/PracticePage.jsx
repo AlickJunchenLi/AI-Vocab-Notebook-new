@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../motion/MotionSurface.jsx";
+import GlassSurface from "../glass/LiquidGlassSurface.jsx";
 import useSmoothLayout from "../motion/useSmoothLayout.js";
 import "../studyNotebook.css";
 
@@ -40,12 +41,12 @@ function PracticePage({ entries, onPracticeEntry }) {
   const isComplete = hasEntries && currentIndex >= sessionEntries.length;
   const currentEntry = isComplete ? null : sessionEntries[currentIndex];
 
-  // The meaning card eases the stage open below the prompt, and closed again
-  // for the next word (the cards come and go with their own motion, and a
-  // card that's done fades where it was); the reveal button eases to the
-  // width of its new label.
+  // The meaning card eases the stage open below the prompt, fading in as the
+  // room for it opens, and closed again for the next word (whose prompt card
+  // steps in with its own motion, while a card that's done fades where it
+  // was); the reveal button eases to the width of its new label.
   const stageRef = useRef(null);
-  useSmoothLayout(stageRef, { height: true, flip: ":scope > *", enter: false }, isComplete);
+  useSmoothLayout(stageRef, { height: true, flip: ":scope > *", enter: ".practice-answer-card" }, isComplete);
   useSmoothLayout(revealButtonRef, { width: true }, currentEntry?.id ?? currentIndex);
 
   const confidentResponses = sessionResults.filter(
@@ -258,7 +259,7 @@ function PracticePage({ entries, onPracticeEntry }) {
           </LiquidGlassSurface>
 
           {isRevealed ? (
-            <LiquidGlassSurface
+            <GlassSurface
               as="section"
               id={answerId}
               className="practice-answer-card"
@@ -304,7 +305,7 @@ function PracticePage({ entries, onPracticeEntry }) {
                   ))}
                 </div>
               </fieldset>
-            </LiquidGlassSurface>
+            </GlassSurface>
           ) : null}
         </div>
 

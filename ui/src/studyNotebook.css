@@ -38,8 +38,12 @@
   gap: 40px;
 }
 
+/* Rows keep their cards' own heights while the stage eases to a new size
+   (useSmoothLayout.js), so a growing stage unrolls the meaning card instead
+   of squeezing both cards into the height it had. */
 .practice-stage {
   display: grid;
+  grid-auto-rows: max-content;
   min-width: 0;
   gap: 20px;
 }
@@ -94,10 +98,6 @@
 
 .practice-reveal-button[aria-expanded="true"] {
   opacity: 0.7;
-}
-
-.practice-answer-card {
-  animation: card-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .practice-answer-card > .liquid-glass-content {
@@ -835,8 +835,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .practice-prompt-card,
-  .practice-answer-card {
+  .practice-prompt-card {
     animation: none;
   }
 

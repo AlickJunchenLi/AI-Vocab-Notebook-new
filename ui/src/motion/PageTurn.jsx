@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useMemo } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import { m, PresenceContext, useIsPresent, useReducedMotion } from "motion/react";
 
 const EASE = [0.22, 1, 0.36, 1];
@@ -20,15 +20,31 @@ const LEAVE_EASE = [0.4, 0, 0.2, 1];
  * slides away, rather than each playing its own exit on top (which would add
  * a dozen animations and a drift downwards to the turn, and hold it until
  * the slowest had finished). They still see whether the notebook was just
- * opened, so the first page shows without its cards rising in.
+ * opened, so the first page shows without its cards rising in; but only while
+ * that page first renders. Motion reads this when a card is created, so a
+ * card that appears on the page later (a meaning revealed, the next word)
+ * still plays its entrance.
  */
 function PageTurn({ turn = 0, children, ...props }) {
   const reduce = useReducedMotion();
   const isPresent = useIsPresent();
   const presence = useContext(PresenceContext);
+  const mounted = useRef(false);
   const settled = useMemo(() => (presence
-    ? { ...presence, isPresent: true, register: () => () => {}, onExitComplete: undefined }
+    ? {
+      ...presence,
+      get initial() {
+        return mounted.current ? undefined : presence.initial;
+      },
+      isPresent: true,
+      register: () => () => {},
+      onExitComplete: undefined,
+    }
     : null), [presence]);
+
+  useEffect(() => {
+    mounted.current = true;
+  }, []);
   const variants = {
     enter: (direction) => ({
       opacity: 0,
