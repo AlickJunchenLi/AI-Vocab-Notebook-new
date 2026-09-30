@@ -15,8 +15,9 @@ const LANGUAGE_OPTIONS = [
 
 function EditWordModal({ entry, onSave, onCancel }) {
   const dialogRef = useDialogFocus(onCancel);
-  // An error appearing eases the sheet taller instead of jumping.
-  useSmoothLayout(dialogRef, { height: true });
+  // An error appearing eases the sheet taller instead of jumping: the
+  // buttons below it glide down with the sheet's edge and the error fades in.
+  useSmoothLayout(dialogRef, { height: true, flip: ":scope > .liquid-glass-content > *" });
   const [formError, setFormError] = useState("");
   const [word, setWord] = useState(entry.word);
   const [language, setLanguage] = useState(entry.language);

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { m, useIsPresent, useReducedMotion, useSpring } from "motion/react";
 import Icon from "../components/Icon.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
+import useSmoothLayout from "../motion/useSmoothLayout.js";
 import { TOUR_STEPS } from "./tourSteps.js";
 import { placeNote, spotlightFor } from "./placeNote.js";
 import "./tour.css";
@@ -74,6 +75,9 @@ function TourGuide({ activePage, onNavigate, onClose }) {
   // Started from the invitation, which is gone by the end: focus then goes to
   // the header's Tour button.
   const noteRef = useDialogFocus(onClose, ".tour-toggle");
+  // Each step's note eases to the height of its words, its buttons gliding
+  // with its edge; the placement below follows it as it does.
+  useSmoothLayout(noteRef, { height: true, flip: ":scope > *", enter: false });
   const titleId = useId();
   const bodyId = useId();
   const placed = useRef(false);

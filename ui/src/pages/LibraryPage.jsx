@@ -149,9 +149,14 @@ function LibraryPage({
   // Filtering, sorting, adding or removing a word: the rows slide to their
   // new places and the list eases to its new length, so the count below it
   // and the foot of the page glide along. The open entry eases to the height
-  // of the next word's details.
-  useSmoothLayout(wordListRef, { height: true, flip: ".word-row" });
-  useSmoothLayout(detailRef, { height: true }, visibleSelectedEntry ? "entry" : "empty");
+  // of the next word's details, its actions gliding with its edge (the rest
+  // of the entry writes itself in on its own).
+  useSmoothLayout(wordListRef, { height: true, flip: ":scope > .word-row" });
+  useSmoothLayout(
+    detailRef,
+    { height: true, flip: ":scope > .liquid-glass-content > *", enter: false },
+    visibleSelectedEntry ? "entry" : "empty",
+  );
   const dueCount = entries.filter((entry) => {
     const dueLabel = String(entry.dueLabel || "Due today").toLowerCase();
     return dueLabel.includes("due") || dueLabel.includes("review again");

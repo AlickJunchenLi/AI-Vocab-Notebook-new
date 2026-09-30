@@ -41,9 +41,11 @@ function PracticePage({ entries, onPracticeEntry }) {
   const currentEntry = isComplete ? null : sessionEntries[currentIndex];
 
   // The meaning card eases the stage open below the prompt, and closed again
-  // for the next word; the reveal button eases to the width of its new label.
+  // for the next word (the cards come and go with their own motion, and a
+  // card that's done fades where it was); the reveal button eases to the
+  // width of its new label.
   const stageRef = useRef(null);
-  useSmoothLayout(stageRef, { height: true }, isComplete);
+  useSmoothLayout(stageRef, { height: true, flip: ":scope > *", enter: false }, isComplete);
   useSmoothLayout(revealButtonRef, { width: true }, currentEntry?.id ?? currentIndex);
 
   const confidentResponses = sessionResults.filter(

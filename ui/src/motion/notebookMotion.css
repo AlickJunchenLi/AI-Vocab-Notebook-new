@@ -45,11 +45,18 @@
 }
 
 /* A container easing to a new size (useSmoothLayout.js) clips what doesn't
-   fit yet, so a growing card unrolls instead of spilling over what follows.
-   A scroll container is hidden instead, which keeps its scroll position. */
+   fit yet, so a growing card unrolls instead of spilling over what follows,
+   with room around it (--smooth-clip-margin) so shadows, focus rings and
+   tape aren't cut off meanwhile. A scroll container is hidden instead, which
+   keeps its scroll position. */
 .notebook-app [data-smoothing="clip"] {
   overflow: clip;
-  overflow-clip-margin: 8px;
+  overflow-clip-margin: var(--smooth-clip-margin, 12px);
+}
+
+/* The practice cards cast long shadows. */
+.practice-stage {
+  --smooth-clip-margin: 36px;
 }
 
 .notebook-app [data-smoothing="hide"] {
