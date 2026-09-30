@@ -18,11 +18,6 @@ const GIVE_UP_AFTER = 1600;
 const SHOWN_ENOUGH = 0.6;
 // A scroll the page can't finish (it is too short) stops being waited on.
 const SCROLL_WAIT = 1000;
-const GEOMETRY_PROPERTIES = new Set([
-  "transform", "translate", "scale", "rotate", "width", "height",
-  "minWidth", "maxWidth", "minHeight", "maxHeight", "top", "right", "bottom", "left",
-  "marginTop", "marginRight", "marginBottom", "marginLeft", "paddingTop", "paddingBottom",
-]);
 
 function findTarget(selectors) {
   for (const selector of selectors) {
@@ -36,11 +31,45 @@ function findTarget(selectors) {
   return null;
 }
 
-// Where to scroll so the step's target can be seen, or null to leave the page
-// where it is. A target that is mostly on screen is lit where it stands; the
-// page moves only for one that is mostly out of sight.
-function scrollFor(element, step) {
-  const rect = element.getBoundingClientRect();
+/*
+ * The target's box in the window as laid out, before any transform: where it
+ * comes to rest once the page turning in and its own entrance have finished.
+ * Aiming for this rather than the moving box lets the highlight set off while
+ * the page is still arriving, without following it on the way. `scrollY` is
+ * the page's scroll to measure it at.
+ */
+function restingRect(element, scrollY = window.scrollY) {
+  let left = 0;
+  let top = 0;
+  let outermost = element;
+
+  for (let node = element; node; node = node.offsetParent) {
+    left += node.offsetLeft + (node === element ? 0 : node.clientLeft);
+    top += node.offsetTop + (node === element ? 0 : node.clientTop);
+    outermost = node;
+  }
+
+  for (let node = element.parentElement; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+    left -= node.scrollLeft;
+    top -= node.scrollTop;
+  }
+
+  // Offsets end at the page, or at the window for a fixed ancestor.
+  if (getComputedStyle(outermost).position !== "fixed") {
+    left -= window.scrollX;
+    top -= scrollY;
+  }
+
+  const width = element.offsetWidth;
+  const height = element.offsetHeight;
+  return { left, top, width, height, right: left + width, bottom: top + height };
+}
+
+// Where to scroll so the step's target (at `rect`) can be seen, or null to
+// leave the page where it is. A target that is mostly on screen is lit where
+// it stands; the page moves only for one that is mostly out of sight. The
+// result can lie past the end of a page that is still growing.
+function scrollFor(rect, step) {
   // Header targets count from the top of the window, the rest from below the
   // sticky header.
   const top = step.scrollTop ? 0 : parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
@@ -62,8 +91,13 @@ function scrollFor(element, step) {
     offset = rect.top - top;
   }
 
+  return Math.max(window.scrollY + offset, 0);
+}
+
+// A scroll position the page can actually reach, or null if it is already there.
+function reachable(top) {
   const limit = Math.max(document.documentElement.scrollHeight - window.innerHeight, 0);
-  const next = Math.min(Math.max(window.scrollY + offset, 0), limit);
+  const next = Math.min(top, limit);
   return Math.abs(next - window.scrollY) < 1 ? null : next;
 }
 
@@ -71,32 +105,6 @@ function scrollFor(element, step) {
 function glideFor(from, to) {
   const distance = Math.max(...to.map((value, position) => Math.abs(value - from[position])));
   return { duration: Math.min(0.45 + distance / 2000, 0.75), ease: GLIDE_EASE };
-}
-
-function isTargetSettling(target) {
-  const frame = target.closest(".page-frame");
-
-  if (frame?.matches("[data-turning], [data-settling]")) {
-    return true;
-  }
-
-  // Incoming pages and cards slide in independently. Their visual bounds
-  // become the destination only after those entrances have finished.
-  for (let element = target; element && element !== document.body; element = element.parentElement) {
-    if (element.getAnimations().some((animation) => {
-      const effect = animation.effect;
-      // The header's scroll-driven shadow never finishes, but does not move
-      // the target. Only finite animations of actual geometry hold placement.
-      return (animation.playState === "running" || animation.pending) &&
-        animation.timeline === document.timeline && effect &&
-        Number.isFinite(effect.getComputedTiming().endTime) &&
-        effect.getKeyframes().some((keyframe) => Object.keys(keyframe).some((property) => GEOMETRY_PROPERTIES.has(property)));
-    })) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 /*
@@ -145,11 +153,11 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     }
   }, [isPresent, step.page, activePage, onNavigate]);
 
-  // Wait for the step's page and target to come to rest, scrolling only when
-  // the target is out of sight. Then the highlight and the note glide once,
-  // from where they were straight to the target, and after that follow it
-  // directly, so they never trail behind the page or drift through the
-  // places it passes on the way.
+  // As soon as the step's page is up, the highlight and the note glide once,
+  // from where they were straight to where the target comes to rest, while
+  // the page is still turning in. After that they follow it directly, so
+  // they never trail behind the page or drift through the places it passes
+  // on the way. The page scrolls only when the target is out of sight.
   useEffect(() => {
     const note = noteRef.current;
 
@@ -162,7 +170,6 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     let target = null;
     let checked = false;
     let scrolling = null;
-    let previous = null;
     let placed = false;
     let arrived = false;
     // The destination of a glide on its way, and where its arrow will point.
@@ -245,40 +252,42 @@ function TourGuide({ activePage, onNavigate, onClose }) {
       // styles land, so the note never flashes at the previous coordinates.
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        arrive();
+        if (!cancelled) arrive();
       });
     }
 
-    // Whether the target has come to rest: the page has finished turning,
-    // any scroll toward it has arrived, and it hasn't moved since last frame.
-    function isReady(now) {
-      const late = now - startedAt > GIVE_UP_AFTER;
+    // Scrolls to the target if it is out of sight. Returns false while that
+    // has to wait: a page still growing as it turns in can cut a scroll short.
+    function bringIntoView(now) {
+      const wanted = scrollFor(restingRect(target), step);
 
-      if (!checked) {
-        // A page that is still short can clamp the scroll before the new
-        // target fits. Also avoid measuring the incoming page's transform.
-        if (isTargetSettling(target) && !late) {
-          return false;
-        }
+      if (wanted === null) {
+        return true;
+      }
 
-        checked = true;
-        const top = scrollFor(target, step);
-
-        if (top !== null) {
-          scrolling = { top, until: now + SCROLL_WAIT };
-          window.scrollTo({ top, behavior: reduce ? "instant" : "smooth" });
-        }
+      if (target.closest(".page-frame:is([data-turning], [data-settling])") && now - startedAt < GIVE_UP_AFTER) {
         return false;
       }
 
-      if (scrolling && Math.abs(window.scrollY - scrolling.top) >= 1 && now < scrolling.until) {
-        return false;
+      const top = reachable(wanted);
+
+      if (top === null) {
+        return true;
       }
 
-      const rect = target.getBoundingClientRect();
-      const still = previous && ["x", "y", "width", "height"].every((key) => Math.abs(rect[key] - previous[key]) < 0.5);
-      previous = rect;
-      return still || late;
+      scrolling = { top, until: now + SCROLL_WAIT };
+      window.scrollTo({ top, behavior: reduce ? "instant" : "smooth" });
+      return true;
+    }
+
+    // Where the target will be once any scroll toward it has finished, so a
+    // glide made during the scroll heads for its end instead of chasing it.
+    function destination(now) {
+      if (scrolling && (Math.abs(window.scrollY - scrolling.top) < 1 || now >= scrolling.until)) {
+        scrolling = null;
+      }
+
+      return restingRect(target, scrolling?.top);
     }
 
     function tick(now) {
@@ -289,7 +298,6 @@ function TourGuide({ activePage, onNavigate, onClose }) {
         target = findTarget(step.target);
         if (target) sizes?.observe(target);
         checked = placed;
-        previous = null;
       }
 
       if (activePage !== step.page || !target) {
@@ -301,15 +309,21 @@ function TourGuide({ activePage, onNavigate, onClose }) {
         return;
       }
 
-      if (!placed) {
-        if (!isReady(now)) {
+      if (!checked) {
+        if (!bringIntoView(now)) {
           frame = window.requestAnimationFrame(tick);
           return;
         }
-        placed = true;
+        checked = true;
       }
 
-      place(target.getBoundingClientRect());
+      placed = true;
+      place(destination(now));
+
+      // Keep checking until the scroll ends, even if it sends no more events.
+      if (scrolling) {
+        frame = window.requestAnimationFrame(tick);
+      }
     }
 
     function follow() {
@@ -319,7 +333,8 @@ function TourGuide({ activePage, onNavigate, onClose }) {
     }
 
     function resize() {
-      const top = placed && target ? scrollFor(target, step) : null;
+      const wanted = placed && target ? scrollFor(restingRect(target), step) : null;
+      const top = wanted === null ? null : reachable(wanted);
 
       if (top !== null) {
         window.scrollTo({ top, behavior: "instant" });
