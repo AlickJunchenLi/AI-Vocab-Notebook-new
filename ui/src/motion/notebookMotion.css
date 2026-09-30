@@ -15,8 +15,9 @@
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
   /* Colour and opacity ease in and out, so nothing snaps between states. */
   --motion-soft: cubic-bezier(0.4, 0, 0.2, 1);
-  /* The notebook growing or shrinking: gentler at the start than a settle. */
-  --motion-grow: cubic-bezier(0.33, 1, 0.68, 1);
+  /* The notebook growing or shrinking: soft to start, long to settle (the
+     same ease as LAYOUT_EASE in useSmoothLayout.js). */
+  --motion-grow: cubic-bezier(0.4, 0.1, 0.2, 1);
   /* Steady like a pen stroke, easing off only at the end. */
   --motion-pen: cubic-bezier(0.45, 0.05, 0.25, 1);
 }
@@ -219,7 +220,7 @@
   /* The notebook grows or shrinks to the new page instead of jumping, and
      a ring added as it grows drops into place. */
   .page-frame[data-turning] {
-    transition: height 460ms var(--motion-grow);
+    transition: height 560ms var(--motion-grow);
   }
 
   .notebook-binding i {

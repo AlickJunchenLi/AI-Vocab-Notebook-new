@@ -17,16 +17,36 @@ import { useEffect } from "react";
  * change on every keystroke (the handwriting overlay) are marked
  * data-layout-ignore and never count as a change.
  *
+ * The motion is gentle rather than snappy: it starts softly, settles slowly,
+ * and takes longer the further things have to go (layoutTiming), and a
+ * container and the children sliding inside it share one timing, so they
+ * move as one. A child that arrives fades in just after the room for it has
+ * begun to open; a child that leaves fades out where it was (a copy of it,
+ * marked data-layout-ghost, since React has already removed it), and the
+ * others wait a moment before closing up, so nothing slides over it while
+ * it's still there to see.
+ *
  * Sizes are border-box sizes (every element here is border-box). While the
  * size eases, the container clips what doesn't fit yet (data-smoothing), so a
  * growing card unrolls rather than spilling over what follows it. `key`
  * re-attaches the observers when the ref moves to another element.
  */
 
-const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const RESIZE_TIME = 360;
-const MOVE_TIME = 380;
-const ENTER_TIME = 280;
+// Soft to start, long to settle; shared with PageFrame and the page turn.
+export const LAYOUT_EASE = "cubic-bezier(0.4, 0.1, 0.2, 1)";
+
+// About a third of a second for a small shift, up to 0.72s for a long one.
+export function layoutTiming(distance) {
+  return {
+    duration: Math.round(Math.min(720, 340 + Math.abs(distance) * 0.7)),
+    easing: LAYOUT_EASE,
+  };
+}
+
+// Arrivals start just after the room for them begins to open; when something
+// leaves, everything else waits this long for it to fade before closing up.
+const ENTER_DELAY = 70;
+const LEAVE_LEAD = 90;
 const MUTATIONS = {
   childList: true,
   subtree: true,
@@ -47,11 +67,22 @@ export function isSmoothingLayout() {
   return resizing > 0;
 }
 
+const isGhost = (node) => node.nodeType === Node.ELEMENT_NODE && node.hasAttribute("data-layout-ghost");
+
 function ignored(record) {
+  // A leaving child's copy coming and going is this hook's own doing.
+  if (record.type === "childList") {
+    const nodes = [...record.addedNodes, ...record.removedNodes];
+
+    if (nodes.length > 0 && nodes.every(isGhost)) {
+      return true;
+    }
+  }
+
   const node = record.target.nodeType === Node.ELEMENT_NODE
     ? record.target
     : record.target.parentElement;
-  return Boolean(node?.closest("[data-layout-ignore]"));
+  return Boolean(node?.closest("[data-layout-ignore], [data-layout-ghost]"));
 }
 
 export default function useSmoothLayout(ref, { height = false, width = false, flip = null, enter = true } = {}, key = undefined) {
@@ -65,19 +96,29 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
     let size = { width: element.offsetWidth, height: element.offsetHeight };
     let sizing = null;
     const moves = new Map();
+    const ghosts = new Set();
     let positions = new Map();
 
+    // Children are placed relative to the container, and a leaving child's
+    // copy is laid over the container, so it needs to be positioned.
+    const placed = flip && window.getComputedStyle(element).position === "static";
+
+    if (placed) {
+      element.style.position = "relative";
+    }
+
     function tracked() {
-      return flip ? Array.from(element.querySelectorAll(`:scope > :is(${flip})`)) : [];
+      return flip
+        ? Array.from(element.querySelectorAll(`:scope > :is(${flip}):not([data-layout-ghost])`))
+        : [];
     }
 
     // Where a child sits in the container's layout, ignoring any transform.
     function positionOf(child) {
-      if (child.offsetParent === element) {
-        return { x: child.offsetLeft, y: child.offsetTop };
-      }
-
-      return { x: child.offsetLeft - element.offsetLeft, y: child.offsetTop - element.offsetTop };
+      const at = child.offsetParent === element
+        ? { x: child.offsetLeft, y: child.offsetTop }
+        : { x: child.offsetLeft - element.offsetLeft, y: child.offsetTop - element.offsetTop };
+      return { ...at, width: child.offsetWidth, height: child.offsetHeight };
     }
 
     function record() {
@@ -93,7 +134,7 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
       }
     }
 
-    function resize(from, to) {
+    function resize(from, to, timing) {
       const keyframes = [{}, {}];
 
       if (height) {
@@ -109,7 +150,7 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
       // A scroll container keeps its scroll position if it's hidden while it
       // eases; anything else is clipped, with a little room for focus rings.
       const overflow = window.getComputedStyle(element).overflowY;
-      const animation = element.animate(keyframes, { duration: RESIZE_TIME, easing: EASE });
+      const animation = element.animate(keyframes, timing);
       // Runs once, whether the ease finishes or is stopped for another one.
       let running = true;
       const done = () => {
@@ -133,32 +174,74 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
       animation.addEventListener("cancel", done);
     }
 
-    function slide(child, from, to) {
+    // How far a child has to travel to its new place, from where it's drawn
+    // now: a child still sliding starts again from part-way.
+    function offsetOf(child, from, to) {
       const running = moves.get(child);
-      let dx = from.x - to.x;
-      let dy = from.y - to.y;
+      const offset = { x: from.x - to.x, y: from.y - to.y };
 
-      // A child still sliding starts again from where it's drawn now.
       if (running) {
         const drawn = new DOMMatrixReadOnly(window.getComputedStyle(child).transform);
-        dx += drawn.m41;
-        dy += drawn.m42;
+        offset.x += drawn.m41;
+        offset.y += drawn.m42;
         running.cancel();
       }
 
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+      return offset;
+    }
+
+    function slide(child, { x, y }, timing) {
+      if (Math.abs(x) < 0.5 && Math.abs(y) < 0.5) {
         return;
       }
 
       const animation = child.animate(
-        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }],
-        { duration: MOVE_TIME, easing: EASE },
+        [{ transform: `translate(${x}px, ${y}px)` }, { transform: "translate(0, 0)" }],
+        timing,
       );
       moves.set(child, animation);
       const done = () => {
         if (moves.get(child) === animation) {
           moves.delete(child);
         }
+      };
+      animation.addEventListener("finish", done);
+      animation.addEventListener("cancel", done);
+    }
+
+    // A leaving child fades out where it was, as a copy that can't be used.
+    function fadeOut(child, at, timing) {
+      const ghost = child.cloneNode(true);
+      ghost.setAttribute("data-layout-ghost", "");
+      ghost.setAttribute("aria-hidden", "true");
+      ghost.inert = true;
+      ghost.removeAttribute("id");
+      ghost.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+      Object.assign(ghost.style, {
+        position: "absolute",
+        top: `${at.y}px`,
+        left: `${at.x}px`,
+        width: `${at.width}px`,
+        height: `${at.height}px`,
+        margin: "0",
+        pointerEvents: "none",
+      });
+      element.append(ghost);
+      ghosts.add(ghost);
+
+      // Quick to fade and soft at the end, so it's mostly gone before the
+      // others close over its place.
+      const animation = ghost.animate(
+        [{ opacity: 1 }, { opacity: 0 }],
+        {
+          duration: Math.round(Math.min(260, timing.duration * 0.5)),
+          easing: "cubic-bezier(0.25, 0, 0.35, 1)",
+          fill: "forwards",
+        },
+      );
+      const done = () => {
+        ghosts.delete(ghost);
+        ghost.remove();
       };
       animation.addEventListener("finish", done);
       animation.addEventListener("cancel", done);
@@ -177,36 +260,80 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
       }
 
       // What is drawn now: the size last drawn, or the size part-way through
-      // an ease that's still running.
-      const shown = sizing
+      // an ease that's still running (one that has just finished has already
+      // arrived at the size last drawn).
+      const shown = sizing && sizing.animation.playState !== "finished"
         ? { width: element.offsetWidth, height: element.offsetHeight }
         : size;
       stopSizing();
       const next = { width: element.offsetWidth, height: element.offsetHeight };
 
+      const grow = {
+        x: width ? next.width - shown.width : 0,
+        y: height ? next.height - shown.height : 0,
+      };
+
+      // Work out every move first, so they can all share one timing.
+      const slides = [];
+      const arriving = [];
+      const leaving = [];
+
       if (flip) {
-        for (const child of tracked()) {
+        const children = tracked();
+        const present = new Set(children);
+
+        for (const child of children) {
           const before = positions.get(child);
-          const after = positionOf(child);
 
           if (before) {
-            slide(child, before, after);
+            slides.push([child, offsetOf(child, before, positionOf(child))]);
           } else if (enter) {
-            child.animate(
-              [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }],
-              { duration: ENTER_TIME, easing: EASE },
-            );
+            arriving.push(child);
           }
         }
 
+        for (const change of records) {
+          for (const node of change.removedNodes) {
+            const at = positions.get(node);
+
+            if (at && !present.has(node)) {
+              leaving.push([node, at]);
+            }
+          }
+        }
+      }
+
+      const distance = Math.max(
+        Math.abs(grow.x),
+        Math.abs(grow.y),
+        ...slides.map(([, offset]) => Math.hypot(offset.x, offset.y)),
+      );
+      // Everything holds its old place (fill: backwards) while a leaving
+      // child fades, then moves together.
+      const lead = leaving.length > 0 ? LEAVE_LEAD : 0;
+      const timing = { ...layoutTiming(distance), delay: lead, fill: "backwards" };
+
+      for (const [child, offset] of slides) {
+        slide(child, offset, timing);
+      }
+
+      for (const child of arriving) {
+        child.animate(
+          [{ opacity: 0, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }],
+          { ...timing, delay: lead + ENTER_DELAY },
+        );
+      }
+
+      for (const [node, at] of leaving) {
+        fadeOut(node, at, timing);
+      }
+
+      if (flip) {
         record();
       }
 
-      const changed = (height && Math.abs(next.height - shown.height) >= 1) ||
-        (width && Math.abs(next.width - shown.width) >= 1);
-
-      if (changed) {
-        resize(shown, next);
+      if (Math.abs(grow.x) >= 1 || Math.abs(grow.y) >= 1) {
+        resize(shown, next, timing);
       }
 
       size = next;
@@ -234,6 +361,12 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
       stopSizing();
       for (const animation of moves.values()) {
         animation.cancel();
+      }
+      for (const ghost of ghosts) {
+        ghost.remove();
+      }
+      if (placed) {
+        element.style.position = "";
       }
     };
   }, [ref, height, width, flip, enter, key]);

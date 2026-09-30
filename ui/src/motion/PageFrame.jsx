@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useReducedMotion } from "motion/react";
-import { isSmoothingLayout } from "./useSmoothLayout.js";
+import { isSmoothingLayout, layoutTiming } from "./useSmoothLayout.js";
 
 // Longest a turn can hold the frame, in case the new page is exactly as tall
 // as the old one and never reports a change of size.
@@ -9,8 +9,6 @@ const RELEASE_AFTER = 900;
 // already moving (a note folding away, a card easing open), so the frame
 // simply follows it; anything larger is a jump and is eased.
 const JUMP = 12;
-const SETTLE_TIME = 360;
-const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 // Back to the page's natural height.
 function release(frame) {
@@ -85,9 +83,10 @@ function PageFrame({ page, children }) {
     let settling = null;
 
     function settle(from, to) {
+      // Gentle, and longer the further the page grows or shrinks.
       const animation = frame.animate(
         [{ height: `${from}px` }, { height: `${to}px` }],
-        { duration: SETTLE_TIME, easing: EASE },
+        layoutTiming(to - from),
       );
       const done = () => {
         if (settling === animation) {
@@ -105,6 +104,12 @@ function PageFrame({ page, children }) {
     const observer = new ResizeObserver(() => {
       const height = content.offsetHeight;
       const width = content.offsetWidth;
+
+      // An ease that has just finished has already arrived.
+      if (settling?.playState === "finished") {
+        settling = null;
+        delete frame.dataset.settling;
+      }
 
       if (frame.dataset.turning) {
         if (Math.abs(height - parseFloat(frame.style.height)) >= 1) {
