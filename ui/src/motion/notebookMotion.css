@@ -124,6 +124,14 @@
   transform-origin: center bottom;
 }
 
+/* Period panels own the whole transition; their contents stay still so
+   charts and empty messages cannot replay a competing entrance. */
+.notebook-app .progress-period-panel .progress-history-empty,
+.notebook-app .progress-period-panel .progress-rhythm-point::before,
+.notebook-app .progress-period-panel .progress-rhythm-value {
+  animation: none;
+}
+
 .word-row::before {
   content: "";
   position: absolute;
@@ -305,10 +313,17 @@
 
   .switch-thumb,
   .glass-select-chevron,
-  .progress-period-switcher::before,
   .segmented::before,
   .brand-mark {
     transition: transform var(--motion-control) var(--motion-ease);
+  }
+
+  .progress-period-switcher::before {
+    transition: transform 400ms var(--motion-soft);
+  }
+
+  .progress-period-button {
+    transition: color 400ms var(--motion-soft);
   }
 
   .nav-item {

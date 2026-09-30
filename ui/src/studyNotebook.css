@@ -445,9 +445,25 @@
   color: var(--ink);
 }
 
-/* Positioned so the outgoing total can fade out in its own place. */
+.progress-review-content {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.progress-period-panel {
+  display: flex;
+  grid-area: 1 / 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.progress-period-panel[aria-hidden="true"] {
+  pointer-events: none;
+  user-select: none;
+}
+
 .progress-rhythm-total {
-  position: relative;
   margin: 14px 0 0;
   color: var(--muted);
   font-size: 14px;
@@ -522,6 +538,7 @@
 
 .progress-history-empty {
   display: flex;
+  flex: 1;
   min-height: 200px;
   flex-direction: column;
   justify-content: center;

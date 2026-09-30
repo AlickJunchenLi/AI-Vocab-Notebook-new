@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { m, useReducedMotion } from "motion/react";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 import MotionRegion from "../motion/MotionRegion.jsx";
-import useSmoothLayout from "../motion/useSmoothLayout.js";
 import "../studyNotebook.css";
 
 const MASTERY_LEVELS = [
@@ -202,25 +202,67 @@ function getEntryTimestamp(entry) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
+function ReviewPeriodPanel({ entries, value, period, active, reduceMotion }) {
+  const reviewSeries = getReviewSeries(entries, value, period.points);
+  const reviewTotal = getRecordedTotal(entries, value);
+  const largestReviewValue = Math.max(...(reviewSeries || []).map((point) => point.value), 1);
+
+  return (
+    <m.div
+      className="progress-period-panel"
+      data-period={value}
+      aria-hidden={!active}
+      inert={!active}
+      initial={false}
+      animate={{
+        opacity: active ? 1 : 0,
+        transform: active || reduceMotion
+          ? "translateX(0px)"
+          : `translateX(${value === "week" ? -6 : 6}px)`,
+      }}
+      transition={{ duration: reduceMotion ? 0 : 0.4, ease: [0.4, 0, 0.2, 1] }}
+    >
+      <p className="progress-rhythm-total">
+        {reviewTotal === undefined ? "No recorded history for this period" : <><strong>{reviewTotal}</strong> reviews {period.summary}</>}
+      </p>
+
+      {reviewSeries ? (
+        <figure className="progress-rhythm-figure">
+          <figcaption className="sr-only">
+            {value === "week" ? "Recorded reviews by day" : "Recorded reviews by week"}
+          </figcaption>
+          <ol className="progress-rhythm-plot">
+            {reviewSeries.map((point) => (
+              <li
+                key={point.label}
+                className="progress-rhythm-point"
+                style={{ "--progress-point": `${(point.value / largestReviewValue) * 72}%` }}
+                aria-label={`${point.label}: ${point.value} ${point.value === 1 ? "review" : "reviews"}`}
+              >
+                <span className="progress-rhythm-marker" aria-hidden="true" />
+                <span className="progress-rhythm-value">{point.value}</span>
+                <span className="progress-rhythm-label">{point.label}</span>
+              </li>
+            ))}
+          </ol>
+        </figure>
+      ) : (
+        <div className="progress-history-empty">
+          <Icon name="book-open" size={28} />
+          <p>{reviewTotal !== undefined ? "This period has a total, but no dates were recorded." : value === "month" ? "No monthly history yet." : "No reviews recorded this week."}</p>
+          <span>{value === "month" ? "Switch to Week to see reviews by day." : "Reviews you finish in Practice appear here."}</span>
+        </div>
+      )}
+    </m.div>
+  );
+}
+
 function ProgressPage({ entries }) {
   const vocabularyEntries = Array.isArray(entries) ? entries : [];
   const [reviewPeriod, setReviewPeriod] = useState("week");
   const period = REVIEW_PERIODS[reviewPeriod];
-  // Switching Week and Month cross-fades the total and the chart (or the
-  // note that there's no history) while the card eases to the new height,
-  // so the Recall card and everything below glide along.
-  const rhythmRef = useRef(null);
-  useSmoothLayout(rhythmRef, {
-    height: true,
-    flip: ":scope > .liquid-glass-content > *, :scope .progress-rhythm-total > *",
-  });
-  const reviewSeries = getReviewSeries(
-    vocabularyEntries,
-    reviewPeriod,
-    period.points
-  );
+  const reduceMotion = useReducedMotion();
   const reviewTotal = getRecordedTotal(vocabularyEntries, reviewPeriod);
-  const largestReviewValue = Math.max(...(reviewSeries || []).map((point) => point.value), 1);
   const { rate: recallRate, count: recallCount } = getRecall(vocabularyEntries);
   const recallChange = getRecallChange(vocabularyEntries);
   const languageStats = getLanguageStats(vocabularyEntries);
@@ -245,7 +287,6 @@ function ProgressPage({ entries }) {
       <div className="progress-overview-grid">
         <LiquidGlassSurface
           as="section"
-          ref={rhythmRef}
           id="progress-review-rhythm"
           className="progress-rhythm-card"
           variant="panel"
@@ -279,42 +320,25 @@ function ProgressPage({ entries }) {
             </div>
           </header>
 
-          {/* The live region stays; the words inside it are swapped, so the
-              old total can fade out as the new one fades in. */}
-          <p className="progress-rhythm-total" aria-live="polite">
-            <span key={reviewPeriod}>
-              {reviewTotal === undefined ? "No recorded history for this period" : <><strong>{reviewTotal}</strong> reviews {period.summary}</>}
-            </span>
+          <p className="sr-only" aria-live="polite" aria-atomic="true">
+            {reviewTotal === undefined ? `No recorded history ${period.summary}.` : `${reviewTotal} reviews ${period.summary}.`}
           </p>
 
-          {reviewSeries ? <figure key={reviewPeriod} className="progress-rhythm-figure">
-            <figcaption className="sr-only">
-              {reviewPeriod === "week" ? "Recorded reviews by day" : "Recorded reviews by week"}
-            </figcaption>
-            <ol className="progress-rhythm-plot">
-              {reviewSeries.map((point, index) => (
-                <li
-                  key={point.label}
-                  className="progress-rhythm-point"
-                  style={{
-                    "--progress-point": `${(point.value / largestReviewValue) * 72}%`,
-                    "--motion-index": index,
-                  }}
-                  aria-label={`${point.label}: ${point.value} ${
-                    point.value === 1 ? "review" : "reviews"
-                  }`}
-                >
-                  <span className="progress-rhythm-marker" aria-hidden="true" />
-                  <span className="progress-rhythm-value">{point.value}</span>
-                  <span className="progress-rhythm-label">{point.label}</span>
-                </li>
-              ))}
-            </ol>
-          </figure> : <div className="progress-history-empty">
-            <Icon name="book-open" size={28} />
-            <p>{reviewTotal !== undefined ? "This period has a total, but no dates were recorded." : reviewPeriod === "month" ? "No monthly history yet." : "No reviews recorded this week."}</p>
-            <span>{reviewPeriod === "month" ? "Switch to Week to see reviews by day." : "Reviews you finish in Practice appear here."}</span>
-          </div>}
+          {/* Both views share a grid cell, reserving the taller view's space.
+              Retaining them lets interrupted fades continue from their current
+              opacity without remounting charts or accumulating leaving copies. */}
+          <div className="progress-review-content">
+            {Object.entries(REVIEW_PERIODS).map(([value, option]) => (
+              <ReviewPeriodPanel
+                key={value}
+                entries={vocabularyEntries}
+                value={value}
+                period={option}
+                active={reviewPeriod === value}
+                reduceMotion={reduceMotion}
+              />
+            ))}
+          </div>
         </LiquidGlassSurface>
 
         <LiquidGlassSurface
