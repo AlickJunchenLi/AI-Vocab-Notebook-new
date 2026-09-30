@@ -94,21 +94,32 @@
 }
 
 /* Once the page has scrolled under the header, a soft edge separates them.
-   Browsers without scroll-driven animations simply show no edge. */
+   The edge is drawn once and only its opacity follows the scroll, which the
+   compositor can keep in step with scrolling (a shadow that changes would
+   be repainted on every frame of it). Browsers without scroll-driven
+   animations simply show no edge. */
+.top-menu::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 calc(50% - 50vw);
+  box-shadow:
+    0 1px 0 var(--paper-edge),
+    0 10px 18px -14px color-mix(in srgb, var(--shade) 45%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
 @supports (animation-timeline: scroll()) {
-  .top-menu::before {
+  .top-menu::after {
     animation: header-edge linear both;
     animation-timeline: scroll(root);
     animation-range: 0 32px;
   }
 
   @keyframes header-edge {
-    from { box-shadow: 0 1px 0 transparent; }
-    to {
-      box-shadow:
-        0 1px 0 var(--paper-edge),
-        0 10px 18px -14px color-mix(in srgb, var(--shade) 45%, transparent);
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 }
 

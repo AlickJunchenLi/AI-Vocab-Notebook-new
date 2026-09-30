@@ -3,6 +3,7 @@ import { AnimatePresence } from "motion/react";
 import Icon from "./Icon.jsx";
 import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 import { THEMES } from "../theme/themes.js";
+import { AddWordModal, preloadPage } from "../lazyParts.js";
 
 const NAV_ITEMS = [
   { id: "today", label: "Today", icon: "sun" },
@@ -101,6 +102,9 @@ function TopMenu({
             type="button"
             className={activePage === item.id ? "nav-item active" : "nav-item"}
             aria-current={activePage === item.id ? "page" : undefined}
+            // Heading for a tab fetches its page, so it's there on the click.
+            onPointerEnter={() => preloadPage(item.id)}
+            onFocus={() => preloadPage(item.id)}
             onClick={() => onNavigate(item.id)}
           >
             <Icon name={item.icon} size={18} />
@@ -233,7 +237,14 @@ function TopMenu({
           <span>Tour</span>
         </button>
 
-        <button type="button" className="header-add-button" aria-label="Add word" onClick={onAdd}>
+        <button
+          type="button"
+          className="header-add-button"
+          aria-label="Add word"
+          onPointerEnter={() => AddWordModal.preload().catch(() => {})}
+          onFocus={() => AddWordModal.preload().catch(() => {})}
+          onClick={onAdd}
+        >
           <Icon name="plus" size={18} weight="bold" />
           <span>Add word</span>
         </button>

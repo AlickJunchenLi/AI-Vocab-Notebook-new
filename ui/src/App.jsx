@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import "./glass/liquidGlass.css";
 import "./App.css";
@@ -26,6 +26,7 @@ import {
   ProgressPage,
   TourGuide,
   preloadWhenIdle,
+  whenPageReady,
 } from "./lazyParts.js";
 import { loadTourStatus, saveTourSeen } from "./tour/tourSteps.js";
 import { HandwritingContext, loadHandwriting, saveHandwriting } from "./motion/handwriting.js";
@@ -76,6 +77,27 @@ function getMasteryFromAssessment(assessment) {
 function App() {
   const [view, setView] = useState(() => ({ page: getPageFromHash(), turn: 0 }));
   const activePage = view.page;
+  // The latest page asked for; an earlier one whose file arrives later is
+  // not turned to.
+  const pageRequest = useRef(0);
+
+  // Turns to a page once its file is there, so it never turns in empty.
+  const showPage = useCallback((page, then) => {
+    const request = ++pageRequest.current;
+    const turn = () => {
+      if (pageRequest.current === request) {
+        setView(turnTo(page));
+        then?.();
+      }
+    };
+    const pending = whenPageReady(page);
+
+    if (pending) {
+      pending.then(turn);
+    } else {
+      turn();
+    }
+  }, []);
   const [entries, setEntries] = useState(loadEntries);
   const [selectedId, setSelectedId] = useState(() => {
     return mockEntries.find((entry) => entry.word === "lucid")?.id ?? mockEntries[0].id;
@@ -200,7 +222,7 @@ function App() {
 
   useEffect(() => {
     function handleHashChange() {
-      setView(turnTo(getPageFromHash()));
+      showPage(getPageFromHash());
     }
 
     window.addEventListener("hashchange", handleHashChange);
@@ -209,7 +231,7 @@ function App() {
       window.removeEventListener("hashchange", handleHashChange);
       window.removeEventListener("popstate", handleHashChange);
     };
-  }, []);
+  }, [showPage]);
 
   useEffect(() => {
     applyTheme(theme);
@@ -234,13 +256,14 @@ function App() {
       return;
     }
 
-    setView(turnTo(page));
-    window.history.pushState(null, "", `#/${page}`);
-    window.scrollTo({
-      top: 0,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
+    showPage(page, () => {
+      window.history.pushState(null, "", `#/${page}`);
+      window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+      });
     });
   }
 

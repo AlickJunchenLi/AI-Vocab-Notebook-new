@@ -22,8 +22,8 @@ function TourInvite({ onStart, onDismiss }) {
       inert={!isPresent || undefined}
       // Clipped only while it folds away, so its shadow shows the rest of the time.
       style={isPresent ? undefined : { overflow: "hidden" }}
-      initial={reduce ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={reduce ? false : { opacity: 0, transform: "translateY(8px)" }}
+      animate={{ opacity: 1, transform: "translateY(0px)", transitionEnd: { transform: "none" } }}
       exit={reduce
         ? { opacity: 0, transition: { duration: 0 } }
         : { opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.26, ease: EASE } }}

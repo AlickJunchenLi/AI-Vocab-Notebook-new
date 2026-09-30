@@ -274,6 +274,13 @@ select:not(:disabled) {
   min-height: 100dvh;
 }
 
+/* A theme change cross-fades the whole page (theme/applyTheme.js). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 480ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

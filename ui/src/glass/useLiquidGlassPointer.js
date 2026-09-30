@@ -175,7 +175,8 @@ export function useLiquidGlassPointer({
         !forcedColors.matches && document.visibilityState !== "hidden",
       );
       if (!available) reset();
-      else if (!cancelPrewarm) cancelPrewarm = whenIdle(() => pool.prewarm());
+      // One layer at a time, each when the page is idle.
+      else if (!cancelPrewarm) cancelPrewarm = pool.prewarm(whenIdle);
       measurementsDirty = true;
     }
 

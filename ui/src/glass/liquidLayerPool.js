@@ -14,8 +14,8 @@ function loadLayer() {
  * WebGL. A surface that drops out of the pool fades out on its own canvas
  * before the canvas is reused; `failed` turns true if WebGL is unavailable or
  * a context is lost, and stays true. The layers' code arrives on first use
- * (or when prewarm() is called while the page is idle); `onReady` is called
- * once it has, so a pointer already over the page can be drawn for.
+ * (or when prewarm() starts warming while the page is idle); `onReady` is
+ * called once it has, so a pointer already over the page can be drawn for.
  */
 export class LiquidLayerPool {
   constructor(size = 2, onReady = null) {
@@ -24,7 +24,7 @@ export class LiquidLayerPool {
     this.failed = false;
     this.Layer = null;
     this.loading = false;
-    this.warmWhenReady = false;
+    this.afterLoad = null;
     this.destroyed = false;
     this.onReady = onReady;
   }
@@ -41,7 +41,8 @@ export class LiquidLayerPool {
       .finally(() => {
         this.loading = false;
         if (this.destroyed) return;
-        if (this.warmWhenReady) this.prewarm();
+        this.afterLoad?.();
+        this.afterLoad = null;
         this.onReady?.();
       });
   }
@@ -96,14 +97,38 @@ export class LiquidLayerPool {
   }
 
   // Creates and warms every layer ahead of time; call it when the page is idle.
-  prewarm() {
-    if (!this.Layer) {
-      this.warmWhenReady = true;
-      this.load();
-      return;
-    }
-    this.warmWhenReady = false;
-    while (!this.failed && this.slots.length < this.size) this.createSlot()?.layer.warm();
+  /*
+   * Creates and warms the layers ahead of time, one per moment the page is
+   * idle (`schedule` asks for one and returns a way to cancel it): setting
+   * up a WebGL context and compiling its shaders takes a while, and doing
+   * them all at once could stall an animation the user has just started.
+   * Returns a function that stops the warming.
+   */
+  prewarm(schedule = (step) => {
+    step();
+    return () => {};
+  }) {
+    let cancel = null;
+    let stopped = false;
+    const step = () => {
+      cancel = null;
+      if (stopped || this.destroyed || this.failed) return;
+      if (!this.Layer) {
+        this.afterLoad = () => {
+          if (!stopped) cancel = schedule(step);
+        };
+        this.load();
+        return;
+      }
+      if (this.slots.length >= this.size) return;
+      this.createSlot()?.layer.warm();
+      cancel = schedule(step);
+    };
+    cancel = schedule(step);
+    return () => {
+      stopped = true;
+      cancel?.();
+    };
   }
 
   // Takes every layer off its surface at once, without fading.

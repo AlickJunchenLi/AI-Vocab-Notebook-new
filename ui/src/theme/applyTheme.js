@@ -7,6 +7,12 @@
  * Each theme's values stay in index.css. The fade overrides them inline on
  * <html> and removes the overrides at the end, when the [data-theme] rule
  * already holds the same values.
+ *
+ * Where the browser has view transitions, the change is instead a single
+ * cross-fade from a picture of the old colours to the new ones, run by the
+ * compositor: nothing is restyled while it plays, so it can't stutter, and
+ * blending the two pictures never passes through unrelated hues, so no dip
+ * to pearl is needed. The frame-by-frame fade is kept for other browsers.
  */
 const DURATION = 800;
 // Saturation at the bottom of the dip; a trace of colour keeps it pearly.
@@ -111,6 +117,18 @@ export function applyTheme(theme) {
   // applied at once.
   const animate = root.dataset.theme !== undefined &&
     !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // The cross-fade: the new theme is applied while the browser holds a
+  // picture of the old one, then the two are blended.
+  if (animate && !fade && typeof document.startViewTransition === "function") {
+    document.startViewTransition(() => {
+      root.classList.add("theme-switching");
+      root.dataset.theme = theme;
+      settle(root);
+    });
+    return;
+  }
+
   // A change made mid-fade carries on from the colours on screen.
   const from = animate ? (fade?.state ?? readTheme(root)) : null;
   stopFade(root);
