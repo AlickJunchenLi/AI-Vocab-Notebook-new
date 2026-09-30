@@ -1,0 +1,270 @@
+/*
+ * The guided tour (TourGuide.jsx) and the invitation to take it
+ * (TourInvite.jsx). Tour notes are slips of paper taped to the page, with
+ * their titles written by hand, so they read as notes about the notebook
+ * rather than as more of its controls. What a note points at is lit and
+ * circled in ink.
+ * Layer: above dialogs (100), below the toast (140).
+ */
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+}
+
+/* Keeps the page still while the tour is open. */
+.tour-blocker {
+  position: absolute;
+  inset: 0;
+}
+
+/* Hide the previous placement while the destination page settles. The
+   dialog stays mounted, preserving keyboard focus during quick step changes. */
+.tour[data-locating] .tour-blocker {
+  background: var(--scrim);
+}
+
+.tour[data-locating] :is(.tour-spotlight, .tour-note) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A clear window onto the target; the rest of the page dims around it. */
+.tour-spotlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 12px;
+  box-shadow: 0 0 0 200vmax var(--scrim);
+  pointer-events: none;
+}
+
+/* The ink ring drawn around the target, just inside the lit window. */
+.tour-pen {
+  position: absolute;
+  inset: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
+  overflow: visible;
+}
+
+.tour-pen rect {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+/* A slip of paper with a strip of tape across its top edge. */
+.tour-note,
+.tour-invite-slip {
+  --tape: color-mix(in srgb, var(--accent) 18%, var(--paper-raised));
+
+  border: 1px solid var(--paper-edge);
+  border-radius: 6px;
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+/* On dark paper the tape needs more of the ink to show. */
+:root[data-paper-tone="dark"] :is(.tour-note, .tour-invite-slip) {
+  --tape: color-mix(in srgb, var(--accent) 32%, var(--paper-raised));
+}
+
+.tour-note::before,
+.tour-invite-slip::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 22px;
+  width: 60px;
+  height: 18px;
+  background: var(--tape);
+  opacity: 0.9;
+  box-shadow: 0 1px 1px color-mix(in srgb, var(--shade) 10%, transparent);
+  transform: rotate(-4deg);
+  /* Torn ends. */
+  clip-path: polygon(0 0, 100% 0, 97% 25%, 100% 50%, 97% 75%, 100% 100%, 0 100%, 3% 75%, 0 50%, 3% 25%);
+  pointer-events: none;
+}
+
+.tour-note {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 320px;
+  padding: 22px 20px 14px;
+  box-shadow: var(--shadow-menu);
+  outline: none;
+}
+
+/* The arrow on the side facing the target; --tour-arrow places it. */
+.tour-note::after {
+  content: "";
+  position: absolute;
+  display: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--paper-edge);
+  background: var(--paper-raised);
+}
+
+.tour-note[data-side="bottom"]::after,
+.tour-note[data-side="top"]::after {
+  display: block;
+  left: var(--tour-arrow);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.tour-note[data-side="right"]::after,
+.tour-note[data-side="left"]::after {
+  display: block;
+  top: var(--tour-arrow);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.tour-note[data-side="bottom"]::after {
+  top: -7px;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.tour-note[data-side="top"]::after {
+  bottom: -7px;
+  border-top-color: transparent;
+  border-left-color: transparent;
+}
+
+.tour-note[data-side="right"]::after {
+  left: -7px;
+  border-top-color: transparent;
+  border-right-color: transparent;
+}
+
+.tour-note[data-side="left"]::after {
+  right: -7px;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+}
+
+.tour-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+}
+
+.tour-title {
+  margin: 0 30px 6px 0;
+  color: var(--accent);
+  font-family: var(--font-hand);
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.tour-body {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.tour-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tour-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--paper-rule);
+}
+
+.tour-count {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tour-footer :is(.primary-action, .secondary-button) {
+  min-height: 36px;
+  padding: 0 14px;
+}
+
+/* On a phone the note sits along the foot of the screen. */
+@media (max-width: 559px) {
+  .tour-note {
+    width: calc(100vw - 24px);
+  }
+}
+
+/* The invitation on Today. */
+.tour-invite {
+  margin-bottom: 28px;
+}
+
+.tour-invite-slip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 28px;
+  padding: 18px 20px 18px 24px;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--shade) 10%, transparent),
+    0 12px 24px -18px color-mix(in srgb, var(--shade) 45%, transparent);
+}
+
+.tour-invite .tour-title {
+  margin: 0;
+}
+
+.tour-invite-copy p {
+  max-width: 56ch;
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tour-invite-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .tour-invite-slip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tour-invite-actions > * {
+    flex: 1;
+  }
+}
+
+@keyframes tour-pen {
+  from { stroke-dashoffset: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The ring is drawn once the spotlight has reached its target. */
+  .tour-pen rect {
+    animation: tour-pen 520ms var(--motion-pen, ease-out) 200ms backwards;
+  }
+}

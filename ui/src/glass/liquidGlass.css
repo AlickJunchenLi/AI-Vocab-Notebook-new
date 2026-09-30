@@ -1,62 +1,67 @@
+/*
+ * Liquid glass on paper. This is a web approximation built from
+ * backdrop-filter, layered fills and a lit rim, not Apple's Liquid Glass
+ * material. The colours come from the tokens in index.css, so the same slab
+ * works on light and dark paper.
+ */
 .liquid-glass-group {
-  --lg-focus-ring: rgb(48 76 255 / 0.72);
-
   position: relative;
   isolation: isolate;
-  color-scheme: light;
 }
 
-/*
- * The cursor pass is unwired pending a redesign, so nothing writes per-surface
- * position vars any more. The ~20 of them that used to live here (--lg-local-*,
- * --lg-boundary-*, --lg-outer-*, --lg-edge, --lg-spill, --lg-active, …) are
- * gone along with the ::before sheen and the field-overlay canvas.
- *
- * What is left is the static half of the material: frosted background, gradient
- * border, shadow, radius. --lg-radius and --lg-intensity are still set inline by
- * LiquidGlassSurface, so per-surface tuning keeps working.
- */
-
 .liquid-glass-surface {
-  --lg-radius: 28px;
+  --lg-radius: 20px;
   --lg-intensity: 1;
-  --lg-control-radius: max(12px, calc(var(--lg-radius) - 14px));
+  --lg-control-radius: max(10px, calc(var(--lg-radius) - 12px));
+  /* Set by useLiquidGlassPointer for the rim light below: the pointer in the
+     padding box, its distance from the rim, its reflection through the
+     centre, and how strongly the rim is lit. */
+  --lg-local-x: 50%;
+  --lg-local-y: 50%;
+  --lg-distance: 0px;
+  --lg-mirror-x: 50%;
+  --lg-mirror-y: 100%;
+  --lg-edge: 0;
+  --lg-specular: 60px;
+  /* The CSS fallback light takes the theme's hue; light that has crossed the
+     glass to the far rim comes out in the companion hue. */
+  --lg-light-hue: var(--theme-hue);
+  --lg-light-hue-2: var(--theme-hue-2);
+  --lg-light-chroma: calc(0.06 * var(--theme-chroma));
+  --lg-light-lightness: 99%;
+  --lg-light-lightness-2: 93%;
 
   position: relative;
   z-index: 3;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgb(162 186 255 / 0.5);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--lg-radius);
   background:
-    radial-gradient(120% 92% at 12% -12%, rgb(255 255 255 / 0.92), transparent 48%),
-    radial-gradient(88% 74% at 96% 8%, rgb(225 236 255 / 0.4), transparent 56%),
-    linear-gradient(
-      142deg,
-      rgb(255 255 255 / 0.74),
-      rgb(246 249 255 / 0.5) 48%,
-      rgb(235 242 255 / 0.58)
-    );
+    radial-gradient(120% 90% at 10% -10%, var(--glass-fill-top), transparent 55%),
+    linear-gradient(150deg, var(--glass-tint), transparent 60%),
+    linear-gradient(var(--glass-fill-top), var(--glass-fill-bottom));
   background-clip: padding-box;
   box-shadow:
-    0 24px 64px rgb(50 69 110 / 0.13),
-    0 4px 14px rgb(61 83 140 / 0.07),
-    inset 0 1px 0 rgb(255 255 255 / 0.94),
-    inset 0 -1px 0 rgb(100 130 210 / 0.18),
-    inset 0 0 0 1px rgb(255 255 255 / 0.3);
-  -webkit-backdrop-filter: blur(calc(15px + var(--lg-intensity) * 6px))
-    saturate(calc(1.2 + var(--lg-intensity) * 0.18));
-  backdrop-filter: blur(calc(15px + var(--lg-intensity) * 6px))
-    saturate(calc(1.2 + var(--lg-intensity) * 0.18));
+    var(--glass-shadow),
+    inset 0 1px 0 var(--glass-rim),
+    inset 0 -1px 0 var(--glass-underside);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * var(--lg-intensity))) saturate(1.25);
+  backdrop-filter: blur(calc(var(--glass-blur) * var(--lg-intensity))) saturate(1.25);
   color: inherit;
 }
 
 /*
- * ::after is the 1px gradient border, drawn with the padding-box/border-box
- * mask-composite trick below. It used to be lit from the cursor; it is now a
- * fixed diagonal sweep. ::before was the cursor sheen and no longer exists.
+ * The rim. At rest it keeps a quiet top light. The pointer's own light is
+ * drawn by the liquid layer (liquidGlassGL.js), a canvas between this and the
+ * content; when WebGL is unavailable, the two radial gradients here stand in
+ * for it. Both are centred on the pointer itself, and the mask keeps them to
+ * the 1px border ring, so every point of the rim is lit by its own distance
+ * from the pointer and the highlight never jumps between edges. The nearest
+ * rim sits `--lg-distance` away, which is where the gradient is brightest.
+ * A fainter reflection catches the far rim, centred on the pointer's
+ * reflection through the surface.
  */
-
 .liquid-glass-surface::after {
   content: "";
   position: absolute;
@@ -65,17 +70,20 @@
   pointer-events: none;
   z-index: 1;
   padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgb(255 255 255 / 0.96),
-    rgb(191 219 254 / 0.42) 38%,
-    rgb(196 181 253 / 0.22) 66%,
-    rgb(255 255 255 / 0.76)
-  );
-  box-shadow:
-    inset 0 0 7px rgb(255 255 255 / 0.18),
-    inset 0 0 2px rgb(125 211 252 / 0.28);
-  opacity: 0.68;
+  background:
+    radial-gradient(
+      circle calc(var(--lg-distance) + var(--lg-specular)) at var(--lg-local-x) var(--lg-local-y),
+      oklch(var(--lg-light-lightness) calc(var(--lg-light-chroma) * 0.3) var(--lg-light-hue) / var(--lg-edge)) var(--lg-distance),
+      oklch(var(--lg-light-lightness-2) var(--lg-light-chroma) var(--lg-light-hue) / calc(var(--lg-edge) * 0.5))
+        calc(var(--lg-distance) + var(--lg-specular) * 0.38),
+      transparent
+    ),
+    radial-gradient(
+      circle calc(var(--lg-distance) + var(--lg-specular) * 1.45) at var(--lg-mirror-x) var(--lg-mirror-y),
+      oklch(var(--lg-light-lightness-2) var(--lg-light-chroma) var(--lg-light-hue-2) / calc(var(--lg-edge) * 0.55)) var(--lg-distance),
+      transparent
+    ),
+    linear-gradient(168deg, var(--glass-rim), var(--glass-rim-low) 30%, transparent 62%, var(--glass-rim-low));
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -84,6 +92,13 @@
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+}
+
+/* Without WebGL, dark glass gets the same ink-coloured rim light. */
+:root[data-paper-tone="dark"] .liquid-glass-surface {
+  --lg-light-chroma: calc(0.11 * var(--theme-chroma));
+  --lg-light-lightness: 86%;
+  --lg-light-lightness-2: 72%;
 }
 
 .liquid-glass-content {
@@ -99,117 +114,46 @@
   width: 100%;
 }
 
-.liquid-glass-panel,
-.liquid-glass-sidebar {
+/* Menus float over content, so they carry more fill and less see-through. */
+.liquid-glass-menu {
   background:
-    radial-gradient(116% 86% at 10% -8%, rgb(255 255 255 / 0.94), transparent 48%),
-    radial-gradient(82% 70% at 96% 6%, rgb(219 234 254 / 0.46), transparent 58%),
-    linear-gradient(145deg, rgb(255 255 255 / 0.72), rgb(241 246 255 / 0.48));
+    radial-gradient(120% 90% at 10% -10%, var(--glass-fill-top), transparent 55%),
+    color-mix(in srgb, var(--paper-raised) 86%, transparent);
   box-shadow:
-    0 28px 72px rgb(47 64 105 / 0.15),
-    0 5px 16px rgb(64 83 135 / 0.07),
-    inset 0 1px 0 rgb(255 255 255 / 0.96),
-    inset 0 -1px 0 rgb(112 139 215 / 0.17),
-    inset 0 0 0 1px rgb(255 255 255 / 0.3);
-}
-
-.liquid-glass-card {
-  background:
-    radial-gradient(100% 78% at 12% -6%, rgb(255 255 255 / 0.88), transparent 52%),
-    linear-gradient(145deg, rgb(255 255 255 / 0.66), rgb(239 245 255 / 0.44));
-  box-shadow:
-    0 16px 42px rgb(51 69 112 / 0.1),
-    inset 0 1px 0 rgb(255 255 255 / 0.9),
-    inset 0 -1px 0 rgb(120 145 214 / 0.14);
+    var(--shadow-menu),
+    inset 0 1px 0 var(--glass-rim),
+    inset 0 -1px 0 var(--glass-underside);
 }
 
 .liquid-glass-button,
-.liquid-glass-menu:is(button, a) {
+.liquid-glass-menu:is(button, a),
+.liquid-glass-card:is(button, a) {
   cursor: pointer;
-}
-
-.liquid-glass-button {
-  border-color: rgb(185 205 255 / 0.58);
-  background:
-    radial-gradient(100% 88% at 18% -14%, rgb(255 255 255 / 0.88), transparent 52%),
-    linear-gradient(145deg, rgb(255 255 255 / 0.68), rgb(226 237 255 / 0.46));
-}
-
-.top-menu.liquid-glass-menu {
-  color: #102047;
-  border-radius: var(--lg-radius);
-  box-shadow:
-    0 18px 48px rgb(39 57 102 / 0.13),
-    inset 0 1px 0 rgb(255 255 255 / 0.96),
-    inset 0 -1px 0 rgb(114 141 220 / 0.14);
-}
-
-.word-card.liquid-glass-surface {
-  border-color: rgb(166 188 244 / 0.4);
-}
-
-.word-card.liquid-glass-surface.selected {
-  border-color: rgb(72 101 255 / 0.62);
-  box-shadow:
-    0 18px 44px rgb(59 81 190 / 0.16),
-    inset 0 1px 0 rgb(255 255 255 / 0.94),
-    inset 0 0 0 1px rgb(88 117 255 / 0.16);
-}
-
-.word-card.liquid-glass-surface .language-tag,
-.word-card.liquid-glass-surface .word-card-actions button,
-.detail-panel.liquid-glass-surface .edit-word-button,
-.detail-panel.liquid-glass-surface .delete-word-button {
-  border-radius: var(--lg-control-radius);
-}
-
-.word-card.liquid-glass-surface .language-tag {
-  border: 1px solid rgb(118 145 219 / 0.18);
-  background: rgb(248 251 255 / 0.7);
-}
-
-.word-card.liquid-glass-surface .word-card-actions {
-  border-top-color: rgb(139 160 214 / 0.2);
-}
-
-.word-card.liquid-glass-surface .word-card-actions button {
-  border-color: rgb(139 160 214 / 0.24);
-  background: rgb(255 255 255 / 0.62);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.82);
-}
-
-.detail-panel.liquid-glass-surface .edit-word-button,
-.detail-panel.liquid-glass-surface .delete-word-button {
-  position: relative;
-  z-index: 2;
 }
 
 .liquid-glass-surface:is(button, a, [tabindex]):focus-visible,
 .liquid-glass-surface :where(button, a, input, select, textarea, [tabindex]):focus-visible {
-  outline: 3px solid var(--lg-focus-ring);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .liquid-glass-surface {
-    background:
-      radial-gradient(100% 82% at 12% -8%, rgb(255 255 255 / 0.96), transparent 52%),
-      rgb(245 249 255 / 0.95);
+    background: var(--paper-raised);
   }
 }
 
-/*
- * The `prefers-reduced-motion: reduce` and `(hover: none), (pointer: coarse)`
- * blocks that used to sit here are gone: both existed to strip the cursor pass,
- * and their static fallback is now what every surface renders by default.
- *
- * Put them back when the redesigned effect lands. Whatever replaces the cursor
- * visual should stay off under reduced-motion and on touch/coarse pointers,
- * where a pointer-following visual has nothing to follow.
- */
+@media (prefers-reduced-transparency: reduce) {
+  .liquid-glass-surface {
+    background: var(--paper-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
 
 @media (forced-colors: active) {
-  .liquid-glass-surface::after {
+  .liquid-glass-surface::after,
+  .liquid-glass-layer {
     display: none;
   }
 

@@ -58,9 +58,9 @@
   );
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.75),
-    inset 0 -10px 20px rgba(38, 54, 95, 0.09),
-    0 10px 26px rgba(57, 70, 180, 0.1),
-    0 2px 6px rgba(57, 70, 180, 0.08);
+    inset 0 -10px 20px oklch(34.1% calc(0.075 * var(--theme-chroma, 1)) calc(var(--theme-hue, 285) - 18.6) / 0.09),
+    0 10px 26px oklch(45.3% calc(0.173 * var(--theme-chroma, 1)) calc(var(--theme-hue, 285) - 12.7) / 0.1),
+    0 2px 6px oklch(45.3% calc(0.173 * var(--theme-chroma, 1)) calc(var(--theme-hue, 285) - 12.7) / 0.08);
 }
 
 .glass-selector-rim {
@@ -68,9 +68,9 @@
   background: conic-gradient(
     from calc(var(--sel-angle, 0deg) - 90deg),
     rgba(255, 255, 255, 0.95),
-    rgba(63, 81, 237, 0.34),
-    rgba(167, 139, 250, 0.3),
-    rgba(168, 216, 255, 0.4),
+    oklch(52.6% calc(0.232 * var(--theme-chroma, 1)) calc(var(--theme-hue, 285) - 14.3) / 0.34),
+    oklch(70.9% calc(0.159 * var(--theme-chroma, 1)) calc(var(--theme-hue, 285) + 8.5) / 0.3),
+    oklch(86.2% calc(0.074 * var(--theme-chroma, 1)) calc(var(--theme-hue-2, 230) + 13.2) / 0.4),
     rgba(255, 255, 255, 0.95)
   );
   opacity: 0.66;

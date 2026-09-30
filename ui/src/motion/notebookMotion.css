@@ -1,0 +1,531 @@
+/*
+ * Motion intensity 5/10: a small paper lift, a settling tab, a quick ink mark.
+ * Entries establish hierarchy; controls acknowledge input; exits explain dismissal.
+ * Everything borrows from the desk: a pencil line inked over, a stroke of
+ * highlighter, a tick written left to right, a sheet laid down and straightened.
+ * Movement is transform and opacity; the pen and tick reveals are a clip-path on
+ * a single word or icon. Reading surfaces stay still while in use.
+ */
+.notebook-app {
+  --motion-fast: 180ms;
+  --motion-control: 280ms;
+  --motion-enter: 380ms;
+  /* A press lands quickly but not abruptly; the release eases back. */
+  --motion-press: 110ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Colour and opacity ease in and out, so nothing snaps between states. */
+  --motion-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  /* The notebook growing or shrinking: soft to start, long to settle (the
+     same ease as LAYOUT_EASE in useSmoothLayout.js). */
+  --motion-grow: cubic-bezier(0.4, 0.1, 0.2, 1);
+  /* Steady like a pen stroke, easing off only at the end. */
+  --motion-pen: cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
+/* Motion owns these elements; don't also run the former CSS entrances. */
+.notebook-app [data-motion],
+.notebook-app .page-transition {
+  animation: none;
+}
+
+.notebook-app [data-motion][inert] {
+  pointer-events: none;
+}
+
+/* The page area (PageFrame.jsx). Its content is measured, so it keeps its
+   margins inside. While a page turns the frame clips top to bottom only, so
+   the cards' shadows still reach past its sides. */
+.page-frame-content {
+  display: flow-root;
+}
+
+.page-frame:is([data-turning], [data-settling]) {
+  overflow-x: visible;
+  overflow-y: clip;
+}
+
+/* A container easing to a new size (useSmoothLayout.js) clips what doesn't
+   fit yet, so a growing card unrolls instead of spilling over what follows,
+   with room around it (--smooth-clip-margin) so shadows, focus rings and
+   tape aren't cut off meanwhile. A scroll container is hidden instead, which
+   keeps its scroll position. */
+.notebook-app [data-smoothing="clip"] {
+  overflow: clip;
+  overflow-clip-margin: var(--smooth-clip-margin, 12px);
+}
+
+/* A leaving element's fading copy (useSmoothLayout.js) shows it as it was:
+   its entrance (bars growing, words writing in) doesn't play again. */
+[data-layout-ghost],
+[data-layout-ghost] *,
+[data-layout-ghost] *::before,
+[data-layout-ghost] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* The practice cards cast long shadows. */
+.practice-stage {
+  --smooth-clip-margin: 36px;
+}
+
+.notebook-app [data-smoothing="hide"] {
+  overflow: hidden;
+}
+
+[data-motion="menu"] { transform-origin: top center; }
+[data-motion="menu-above"] { transform-origin: bottom center; }
+.appearance-menu[data-motion] { transform-origin: top right; }
+.more-menu[data-motion] { transform-origin: bottom right; }
+
+/* The selected segment travels beneath stationary, readable labels. */
+.progress-period-switcher,
+.segmented {
+  position: relative;
+  isolation: isolate;
+}
+
+.progress-period-switcher::before,
+.segmented::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 3px auto 3px 3px;
+  width: calc((100% - 8px) / 2);
+  border-radius: 8px;
+  background: var(--paper-raised);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), inset 0 0 0 1px var(--paper-edge);
+  transform: translateX(0);
+}
+
+.progress-period-switcher[data-period="month"]::before,
+.segmented:has(.segmented-option:last-child input:checked)::before {
+  transform: translateX(calc(100% + 2px));
+}
+
+.notebook-app .progress-period-button-active,
+.notebook-app .segmented-option input:checked + span {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Keep the real progress value accessible; animate the visual fill by scale. */
+.practice-progress-bar > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.notebook-app .progress-rhythm-point::before {
+  transition: none;
+  transform-origin: center bottom;
+}
+
+/* Period panels own the whole transition; their contents stay still so
+   charts and empty messages cannot replay a competing entrance. */
+.notebook-app .progress-period-panel .progress-history-empty,
+.notebook-app .progress-period-panel .progress-rhythm-point::before,
+.notebook-app .progress-period-panel .progress-rhythm-value {
+  animation: none;
+}
+
+.word-row::before {
+  content: "";
+  position: absolute;
+  inset: 12px auto 12px 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleY(0.4);
+}
+
+.notebook-app .word-row.selected {
+  box-shadow: none;
+}
+
+.word-row.selected::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+/*
+ * A stroke of highlighter behind the handwritten words you can open. It sits
+ * over the lower half of the word, a touch askew, the way it would be marked
+ * by hand. The stroke is shown by the hover rules further down.
+ */
+:is(.word-row-title, .today-weakest-word) > .hand,
+.today-recent-card .hand,
+.today-featured-word {
+  position: relative;
+  isolation: isolate;
+}
+
+:is(.word-row-title, .today-weakest-word) > .hand::before,
+.today-recent-card .hand::before,
+.today-featured-word::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 46% -0.14em 4% -0.12em;
+  border-radius: 0.12em 0.3em 0.18em 0.26em;
+  background: var(--highlighter);
+  opacity: 0;
+  transform: rotate(-1deg) scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+/*
+ * Text links are underlined in pencil, and inked over on hover. Both lines
+ * stop short of the 15px arrow (and its 6px gap) that ends every text link.
+ */
+.notebook-app .text-link {
+  position: relative;
+  text-decoration: none;
+}
+
+.text-link::before,
+.text-link::after {
+  content: "";
+  position: absolute;
+  right: 21px;
+  bottom: 5px;
+  left: 0;
+  height: 1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+  pointer-events: none;
+}
+
+.text-link::after {
+  bottom: 4.5px;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: right center;
+}
+
+@keyframes notebook-arrive {
+  from { opacity: 0; transform: translateY(var(--motion-distance, 6px)); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes notebook-confirm {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes notebook-bar {
+  from { transform: translateX(-50%) scaleY(0); }
+  to { transform: translateX(-50%) scaleY(1); }
+}
+
+@keyframes ring-in {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
+/* A tick, written from its short stroke to its long one. */
+@keyframes notebook-tick {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* A handwritten word, written out left to right. The negative insets leave
+   room for the ascenders, descenders and loops of the hand. */
+@keyframes notebook-write {
+  from { clip-path: inset(-30% 100% -30% -10%); }
+  to { clip-path: inset(-30% -10% -30% -10%); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The notebook grows or shrinks to the new page instead of jumping, and
+     a ring added as it grows drops into place. */
+  .page-frame[data-turning] {
+    transition: height 560ms var(--motion-grow);
+  }
+
+  .notebook-binding i {
+    animation: ring-in 340ms var(--motion-ease) backwards;
+  }
+
+  /* One short reading order, with delays capped well below a quarter second. */
+  .page-header,
+  .today-header,
+  .library-controls,
+  .practice-session-panel,
+  .library-empty-state,
+  .progress-history-empty,
+  .form-error {
+    animation: notebook-arrive var(--motion-enter) var(--motion-ease) both;
+  }
+
+  .page-header,
+  .today-header { --motion-distance: 4px; }
+  .library-controls { --motion-distance: 4px; animation-duration: 240ms; }
+  .practice-session-panel { animation-delay: 50ms; }
+  .form-error { --motion-distance: 3px; animation-duration: 180ms; }
+
+  /* A word that becomes the subject is written in as it arrives. The words
+     are sized to their text so the pen doesn't sweep through empty space.
+     Fill runs backwards only, so no clip is left behind afterwards. */
+  .detail-heading-row h2,
+  .practice-word,
+  .delete-word-preview {
+    width: fit-content;
+    animation: notebook-write 380ms var(--motion-pen) backwards;
+  }
+
+  .practice-word { animation-delay: 60ms; }
+  .delete-word-preview { animation-delay: 120ms; }
+
+  .detail-definition-list {
+    animation: notebook-arrive 220ms var(--motion-ease) both;
+    --motion-distance: 4px;
+  }
+
+  .detail-definition-list > div {
+    animation: notebook-arrive 260ms var(--motion-ease) both;
+    --motion-distance: 3px;
+  }
+
+  .detail-definition-list > div:nth-child(2) { animation-delay: 30ms; }
+  .detail-definition-list > div:nth-child(3) { animation-delay: 60ms; }
+
+  /* A word form fills in down the page while its sheet settles. Fill runs
+     backwards only: a lasting transform would give each field its own
+     stacking context and trap the Language menu beneath the next field. */
+  .add-word-form-grid > *,
+  .add-word-form-modal .modal-actions {
+    animation: notebook-arrive 240ms var(--motion-ease) backwards;
+    --motion-distance: 6px;
+  }
+
+  .add-word-form-grid > :nth-child(1) { animation-delay: 40ms; }
+  .add-word-form-grid > :nth-child(2) { animation-delay: 65ms; }
+  .add-word-form-grid > :nth-child(3) { animation-delay: 90ms; }
+  .add-word-form-grid > :nth-child(4) { animation-delay: 115ms; }
+  .add-word-form-grid > :nth-child(5) { animation-delay: 140ms; }
+  .add-word-form-modal .modal-actions { animation-delay: 165ms; }
+
+  .switch-thumb,
+  .glass-select-chevron,
+  .segmented::before,
+  .brand-mark {
+    transition: transform var(--motion-control) var(--motion-ease);
+  }
+
+  .progress-period-switcher::before {
+    transition: transform 400ms var(--motion-soft);
+  }
+
+  .progress-period-button {
+    transition: color 400ms var(--motion-soft);
+  }
+
+  .nav-item {
+    transition:
+      transform var(--motion-control) var(--motion-ease),
+      background-color 240ms var(--motion-soft),
+      color 240ms var(--motion-soft);
+  }
+
+  /* Pressing a tab pushes it into the page before it rises to the front. */
+  .nav-item:active:not(.active) {
+    transform: translateY(6px);
+    transition-duration: var(--motion-press);
+  }
+
+  .practice-progress-bar > span {
+    transition: transform 480ms var(--motion-ease);
+  }
+
+  .word-row::before {
+    transition: transform var(--motion-control) var(--motion-ease), opacity var(--motion-fast) var(--motion-soft);
+  }
+
+  /* The word suggestions' highlight glides to the active option. */
+  .word-suggestion-marker[data-placed] {
+    transition:
+      transform var(--motion-control) var(--motion-ease),
+      height var(--motion-control) var(--motion-ease);
+  }
+
+  /* Colour changes keep their own fades alongside the movement. */
+  :is(.primary-action, .header-add-button, .secondary-action, .secondary-button,
+      .practice-reveal-button, .practice-reset-button, .submit-add-word-button,
+      .confirm-delete-button, .practice-assessment-button, .icon-button,
+      .close-button, .app-toast-action, .app-toast-dismiss, .appearance-toggle, .tour-toggle,
+      .glass-select-trigger, .today-featured-word, .clear-search) {
+    transition:
+      transform var(--motion-control) var(--motion-ease),
+      background-color 220ms var(--motion-soft),
+      border-color 220ms var(--motion-soft),
+      color 220ms var(--motion-soft),
+      box-shadow 200ms var(--motion-soft),
+      filter 220ms var(--motion-soft);
+  }
+
+  :is(.icon-button, .close-button, .app-toast-action, .app-toast-dismiss,
+      .appearance-toggle, .tour-toggle, .glass-select-trigger, .today-featured-word,
+      .clear-search):active:not(:disabled) {
+    transform: scale(0.96);
+    transition-duration: var(--motion-press);
+  }
+
+  :is(.secondary-action, .secondary-button, .confirm-delete-button,
+      .practice-assessment-button):active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+    transition-duration: var(--motion-press);
+  }
+
+  /* Ink buttons press into the page: the drop shadow becomes an inset one. */
+  :is(.primary-action, .header-add-button, .practice-reveal-button,
+      .practice-reset-button, .submit-add-word-button):active:not(:disabled) {
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.22);
+    transform: translateY(1px) scale(0.98);
+    transition-duration: var(--motion-press);
+  }
+
+  .today-recent-card > .liquid-glass-content {
+    transition: transform var(--motion-control) var(--motion-ease);
+  }
+
+  /* Surface entrances and hover feedback use different elements, so they don't fight. */
+  .notebook-app .today-recent-card:hover,
+  .notebook-app .today-recent-card:active {
+    transform: none;
+  }
+
+  .today-recent-card:active > .liquid-glass-content { transform: scale(0.985); }
+
+  :is(.text-link, .today-weakest button, .word-row, .more-menu button) > .icon,
+  .ink-swatch {
+    transition: transform var(--motion-control) var(--motion-ease);
+  }
+
+  /* Leaving, the highlighter fades rather than being undrawn, then resets out
+     of sight. The ink on a link lifts off in the direction it was drawn. */
+  :is(.word-row-title, .today-weakest-word) > .hand::before,
+  .today-recent-card .hand::before,
+  .today-featured-word::before {
+    transition: opacity 240ms var(--motion-soft), transform 0s linear 240ms;
+  }
+
+  .text-link::after {
+    transition: transform 260ms var(--motion-ease);
+  }
+
+  .ink-option:has(input:checked) .ink-swatch {
+    animation: notebook-confirm 320ms var(--motion-ease);
+  }
+
+  .practice-completion-icon {
+    animation: notebook-confirm 360ms var(--motion-ease) both;
+  }
+
+  .practice-completion-icon .icon {
+    animation: notebook-tick 320ms var(--motion-pen) 160ms backwards;
+  }
+
+  .practice-session-item-reviewed .practice-session-number .icon {
+    animation: notebook-tick 280ms var(--motion-pen) backwards;
+  }
+
+  .today-days .is-done .icon {
+    animation: notebook-tick 300ms var(--motion-pen) backwards;
+    animation-delay: calc(60ms + var(--motion-index, 0) * 25ms);
+  }
+
+  .app-toast-icon .icon {
+    animation: notebook-tick 300ms var(--motion-pen) 140ms backwards;
+  }
+
+  .daily-note-status {
+    animation: notebook-arrive 180ms var(--motion-ease) both;
+    --motion-distance: 2px;
+  }
+
+  .progress-rhythm-point::before {
+    animation: notebook-bar 460ms var(--motion-ease) both;
+    animation-delay: calc(var(--motion-index, 0) * 35ms);
+  }
+
+  .progress-rhythm-value {
+    animation: notebook-arrive 260ms var(--motion-ease) both;
+    animation-delay: calc(100ms + var(--motion-index, 0) * 35ms);
+    --motion-distance: 3px;
+  }
+
+  .practice-completion-stat {
+    animation: notebook-arrive 320ms var(--motion-ease) both;
+  }
+
+  .practice-completion-stat:nth-child(2) { animation-delay: 40ms; }
+  .practice-completion-stat:nth-child(3) { animation-delay: 80ms; }
+}
+
+/* Hover states. Touch screens fire stray hovers, so these need a real pointer. */
+@media (hover: hover) and (pointer: fine) {
+  :is(.word-row, .today-weakest button):hover :is(.word-row-title, .today-weakest-word) > .hand::before,
+  .today-recent-card:hover .hand::before,
+  .today-featured-word:hover::before {
+    opacity: 1;
+    transform: rotate(-1deg) scaleX(1);
+  }
+
+  .text-link:hover::after {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  :is(.primary-action, .header-add-button, .secondary-action, .secondary-button,
+      .practice-reveal-button, .practice-reset-button, .submit-add-word-button,
+      .practice-assessment-button):hover:not(:active):not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  /* The highlighter goes on in one stroke, left to right. */
+  :is(.word-row, .today-weakest button):hover :is(.word-row-title, .today-weakest-word) > .hand::before,
+  .today-recent-card:hover .hand::before,
+  .today-featured-word:hover::before {
+    transition: transform 340ms var(--motion-pen), opacity 90ms linear;
+  }
+
+  .text-link:hover::after {
+    transition-duration: 320ms;
+    transition-timing-function: var(--motion-pen);
+  }
+
+  .today-recent-card:hover:not(:active) > .liquid-glass-content { transform: translateY(-2px); }
+  .text-link:hover > .icon { transform: translateX(2px); }
+  .today-weakest button:hover > .icon,
+  .word-row:hover > .icon { transform: translateX(3px); }
+  .icon-button:hover:not(:active),
+  .close-button:hover:not(:active) { transform: translateY(-1px); }
+
+  /* The notebook on the brand mark tips up, as if picked up off the desk. */
+  .brand:hover .brand-mark { transform: translateY(-1px) rotate(-6deg); }
+  .brand:active .brand-mark {
+    transform: rotate(-3deg) scale(0.94);
+    transition-duration: var(--motion-press);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notebook-app *,
+  .notebook-app *::before,
+  .notebook-app *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  .notebook-app button:active,
+  .notebook-app .today-recent-card:hover { transform: none; }
+}

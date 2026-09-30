@@ -1,4 +1,5 @@
-import LiquidGlassSurface from "../glass/LiquidGlassSurface.jsx";
+import LiquidGlassSurface from "../motion/MotionSurface.jsx";
+import MotionRegion from "../motion/MotionRegion.jsx";
 import Icon from "./Icon.jsx";
 import { useDialogFocus } from "../hooks/useDialogFocus.js";
 
@@ -10,7 +11,8 @@ function DeleteConfirmModal({ entry, onConfirm, onCancel }) {
   }
 
   return (
-    <div
+    <MotionRegion
+      motionPreset="scrim"
       className="modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
@@ -19,12 +21,13 @@ function DeleteConfirmModal({ entry, onConfirm, onCancel }) {
       }}
     >
       <LiquidGlassSurface
+        motionPreset="dialog"
         as="section"
         ref={dialogRef}
         id="delete-confirm-modal"
         className="delete-confirm-modal"
         variant="panel"
-        radius={28}
+        radius={20}
         intensity={1.08}
         role="alertdialog"
         aria-modal="true"
@@ -38,13 +41,11 @@ function DeleteConfirmModal({ entry, onConfirm, onCancel }) {
 
         <h2 id="delete-word-title">Delete this word?</h2>
 
-        <div className="delete-word-preview">
-          <span>{entry.word}</span>
-        </div>
+        <p className="delete-word-preview hand">{entry.word}</p>
 
         <p id="delete-word-description" className="delete-warning-text">
-          This removes the word and its review history. You can restore it from the
-          confirmation message immediately afterward.
+          This removes the word and its review history. You can undo it from the
+          message that appears next.
         </p>
 
         <div className="modal-actions">
@@ -61,11 +62,11 @@ function DeleteConfirmModal({ entry, onConfirm, onCancel }) {
             className="confirm-delete-button"
             onClick={onConfirm}
           >
-            Confirm Delete
+            Delete word
           </button>
         </div>
       </LiquidGlassSurface>
-    </div>
+    </MotionRegion>
   );
 }
 

@@ -1,0 +1,58 @@
+.daily-note {
+  min-width: 0;
+}
+
+.daily-note .daily-note-heading {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Written straight onto the ruled page. */
+.daily-note .daily-note-field {
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    transparent 0 31px,
+    var(--paper-rule) 31px 32px
+  );
+  background-attachment: local;
+  color: var(--ink);
+  caret-color: var(--accent);
+  font-size: 15px;
+  line-height: 32px;
+  resize: vertical;
+  outline: 2px solid transparent;
+  outline-offset: 12px;
+  transition: outline-color 240ms var(--ease-soft), outline-offset 360ms var(--ease-out);
+}
+
+.daily-note .daily-note-field::placeholder {
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+/* The keyboard's focus ring closes in on the page rather than snapping on. */
+.daily-note .daily-note-field:focus-visible {
+  outline-color: var(--accent);
+  outline-offset: 6px;
+  border-radius: 2px;
+}
+
+.daily-note .daily-note-status {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.daily-note .daily-note-status[data-error] {
+  color: var(--danger);
+  font-weight: 600;
+}
