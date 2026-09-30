@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { useHandwriting } from "../motion/handwriting.js";
+import { writeWithPen } from "../motion/inkPen.js";
 import { splitGlyphs, strokeDuration, strokeFor, strokeGap } from "../motion/inkStrokes.js";
 import "./inkField.css";
 
@@ -8,8 +9,9 @@ import "./inkField.css";
  * A text field that is written on rather than typed into. With Handwriting on
  * (Appearance), the field's own text is hidden and an overlay shows the same
  * text in the hand, laid exactly over it: each new glyph is written in with
- * the pen movement that suits it (motion/inkStrokes.js), and glyphs already
- * written stay as plain text. The field stays a real input, so the caret,
+ * the pen movement that suits it (motion/inkStrokes.js), a pen tip travels
+ * over it as it is written (motion/inkPen.js), and its ink goes on wet and
+ * dries; glyphs already written and dry stay as plain text. The field stays a real input, so the caret,
  * selection, spell check, autofill and screen readers all work as before.
  * While an input method is composing (pinyin, for instance) the field shows
  * its own text, and the committed characters are written in afterwards.
@@ -36,6 +38,7 @@ function createInk(value) {
     value,
     nextKey: 1,
     glyphs: splitGlyphs(value).map((text) => ({ text, key: 0 })),
+    batch: null,
   };
 }
 
@@ -82,10 +85,14 @@ function write(ink, value, animate) {
     return glyph;
   });
 
+  // The glyphs this change writes, for the pen to go over.
+  const batch = written.filter((glyph) => glyph.key);
+
   return {
     value,
     nextKey,
     glyphs: [...previous.slice(0, start), ...written, ...previous.slice(previousEnd)],
+    batch: batch.length ? batch : null,
   };
 }
 
@@ -107,7 +114,7 @@ function inkReducer(ink, action) {
 }
 
 // Written glyphs are joined back into plain text; only those still being
-// written are elements of their own.
+// written (or drying) are elements of their own.
 function renderGlyphs(glyphs) {
   const nodes = [];
   let run = "";
@@ -157,6 +164,9 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
   const fieldRef = useRef(null);
   const overlayRef = useRef(null);
   const textRef = useRef(null);
+  const penRef = useRef(null);
+  const nibRef = useRef(null);
+  const penMotion = useRef(null);
   const aimedByPointer = useRef(false);
   const settled = useRef({ keys: new Set(), frame: 0 });
   const [composing, setComposing] = useState(false);
@@ -169,6 +179,25 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
     const pending = settled.current;
     return () => window.cancelAnimationFrame(pending.frame);
   }, []);
+
+  // The pen goes over what was just written, from wherever it was.
+  useLayoutEffect(() => {
+    const layer = textRef.current;
+    const pen = penRef.current;
+    const nib = nibRef.current;
+
+    if (!ink.batch || !handwriting || reduce || !layer || !pen || !nib) {
+      return;
+    }
+
+    penMotion.current = writeWithPen({
+      layer,
+      pen,
+      nib,
+      glyphs: ink.batch,
+      previous: penMotion.current,
+    }) ?? penMotion.current;
+  }, [handwriting, ink.batch, reduce]);
 
   // Strokes that finish in the same frame are joined back into the text in
   // one go, rather than one re-render each.
@@ -375,12 +404,16 @@ function InkField({ as = "input", ref, value, onFocus, onCompositionStart, onCom
               onAnimationEnd={(event) => {
                 const key = Number(event.target.dataset?.inkKey);
 
-                if (key) {
+                // A glyph is done once its ink has dried.
+                if (key && event.animationName === "ink-dry") {
                   settle(key);
                 }
               }}
             >
               {written}
+              <span ref={penRef} className="ink-pen">
+                <span ref={nibRef} className="ink-pen-nib" />
+              </span>
             </span>
           </span>
         </span>
