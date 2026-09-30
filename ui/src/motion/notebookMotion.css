@@ -54,6 +54,16 @@
   overflow-clip-margin: var(--smooth-clip-margin, 12px);
 }
 
+/* A leaving element's fading copy (useSmoothLayout.js) shows it as it was:
+   its entrance (bars growing, words writing in) doesn't play again. */
+[data-layout-ghost],
+[data-layout-ghost] *,
+[data-layout-ghost] *::before,
+[data-layout-ghost] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* The practice cards cast long shadows. */
 .practice-stage {
   --smooth-clip-margin: 36px;

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
 import LiquidGlassSurface from "../motion/MotionSurface.jsx";
 import MotionRegion from "../motion/MotionRegion.jsx";
+import useSmoothLayout from "../motion/useSmoothLayout.js";
 import "../studyNotebook.css";
 
 const MASTERY_LEVELS = [
@@ -205,6 +206,14 @@ function ProgressPage({ entries }) {
   const vocabularyEntries = Array.isArray(entries) ? entries : [];
   const [reviewPeriod, setReviewPeriod] = useState("week");
   const period = REVIEW_PERIODS[reviewPeriod];
+  // Switching Week and Month cross-fades the total and the chart (or the
+  // note that there's no history) while the card eases to the new height,
+  // so the Recall card and everything below glide along.
+  const rhythmRef = useRef(null);
+  useSmoothLayout(rhythmRef, {
+    height: true,
+    flip: ":scope > .liquid-glass-content > *, :scope .progress-rhythm-total > *",
+  });
   const reviewSeries = getReviewSeries(
     vocabularyEntries,
     reviewPeriod,
@@ -236,6 +245,7 @@ function ProgressPage({ entries }) {
       <div className="progress-overview-grid">
         <LiquidGlassSurface
           as="section"
+          ref={rhythmRef}
           id="progress-review-rhythm"
           className="progress-rhythm-card"
           variant="panel"
@@ -269,8 +279,12 @@ function ProgressPage({ entries }) {
             </div>
           </header>
 
+          {/* The live region stays; the words inside it are swapped, so the
+              old total can fade out as the new one fades in. */}
           <p className="progress-rhythm-total" aria-live="polite">
-            {reviewTotal === undefined ? "No recorded history for this period" : <><strong>{reviewTotal}</strong> reviews {period.summary}</>}
+            <span key={reviewPeriod}>
+              {reviewTotal === undefined ? "No recorded history for this period" : <><strong>{reviewTotal}</strong> reviews {period.summary}</>}
+            </span>
           </p>
 
           {reviewSeries ? <figure key={reviewPeriod} className="progress-rhythm-figure">

@@ -445,7 +445,9 @@
   color: var(--ink);
 }
 
+/* Positioned so the outgoing total can fade out in its own place. */
 .progress-rhythm-total {
+  position: relative;
   margin: 14px 0 0;
   color: var(--muted);
   font-size: 14px;

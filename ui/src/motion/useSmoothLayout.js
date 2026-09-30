@@ -29,10 +29,12 @@ import { useEffect } from "react";
  * container and the children sliding inside it share one timing, so they
  * move as one. A child that arrives fades in just after the room for it has
  * begun to open; a child that leaves fades out where it was (a copy of it,
- * marked data-layout-ghost, since React has already removed it; only for the
- * container's own children, whose copies can sit in the same place), and the
- * others wait a moment before closing up, so nothing slides over it while
- * it's still there to see.
+ * marked data-layout-ghost, since React has already removed it; laid in the
+ * parent it left when that parent is positioned, so it keeps its styles, and
+ * over the container otherwise), and the others wait a moment before closing
+ * up, so nothing slides over it while it's still there to see. When one
+ * thing is swapped for another in the same place (a chart for a message),
+ * the two cross-fade while the container eases to the new one's size.
  *
  * Sizes are border-box sizes (every element here is border-box). While the
  * size eases, the container clips what doesn't fit yet (data-smoothing), so a
@@ -239,7 +241,20 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
     }
 
     // A leaving child fades out where it was, as a copy that can't be used.
-    function fadeOut(child, at, timing) {
+    function fadeOut(child, at, timing, parent) {
+      // The copy goes back where the child was, when that parent can hold it
+      // in place; otherwise over the container.
+      const host = parent !== element && parent.isConnected &&
+        window.getComputedStyle(parent).position !== "static"
+        ? parent
+        : element;
+      const base = origin();
+      const hostOrigin = host === element
+        ? base
+        : (() => {
+          const offset = layoutOffset(host);
+          return { x: offset.x + host.clientLeft, y: offset.y + host.clientTop };
+        })();
       const ghost = child.cloneNode(true);
       ghost.setAttribute("data-layout-ghost", "");
       ghost.setAttribute("aria-hidden", "true");
@@ -248,14 +263,14 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
       ghost.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
       Object.assign(ghost.style, {
         position: "absolute",
-        top: `${at.y}px`,
-        left: `${at.x}px`,
+        top: `${at.y + base.y - hostOrigin.y}px`,
+        left: `${at.x + base.x - hostOrigin.x}px`,
         width: `${at.width}px`,
         height: `${at.height}px`,
         margin: "0",
         pointerEvents: "none",
       });
-      element.append(ghost);
+      host.append(ghost);
       ghosts.add(ghost);
 
       // Quick to fade and soft at the end, so it's mostly gone before the
@@ -322,17 +337,13 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
           }
         }
 
-        // Only the container's own children leave a fading copy behind.
+        // Whatever was followed and has gone leaves a fading copy behind.
         for (const change of records) {
-          if (change.target !== element) {
-            continue;
-          }
-
           for (const node of change.removedNodes) {
             const at = positions.get(node);
 
             if (at && !present.has(node)) {
-              leaving.push([node, at]);
+              leaving.push([node, at, change.target]);
             }
           }
         }
@@ -359,8 +370,8 @@ export default function useSmoothLayout(ref, { height = false, width = false, fl
         );
       }
 
-      for (const [node, at] of leaving) {
-        fadeOut(node, at, timing);
+      for (const [node, at, parent] of leaving) {
+        fadeOut(node, at, timing, parent);
       }
 
       if (flip) {
