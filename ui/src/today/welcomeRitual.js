@@ -1,3 +1,5 @@
+import { revealContent } from "../motion/contentReveal.js";
+
 /*
  * The welcome: the notebook opens onto a bare page, and in the middle of it
  * the day's header is set out large, as a small composition, which then
@@ -338,21 +340,13 @@ export function playWelcome(parts, layout, mode = "full") {
     containerFade.cancel();
   }, () => {});
 
-  // Then what is on it, group by group in reading order: each fades in as
-  // it is uncovered from its left edge, never moved or stretched.
-  const groupsAt = containerAt + TIMELINE.container.duration * CONTENT_OVERLAP;
-  const spacing = groups.length > 1 ? Math.min(70, TIMELINE.groups.spread / (groups.length - 1)) : 0;
-  groups.forEach((group, index) => {
-    run(group, [
-      { offset: 0, opacity: 0, clipPath: `inset(-12px ${group.offsetWidth + 12}px -12px -12px)` },
-      { offset: 0.6, opacity: 1 },
-      { offset: 1, opacity: 1, clipPath: "inset(-12px -12px -12px -12px)" },
-    ], {
-      delay: groupsAt + index * spacing,
-      duration: TIMELINE.groups.duration,
-      easing: "cubic-bezier(0.25, 0.8, 0.3, 1)",
-    });
-  });
+  // Then what is on it, group by group in reading order (contentReveal.js).
+  animations.push(...revealContent(groups, {
+    at: containerAt + TIMELINE.container.duration * CONTENT_OVERLAP,
+    spread: TIMELINE.groups.spread,
+    gap: 70,
+    duration: TIMELINE.groups.duration,
+  }));
 
   return {
     finished: Promise.all(animations.map((animation) => animation.finished)),

@@ -1,4 +1,4 @@
-import { lazy } from "react";
+import { createElement, lazy, useState } from "react";
 
 /*
  * Parts of the notebook that aren't needed for its first page: the other
@@ -8,15 +8,23 @@ import { lazy } from "react";
  * already there by the time it's asked for. A page asked for sooner still is
  * fetched before the notebook turns to it (whenPageReady), so a page never
  * turns in empty; a dialog simply opens once its file has arrived.
+ *
+ * Once a part's file is in, the part is drawn straight away. React's lazy()
+ * would still hold it back the first time it is drawn, until a promise that
+ * has already settled reports so, and then keep its (empty) fallback on
+ * screen for a moment more: a page turned to for the first time would show
+ * a blank page, and the notebook would shrink and grow again around it.
+ * Each part keeps the way it was first drawn, so one that started loading
+ * is never swapped out (and its state lost) when the file arrives.
  */
 function lazyPart(load) {
   let loading = null;
-  let ready = false;
+  let loaded = null;
   // A fetch that fails (the connection dropped) is forgotten, so the next
   // request for the part tries again.
   const preload = () => {
     loading ??= load().then((module) => {
-      ready = true;
+      loaded = module.default;
       return module;
     }, (error) => {
       loading = null;
@@ -24,9 +32,15 @@ function lazyPart(load) {
     });
     return loading;
   };
-  const Part = lazy(preload);
+  const Lazy = lazy(preload);
+
+  function Part(props) {
+    const [Component] = useState(() => loaded ?? Lazy);
+    return createElement(Component, props);
+  }
+
   Part.preload = preload;
-  Part.isReady = () => ready;
+  Part.isReady = () => loaded !== null;
   return Part;
 }
 

@@ -1,5 +1,6 @@
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
+import { contentGroups } from "../motion/contentReveal.js";
 import { measureWelcome, playWelcome } from "./welcomeRitual.js";
 import { saveWelcomeSeen } from "./welcome.js";
 import "./todayHeader.css";
@@ -7,22 +8,6 @@ import "./todayHeader.css";
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const SKIP_ON = ["keydown", "pointerdown", "wheel", "touchstart"];
-// What is written on the rest of the page, in the groups the welcome brings
-// in one after another: what is on each card and slip, the daily note's
-// parts and the section headings. The cards and slips themselves are the
-// page's surface and come in, blank, before them.
-const CONTENT_GROUPS = [
-  ".tour-invite-slip > *",
-  ".liquid-glass-surface > .liquid-glass-content > *",
-  ".daily-note > *",
-  ".today-recent > .section-head",
-].join(", ");
-
-// The groups on the page in reading order, leaving out any inside another.
-function contentGroups(container) {
-  const found = container ? [...container.querySelectorAll(CONTENT_GROUPS)] : [];
-  return found.filter((group) => !found.some((other) => other !== group && other.contains(group)));
-}
 
 function greetingFor(date) {
   const hour = date.getHours();
