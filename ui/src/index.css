@@ -130,10 +130,6 @@
     0 18px 44px -12px color-mix(in srgb, var(--shade) 28%, transparent);
   --scrim: color-mix(in srgb, oklch(20% calc(0.03 * var(--paper-tint)) var(--paper-hue)) 45%, transparent);
 
-  /* The notebook's cover: a board dyed a deep shade of the ink. */
-  --cover: oklch(33% calc(0.075 * var(--theme-chroma)) var(--theme-hue));
-  --cover-lit: oklch(39% calc(0.08 * var(--theme-chroma)) var(--theme-hue));
-
   /* Glass on paper. */
   --glass-fill-top: rgb(255 255 255 / 0.74);
   --glass-fill-bottom: rgb(255 255 255 / 0.46);
@@ -194,9 +190,6 @@
     0 2px 6px color-mix(in srgb, var(--shade) 40%, transparent),
     0 22px 48px -12px color-mix(in srgb, var(--shade) 70%, transparent);
   --scrim: color-mix(in srgb, var(--shade) 55%, transparent);
-
-  --cover: oklch(22% calc(0.06 * var(--theme-chroma)) var(--theme-hue));
-  --cover-lit: oklch(27% calc(0.065 * var(--theme-chroma)) var(--theme-hue));
 
   --glass-fill-top: rgb(255 255 255 / 0.11);
   --glass-fill-bottom: rgb(255 255 255 / 0.04);

@@ -9,8 +9,6 @@ import TopMenu from "./components/TopMenu.jsx";
 // places they always had in it, so nothing is restyled when they arrive.
 import "./components/glassSelect.css";
 import Toast from "./components/Toast.jsx";
-import NotebookOpening from "./components/NotebookOpening.jsx";
-import { shouldOpenNotebook } from "./components/notebookOpening.js";
 import TodayPage from "./pages/TodayPage.jsx";
 import "./libraryNotebook.css";
 import "./studyNotebook.css";
@@ -77,8 +75,9 @@ function getMasteryFromAssessment(assessment) {
 function App() {
   const [view, setView] = useState(() => ({ page: getPageFromHash(), turn: 0 }));
   const activePage = view.page;
-  // The day's first opening on Today plays the welcome (today/); leaving
-  // Today, or reaching its end, puts it away until tomorrow.
+  // Opening the notebook on Today plays the welcome (today/): in full the
+  // first time each day, briefly after that. Leaving Today, or reaching its
+  // end, puts it away.
   const [welcome, setWelcome] = useState(() => loadWelcome(getPageFromHash()));
   const finishWelcome = useCallback(() => setWelcome(false), []);
   const [readerName] = useState(loadReaderName);
@@ -139,10 +138,6 @@ function App() {
     }
   });
 
-  // The closed cover opens the notebook on every other visit; the welcome
-  // takes its place on the first of the day.
-  const [isOpening, setIsOpening] = useState(() => !welcome && shouldOpenNotebook());
-  const finishOpening = useCallback(() => setIsOpening(false), []);
   // "new" until the tour has been taken or its invitation turned down.
   const [tourStatus, setTourStatus] = useState(loadTourStatus);
   const [isTourOpen, setIsTourOpen] = useState(false);
@@ -489,13 +484,6 @@ function App() {
                 : "This browser is not saving changes. They will be lost when you leave."}
             </p>
           </footer>
-          {isOpening ? (
-            <NotebookOpening
-              words={entries.length}
-              languages={new Set(entries.map((entry) => entry.language)).size}
-              onDone={finishOpening}
-            />
-          ) : null}
         </div>
 
         <Suspense fallback={null}>

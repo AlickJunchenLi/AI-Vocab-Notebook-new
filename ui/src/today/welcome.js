@@ -11,12 +11,12 @@ export function localDay(date = new Date()) {
 }
 
 /*
- * Whether this opening of the notebook gets the welcome: the full sequence
- * the first time it opens on Today each local day, and nothing (the usual
- * cover) otherwise. A reader who asks for less motion is shown the page as it
- * is. When the browser can't remember the day, the welcome isn't played at
- * all, so it can't come back on every visit. Opening the notebook with
- * ?welcome in its address plays it again, to see it after the day's first.
+ * Which welcome this opening of the notebook gets, when it opens on Today:
+ * "full" the first time each local day, "brief" (the same moves, shorter and
+ * in place) after that, or false when it opens on another page or the reader
+ * has asked for less motion. When the browser can't remember the day, every
+ * opening is brief, so the full one can't come back on every visit. Opening
+ * the notebook with ?welcome in its address plays the full one again.
  */
 export function loadWelcome(page) {
   try {
@@ -24,11 +24,11 @@ export function loadWelcome(page) {
       return false;
     }
     if (new URLSearchParams(window.location.search).has("welcome")) {
-      return true;
+      return "full";
     }
-    return window.localStorage.getItem(WELCOME_KEY) !== localDay();
+    return window.localStorage.getItem(WELCOME_KEY) !== localDay() ? "full" : "brief";
   } catch {
-    return false;
+    return "brief";
   }
 }
 

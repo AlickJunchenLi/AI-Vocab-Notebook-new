@@ -1,8 +1,8 @@
 import { LAYOUT_EASE } from "../motion/useSmoothLayout.js";
 
 /*
- * The welcome: once a day, the notebook opens onto a nearly empty page and
- * the day's header is written onto it in four overlapping beats.
+ * The welcome: the notebook opens onto a nearly empty page and the day's
+ * header is written onto it in four overlapping beats.
  *
  *   1. The greeting drifts in along an arc above the page, tilted and faint
  *      at first, its shadow on the paper closing in as it lands.
@@ -13,23 +13,39 @@ import { LAYOUT_EASE } from "../motion/useSmoothLayout.js";
  *      comes in beneath them once they have mostly cleared it; the tally,
  *      which sits between them on a narrow screen, comes in last.
  *
+ * That is the full welcome, for the first opening of the day. Every later
+ * opening gets the brief one: the same beats, quicker and overlapping more,
+ * written straight into the header without the larger setting first.
+ *
  * Everything is already in its final place in the layout; the welcome only
  * moves, fades and clips it there, so nothing on the page shifts when it
- * ends. Times are in milliseconds from the start.
+ * ends. Times are in milliseconds from the start; `tilt` is how far the
+ * greeting starts turned clockwise.
  */
-const TIMELINE = {
-  greeting: { at: 80, duration: 1150 },
-  letters: { at: 740, spread: 440, duration: 560 },
-  paper: { at: 1300, duration: 660 },
-  info: { at: 1580, duration: 440 },
-  settle: { at: 1980, duration: 800 },
-  rest: { at: 2280, duration: 620, stagger: 50 },
-  tally: { at: 2500, duration: 400 },
+const TIMELINES = {
+  full: {
+    tilt: 10,
+    greeting: { at: 80, duration: 1150 },
+    letters: { at: 740, spread: 440, duration: 560 },
+    paper: { at: 1300, duration: 660 },
+    info: { at: 1580, duration: 440 },
+    settle: { at: 1980, duration: 800 },
+    rest: { at: 2280, duration: 620, stagger: 50 },
+    tally: { at: 2500, duration: 400 },
+  },
+  brief: {
+    tilt: 6,
+    greeting: { at: 40, duration: 760 },
+    letters: { at: 300, spread: 260, duration: 440 },
+    paper: { at: 520, duration: 480 },
+    info: { at: 720, duration: 320 },
+    settle: null,
+    rest: { at: 600, duration: 520, stagger: 40 },
+    tally: { at: 760, duration: 340 },
+  },
 };
 // Skipping plays what is left this many times faster, so it still ends softly.
 const SKIP_RATE = 6;
-// The greeting starts tilted clockwise by this much.
-const TILT = 10;
 const ARC_STEPS = 48;
 
 // A cubic-bezier easing as a function, for curves sampled in script.
@@ -109,7 +125,7 @@ function arc(dx, dy) {
   };
 }
 
-function greetingFrames(dx, dy) {
+function greetingFrames(dx, dy, startTilt) {
   const along = arc(dx, dy);
 
   return Array.from({ length: ARC_STEPS + 1 }, (_, step) => {
@@ -117,7 +133,7 @@ function greetingFrames(dx, dy) {
     const travelled = glide(t);
     const { x, y } = along(travelled);
     // Level a little before it lands, and fully visible well before that.
-    const tilt = TILT * (1 - levelling(Math.min(1, t / 0.82)));
+    const tilt = startTilt * (1 - levelling(Math.min(1, t / 0.82)));
     // Held above the paper, it casts a soft shadow that draws in under it
     // and fades as it comes down onto the page.
     const height = 1 - travelled;
@@ -132,12 +148,12 @@ function greetingFrames(dx, dy) {
 
 /*
  * Where the welcome sets things out, worked out from where they finally
- * rest: the greeting and summary a little larger, and the group of them
- * with the check-in placed a little above the middle of the window, left
- * edges where they will stay. The arc starts no further right than the
- * page has room for.
+ * rest: for the full welcome, the greeting and summary a little larger, and
+ * the group of them with the check-in placed a little above the middle of
+ * the window, left edges where they will stay; the brief one leaves them in
+ * place. The arc starts no further right than the page has room for.
  */
-export function measureWelcome({ page, title, greeting, summary, checkin }) {
+export function measureWelcome({ page, title, greeting, summary, checkin }, mode = "full") {
   const view = { width: window.innerWidth, height: window.innerHeight };
   const compact = view.width < 560;
   const menu = document.querySelector(".top-menu")?.getBoundingClientRect().bottom ?? 0;
@@ -154,6 +170,17 @@ export function measureWelcome({ page, title, greeting, summary, checkin }) {
   const groupTop = top + Math.max(0, (room - groupHeight) * 0.42);
   const spare = (pageBox.right - (titleBox.left + greetingWidth * scale)) / scale - 12;
 
+  if (mode === "brief") {
+    return {
+      scale: 1,
+      titleShift: 0,
+      checkinShift: 0,
+      arcX: Math.min(Math.max(spare, 16), compact ? 32 : 48),
+      arcY: compact ? 18 : 26,
+      paperWidth: checkin.offsetWidth,
+    };
+  }
+
   return {
     scale,
     titleShift: Math.max(0, groupTop - titleBox.top),
@@ -165,11 +192,13 @@ export function measureWelcome({ page, title, greeting, summary, checkin }) {
 }
 
 /*
- * Plays the welcome on the header's parts; `rest` is the rest of the page,
- * brought in at the end, and `tally` the header's counts. Returns `finished` (settles when it has played),
- * `skip` (plays the rest quickly) and `cancel` (removes it at once).
+ * Plays the welcome ("full" or "brief") on the header's parts; `rest` is the
+ * rest of the page, brought in at the end, and `tally` the header's counts.
+ * Returns `finished` (settles when it has played), `skip` (plays the rest
+ * quickly) and `cancel` (removes it at once).
  */
-export function playWelcome({ title, greeting, letters, checkin, paper, info, rest, tally }, layout) {
+export function playWelcome({ title, greeting, letters, checkin, paper, info, rest, tally }, layout, mode = "full") {
+  const TIMELINE = TIMELINES[mode] ?? TIMELINES.full;
   const animations = [];
   const run = (element, keyframes, options) => {
     if (element) {
@@ -177,7 +206,7 @@ export function playWelcome({ title, greeting, letters, checkin, paper, info, re
     }
   };
 
-  run(greeting, greetingFrames(layout.arcX, layout.arcY), {
+  run(greeting, greetingFrames(layout.arcX, layout.arcY, TIMELINE.tilt), {
     delay: TIMELINE.greeting.at,
     duration: TIMELINE.greeting.duration,
     easing: "linear",
@@ -210,9 +239,11 @@ export function playWelcome({ title, greeting, letters, checkin, paper, info, re
     easing: "cubic-bezier(0.25, 0.7, 0.3, 1)",
   });
 
-  const settle = { delay: TIMELINE.settle.at, duration: TIMELINE.settle.duration, easing: LAYOUT_EASE };
-  run(title, [{ transform: `translateY(${layout.titleShift}px) scale(${layout.scale})` }, { transform: "translateY(0) scale(1)" }], settle);
-  run(checkin, [{ transform: `translateY(${layout.checkinShift}px)` }, { transform: "translateY(0)" }], settle);
+  if (TIMELINE.settle) {
+    const settle = { delay: TIMELINE.settle.at, duration: TIMELINE.settle.duration, easing: LAYOUT_EASE };
+    run(title, [{ transform: `translateY(${layout.titleShift}px) scale(${layout.scale})` }, { transform: "translateY(0) scale(1)" }], settle);
+    run(checkin, [{ transform: `translateY(${layout.checkinShift}px)` }, { transform: "translateY(0)" }], settle);
+  }
 
   rest.forEach((element, index) => {
     run(element, [{ opacity: 0, transform: "translateY(12px)" }, { opacity: 1, transform: "translateY(0)" }], {

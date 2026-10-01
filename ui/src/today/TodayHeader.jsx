@@ -67,9 +67,10 @@ function checkinLine(wordCount, weekTotal, streak) {
 /*
  * Today's header: a greeting (with the reader's name when they have given
  * one), how many words are waiting, and this week's check-in on a strip of
- * paper beneath. On the first opening of the day, `welcome` plays the
- * sequence in welcomeRitual.js, which any key, click, scroll or touch
- * hurries to its end; `onWelcomeDone` is called once it has played.
+ * paper beneath. When the notebook opens here, `welcome` ("full" the first
+ * time each day, "brief" after) plays the sequence in welcomeRitual.js,
+ * which any key, click, scroll or touch hurries to its end; `onWelcomeDone`
+ * is called once it has played.
  */
 export default function TodayHeader({
   name,
@@ -94,7 +95,7 @@ export default function TodayHeader({
   // A page that opened with the welcome keeps its letters set one by one,
   // so the text never reflows, and doesn't play the header's usual entrance
   // again once the welcome has brought it in (data-welcomed).
-  const [lettered] = useState(welcome);
+  const [lettered] = useState(Boolean(welcome));
 
   const now = new Date();
   const greeting = greetingFor(now);
@@ -119,7 +120,7 @@ export default function TodayHeader({
 
     // A page opened in a background tab draws nothing, but its animations
     // still run out; the welcome waits until it can be seen, and only then
-    // counts as the day's.
+    // does the full one count as the day's.
     function start() {
       if (ritual || document.visibilityState === "hidden") {
         return;
@@ -135,10 +136,10 @@ export default function TodayHeader({
         rest: [...page.querySelectorAll(":scope > :not(.today-header, .today-checkin)")],
         tally: tallyRef.current,
       };
-      const layout = measureWelcome({ ...parts, page, summary: summaryRef.current.lastElementChild });
+      const layout = measureWelcome({ ...parts, page, summary: summaryRef.current.lastElementChild }, welcome);
 
-      ritual = playWelcome(parts, layout);
-      saveWelcomeSeen();
+      ritual = playWelcome(parts, layout, welcome);
+      if (welcome === "full") saveWelcomeSeen();
       document.removeEventListener("visibilitychange", start);
       ritual.finished.then(() => {
         if (!ended) onWelcomeDone?.();
