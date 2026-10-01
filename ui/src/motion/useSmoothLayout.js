@@ -53,18 +53,23 @@ import { useEffect } from "react";
  * gathers speed within the first seventh of the time, then spends the rest
  * slowing down, so a card opens promptly and settles gently. Played as a
  * linear() curve sampled from the spring; a browser without linear() gets
- * the nearest cubic-bezier. Shared with PageFrame.
+ * the nearest cubic-bezier. A lower `stiffness` sets off more softly and
+ * slows more evenly. Shared with PageFrame and the day's welcome.
  */
-function springEase(stiffness, samples) {
+const LINEAR_EASING = typeof CSS !== "undefined" && CSS.supports?.("transition-timing-function", "linear(0, 1)");
+
+export function springEase(stiffness, samples = 48) {
+  if (!LINEAR_EASING) {
+    return "cubic-bezier(0.25, 0.7, 0.2, 1)";
+  }
+
   const at = (t) => 1 - (1 + stiffness * t) * Math.exp(-stiffness * t);
   const end = at(1);
   const points = Array.from({ length: samples + 1 }, (_, index) => (at(index / samples) / end).toFixed(4));
   return `linear(${points.join(", ")})`;
 }
 
-export const LAYOUT_EASE = typeof CSS !== "undefined" && CSS.supports?.("transition-timing-function", "linear(0, 1)")
-  ? springEase(6.5, 48)
-  : "cubic-bezier(0.25, 0.7, 0.2, 1)";
+export const LAYOUT_EASE = springEase(6.5);
 
 // Under half a second for a small shift, up to 0.8s for a long one; the last
 // part of each is the spring settling.

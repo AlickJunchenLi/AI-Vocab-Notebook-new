@@ -19,7 +19,8 @@
 /* The welcome carries these from the middle of the window, scaling each from
    its top left corner (welcomeRitual.js). */
 .today-greeting,
-.today-summary {
+.today-summary,
+.today-checkin {
   transform-origin: 0 0;
 }
 

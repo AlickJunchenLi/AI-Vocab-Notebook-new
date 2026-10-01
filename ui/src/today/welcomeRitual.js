@@ -1,59 +1,68 @@
-import { LAYOUT_EASE } from "../motion/useSmoothLayout.js";
+import { springEase } from "../motion/useSmoothLayout.js";
 
 /*
  * The welcome: the notebook opens onto a bare page, and in the middle of it
- * the day's header is set out as a small composition, which then moves up
- * into the page and becomes its header.
+ * the day's header is set out large, as a small composition, which then
+ * moves up into the page and becomes its header.
  *
  *   1. The greeting drifts in along an arc above the page, tilted and faint
  *      at first, its shadow on the paper closing in as it lands.
  *   2. The summary beneath it rises out of its line, letter by letter.
  *   3. A strip of paper is laid under them, and this week's check-in is
  *      printed onto it.
- *   4. The finished composition rests for a moment.
- *   5. Its three parts travel to their places: the greeting and summary up
- *      into the header, growing smaller and moving to the left, and the
- *      check-in to its place below them. The rest of the notebook (the page
- *      names and actions, the tally, the page itself) comes in as they near
- *      it, and the paper under it all never moves.
+ *   4. The finished composition rests, long enough to be read.
+ *   5. Its three parts travel to their places, shrinking to their size on
+ *      the page as they go: the greeting and summary up into the header and
+ *      over to the left, the check-in to its place below them. The header's
+ *      names and actions, and the tally, come in as they near it.
+ *   6. Half a second after they have settled, the rest of the page fades in,
+ *      its cards and slips still blank; then what is on them is uncovered,
+ *      group by group in reading order, each wiping in from the left.
  *
- * The full welcome is for the first opening of the day; later openings get
- * the brief one, the same scene played quicker.
+ * The paper under it all never moves. The full welcome is for the first
+ * opening of the day; later openings get the brief one, the same scene
+ * played quicker.
  *
  * Everything is already in its final place in the layout; the welcome only
  * moves, scales, fades and clips it there, so nothing on the page shifts
  * when it ends and there is only ever one of each thing on screen. Times
  * are in milliseconds from the start; `tilt` is how far the greeting starts
- * turned clockwise.
+ * turned clockwise, `stiffness` how softly the move sets off.
  */
 const TIMELINES = {
   full: {
     tilt: 10,
     greeting: { at: 100, duration: 1150 },
     letters: { at: 720, spread: 440, duration: 560 },
-    paper: { at: 1220, duration: 640 },
-    info: { at: 1500, duration: 420 },
-    // The composition is complete at about 1.9s and rests until the move.
-    settle: { at: 2380, duration: 900 },
-    rest: { at: 2700, duration: 620, stagger: 50 },
-    chrome: { at: 2700, duration: 600 },
-    tally: { at: 2950, duration: 400 },
+    paper: { at: 1220, duration: 700 },
+    info: { at: 1520, duration: 440 },
+    // Complete at about 2s, and read until the move begins.
+    settle: { at: 3580, duration: 1700, stiffness: 4.6 },
+    chrome: { at: 4600, duration: 700 },
+    tally: { at: 4850, duration: 450 },
+    container: { duration: 450 },
+    groups: { spread: 700, duration: 560 },
   },
   brief: {
     tilt: 6,
     greeting: { at: 40, duration: 760 },
     letters: { at: 300, spread: 260, duration: 440 },
-    paper: { at: 540, duration: 480 },
-    info: { at: 740, duration: 320 },
-    settle: { at: 1260, duration: 760 },
-    rest: { at: 1500, duration: 520, stagger: 40 },
-    chrome: { at: 1500, duration: 500 },
-    tally: { at: 1680, duration: 340 },
+    paper: { at: 540, duration: 500 },
+    info: { at: 760, duration: 320 },
+    settle: { at: 1300, duration: 900, stiffness: 5.5 },
+    chrome: { at: 1800, duration: 450 },
+    tally: { at: 1950, duration: 350 },
+    container: { duration: 350 },
+    groups: { spread: 450, duration: 460 },
   },
 };
-// Skipping plays what is left this many times faster: the final layout in a
-// fraction of a second, still arriving softly rather than snapping.
-const SKIP_RATE = 10;
+// The page waits this long after the header has settled before it appears,
+// and its contents start once it is mostly there.
+const CONTENT_WAIT = 500;
+const CONTENT_OVERLAP = 0.6;
+// Skipping plays what is left this many times faster: the final layout in
+// about half a second, still arriving softly rather than snapping.
+const SKIP_RATE = 16;
 const ARC_STEPS = 48;
 
 // A cubic-bezier easing as a function, for curves sampled in script.
@@ -159,12 +168,13 @@ const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
 /*
  * Where the welcome sets things out, worked out from where they finally
  * rest. The greeting, the summary and the check-in are stacked in the middle
- * of the window, each centred on its own: the greeting larger, the summary a
- * touch larger, the check-in as it is. Each part's move is a translation and
- * a scale from the top left corner of its own box (the CSS transform-origin
- * of .today-greeting and .today-summary), which it unwinds to nothing in its
- * place in the header. The arc starts no further right than the window has
- * room for.
+ * of the window, each centred on its own and set larger than on the page:
+ * the greeting much larger, the summary and the check-in by a third and a
+ * fifth, as far as the window's width allows (and a short window, its
+ * height). Each part's move is a translation and a scale from the top left
+ * corner of its own box (the CSS transform-origin of .today-greeting,
+ * .today-summary and .today-checkin), which it unwinds to nothing in its
+ * place on the page. The arc starts no further right than there is room.
  */
 export function measureWelcome({ greetingStage, greeting, summaryStage, summaryText, checkin }) {
   const view = { width: window.innerWidth, height: window.innerHeight };
@@ -175,31 +185,38 @@ export function measureWelcome({ greetingStage, greeting, summaryStage, summaryT
   const words = summaryText.getBoundingClientRect();
   const strip = checkin.getBoundingClientRect();
   const room = view.width - (compact ? 32 : 96);
-  const greetingScale = clamp(room / Math.max(text.width, 1), 1, compact ? 1.12 : 1.32);
-  const summaryScale = clamp(room / Math.max(words.width, 1), 1, compact ? 1 : 1.06);
-  const [nearGap, farGap] = compact ? [10, 26] : [14, 36];
-  const greetingHeight = line.height * greetingScale;
-  const summaryHeight = block.height * summaryScale;
-  const height = greetingHeight + nearGap + summaryHeight + farGap + strip.height;
+  const largest = {
+    greeting: clamp(room / Math.max(text.width, 1), 1, compact ? 1.25 : 1.85),
+    summary: clamp(room / Math.max(words.width, 1), 1, compact ? 1.08 : 1.32),
+    checkin: clamp(room / Math.max(strip.width, 1), 1, compact ? 1 : 1.2),
+  };
+  const [nearGap, farGap] = compact ? [12, 30] : [20, 48];
+  const heightAt = (scale) => line.height * scale.greeting + nearGap + block.height * scale.summary +
+    farGap + strip.height * scale.checkin;
+  // Shrink towards the page sizes only as far as a short window needs.
+  const plain = { greeting: 1, summary: 1, checkin: 1 };
+  const fit = clamp((view.height - 32 - heightAt(plain)) / Math.max(heightAt(largest) - heightAt(plain), 1), 0, 1);
+  const scale = Object.fromEntries(Object.entries(largest).map(([part, value]) => [part, 1 + (value - 1) * fit]));
+  const height = heightAt(scale);
   // A little above the true middle, where a composition looks centred.
   const top = Math.max(16, (view.height - height) / 2 - view.height * 0.03);
   const middle = view.width / 2;
 
-  // How far to move a box so the text it holds, scaled, is centred at `top`.
-  const centre = (box, inner, scale, at) => ({
-    x: middle - (inner.width * scale) / 2 - box.left - (inner.left - box.left) * scale,
+  // How far to move a box so the text it holds, scaled, is centred at `at`.
+  const centre = (box, inner, factor, at) => ({
+    x: middle - (inner.width * factor) / 2 - box.left - (inner.left - box.left) * factor,
     y: at - box.top,
-    scale,
+    scale: factor,
   });
 
-  const summaryTop = top + greetingHeight + nearGap;
-  const checkinTop = summaryTop + summaryHeight + farGap;
-  const spare = (view.width - (middle + (text.width * greetingScale) / 2)) / greetingScale - 12;
+  const summaryTop = top + line.height * scale.greeting + nearGap;
+  const checkinTop = summaryTop + block.height * scale.summary + farGap;
+  const spare = (view.width - (middle + (text.width * scale.greeting) / 2)) / scale.greeting - 12;
 
   return {
-    greeting: centre(line, text, greetingScale, top),
-    summary: centre(block, words, summaryScale, summaryTop),
-    checkin: centre(strip, strip, 1, checkinTop),
+    greeting: centre(line, text, scale.greeting, top),
+    summary: centre(block, words, scale.summary, summaryTop),
+    checkin: centre(strip, strip, scale.checkin, checkinTop),
     arcX: clamp(spare, 24, compact ? 48 : 104),
     arcY: compact ? 36 : 60,
     paperWidth: checkin.offsetWidth,
@@ -207,21 +224,23 @@ export function measureWelcome({ greetingStage, greeting, summaryStage, summaryT
 }
 
 /*
- * Plays the welcome ("full" or "brief"). `greetingStage` and `summaryStage`
- * carry the greeting's line and the summary to and from the middle, while
- * `greeting` itself takes the arc; `rest` is the rest of the page, `chrome`
- * the notebook around it (the header's names and actions, the footer), and
- * `tally` the header's counts. Returns `finished` (settles when it has
- * played), `skip` (plays the rest quickly) and `cancel` (removes it at once).
+ * Plays the welcome ("full" or "brief"). `greetingStage`, `summaryStage` and
+ * `checkin` are carried from the middle to their places, while `greeting`
+ * itself takes the arc; `chrome` is the notebook around the page (the
+ * header's names and actions) and `tally` the header's counts; `container`
+ * is the rest of the page and `groups` what is on it, in reading order.
+ * Returns `finished` (settles when it has played), `skip` (plays the rest
+ * quickly) and `cancel` (removes it at once).
  */
 export function playWelcome(parts, layout, mode = "full") {
-  const { greetingStage, greeting, summaryStage, letters, checkin, paper, info, rest, chrome, tally } = parts;
+  const { greetingStage, greeting, summaryStage, letters, checkin, paper, info, chrome, tally, container, groups } = parts;
   const TIMELINE = TIMELINES[mode] ?? TIMELINES.full;
   const animations = [];
   const run = (element, keyframes, options) => {
-    if (element) {
-      animations.push(element.animate(keyframes, { fill: "both", ...options }));
-    }
+    if (!element) return null;
+    const animation = element.animate(keyframes, { fill: "both", ...options });
+    animations.push(animation);
+    return animation;
   };
 
   run(greeting, greetingFrames(layout.arcX, layout.arcY, TIMELINE.tilt), {
@@ -257,35 +276,49 @@ export function playWelcome(parts, layout, mode = "full") {
     easing: "cubic-bezier(0.25, 0.7, 0.3, 1)",
   });
 
-  // From the middle to the header: one gentle ease-out shared by all three,
-  // so they move as one composition coming apart into the page.
-  const settle = { delay: TIMELINE.settle.at, duration: TIMELINE.settle.duration, easing: LAYOUT_EASE };
+  // From the middle to the page: one soft spring shared by all three, so
+  // they move as one composition coming apart, each growing smaller as it
+  // goes.
+  const { settle } = TIMELINE;
+  const move = { delay: settle.at, duration: settle.duration, easing: springEase(settle.stiffness) };
   const from = ({ x, y, scale }) => `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${scale.toFixed(4)})`;
-  run(greetingStage, [{ transform: from(layout.greeting) }, { transform: "translate(0px, 0px) scale(1)" }], settle);
-  run(summaryStage, [{ transform: from(layout.summary) }, { transform: "translate(0px, 0px) scale(1)" }], settle);
-  run(checkin, [{ transform: from(layout.checkin) }, { transform: "translate(0px, 0px) scale(1)" }], settle);
+  const home = "translate(0px, 0px) scale(1)";
+  run(greetingStage, [{ transform: from(layout.greeting) }, { transform: home }], move);
+  run(summaryStage, [{ transform: from(layout.summary) }, { transform: home }], move);
+  run(checkin, [{ transform: from(layout.checkin) }, { transform: home }], move);
 
-  // The notebook comes in around them as they near their places.
-  rest.forEach((element, index) => {
-    run(element, [{ opacity: 0, transform: "translateY(12px)" }, { opacity: 1, transform: "translateY(0)" }], {
-      delay: TIMELINE.rest.at + index * TIMELINE.rest.stagger,
-      duration: TIMELINE.rest.duration,
-      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-    });
-  });
-
-  chrome.forEach((element) => {
-    run(element, [{ opacity: 0 }, { opacity: 1 }], {
-      delay: TIMELINE.chrome.at,
-      duration: TIMELINE.chrome.duration,
-      easing: "cubic-bezier(0.25, 0.7, 0.3, 1)",
-    });
-  });
-
-  run(tally, [{ opacity: 0 }, { opacity: 1 }], {
-    delay: TIMELINE.tally.at,
-    duration: TIMELINE.tally.duration,
+  const fadeIn = (element, timing) => run(element, [{ opacity: 0 }, { opacity: 1 }], {
+    ...timing,
     easing: "cubic-bezier(0.25, 0.7, 0.3, 1)",
+  });
+  chrome.forEach((element) => fadeIn(element, { delay: TIMELINE.chrome.at, duration: TIMELINE.chrome.duration }));
+  fadeIn(tally, { delay: TIMELINE.tally.at, duration: TIMELINE.tally.duration });
+
+  // The rest of the page, blank, half a second after everything has landed.
+  // Once it is in, its opacity is written to the element and the animation
+  // let go, so it doesn't hold the page as a separate layer (glass on it
+  // would blur only what is inside it) while its contents come in.
+  const containerAt = settle.at + settle.duration + CONTENT_WAIT;
+  const containerFade = fadeIn(container, { delay: containerAt, duration: TIMELINE.container.duration });
+  containerFade?.finished.then(() => {
+    containerFade.commitStyles();
+    containerFade.cancel();
+  }, () => {});
+
+  // Then what is on it, group by group in reading order: each fades in as
+  // it is uncovered from its left edge, never moved or stretched.
+  const groupsAt = containerAt + TIMELINE.container.duration * CONTENT_OVERLAP;
+  const spacing = groups.length > 1 ? Math.min(70, TIMELINE.groups.spread / (groups.length - 1)) : 0;
+  groups.forEach((group, index) => {
+    run(group, [
+      { offset: 0, opacity: 0, clipPath: `inset(-12px ${group.offsetWidth + 12}px -12px -12px)` },
+      { offset: 0.6, opacity: 1 },
+      { offset: 1, opacity: 1, clipPath: "inset(-12px -12px -12px -12px)" },
+    ], {
+      delay: groupsAt + index * spacing,
+      duration: TIMELINE.groups.duration,
+      easing: "cubic-bezier(0.25, 0.8, 0.3, 1)",
+    });
   });
 
   return {
@@ -301,6 +334,7 @@ export function playWelcome(parts, layout, mode = "full") {
       for (const animation of animations) {
         animation.cancel();
       }
+      container?.style.removeProperty("opacity");
     },
   };
 }
