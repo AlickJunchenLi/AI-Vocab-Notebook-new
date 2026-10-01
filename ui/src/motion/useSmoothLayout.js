@@ -54,7 +54,7 @@ import { useEffect } from "react";
  * slowing down, so a card opens promptly and settles gently. Played as a
  * linear() curve sampled from the spring; a browser without linear() gets
  * the nearest cubic-bezier. A lower `stiffness` sets off more softly and
- * slows more evenly. Shared with PageFrame and the day's welcome.
+ * slows more evenly. Shared with PageFrame.
  */
 const LINEAR_EASING = typeof CSS !== "undefined" && CSS.supports?.("transition-timing-function", "linear(0, 1)");
 

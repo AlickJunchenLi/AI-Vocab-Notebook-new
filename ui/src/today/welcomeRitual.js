@@ -1,5 +1,3 @@
-import { springEase } from "../motion/useSmoothLayout.js";
-
 /*
  * The welcome: the notebook opens onto a bare page, and in the middle of it
  * the day's header is set out large, as a small composition, which then
@@ -13,13 +11,16 @@ import { springEase } from "../motion/useSmoothLayout.js";
  *   3. A strip of paper is laid under them, and this week's check-in is
  *      printed onto it.
  *   4. The finished composition rests, long enough to be read.
- *   5. Its three parts travel to their places, shrinking to their size on
- *      the page as they go: the greeting and summary up into the header and
+ *   5. Its three parts travel to their places one after another, the
+ *      greeting first, then the summary, then the check-in, each setting off
+ *      quickly and slowing gently as it arrives, and shrinking to its size on
+ *      the page as it goes: the greeting and summary up into the header and
  *      over to the left, the check-in to its place below them. The header's
  *      names and actions, and the tally, come in as they near it.
- *   6. Half a second after they have settled, the rest of the page fades in,
- *      its cards and slips still blank; then what is on them is uncovered,
- *      group by group in reading order, each wiping in from the left.
+ *   6. A moment after the last of them has settled, the rest of the page
+ *      fades in, its cards and slips still blank; then what is on them is
+ *      uncovered, group by group in reading order, each wiping in from the
+ *      left.
  *
  * The paper under it all never moves. The full welcome is for the first
  * opening of the day; later openings get the brief one, the same scene
@@ -29,7 +30,8 @@ import { springEase } from "../motion/useSmoothLayout.js";
  * moves, scales, fades and clips it there, so nothing on the page shifts
  * when it ends and there is only ever one of each thing on screen. Times
  * are in milliseconds from the start; `tilt` is how far the greeting starts
- * turned clockwise, `stiffness` how softly the move sets off.
+ * turned clockwise; in `settle`, `stagger` is the gap between the parts
+ * setting off.
  */
 const TIMELINES = {
   full: {
@@ -40,7 +42,7 @@ const TIMELINES = {
     paper: { at: 1950, duration: 700 },
     info: { at: 2250, duration: 440 },
     // Complete at about 2.7s, and read until the move begins.
-    settle: { at: 4320, duration: 1700, stiffness: 4.6 },
+    settle: { at: 4320, duration: 1400, stagger: 180 },
     chrome: { at: 5340, duration: 700 },
     tally: { at: 5590, duration: 450 },
     container: { duration: 700 },
@@ -53,16 +55,19 @@ const TIMELINES = {
     letters: { at: 760, spread: 260, duration: 440 },
     paper: { at: 980, duration: 500 },
     info: { at: 1180, duration: 320 },
-    settle: { at: 1700, duration: 900, stiffness: 5.5 },
+    settle: { at: 1700, duration: 800, stagger: 110 },
     chrome: { at: 2200, duration: 450 },
     tally: { at: 2350, duration: 350 },
     container: { duration: 700 },
     groups: { spread: 450, duration: 1000 },
   },
 };
-// The page waits this long after the header has settled before it appears,
-// and its contents start once it is mostly there.
-const CONTENT_WAIT = 500;
+// The page waits this long after the check-in, the last part to arrive, has
+// finished its move (it is still well before then) before it appears, and
+// its contents start once it is mostly there.
+const CONTENT_WAIT = 140;
+// Quick to set off, slowing gently into place: the parts' move to the page.
+const ARRIVE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const CONTENT_OVERLAP = 0.6;
 // Skipping plays what is left this many times faster: the final layout in
 // about half a second, still arriving softly rather than snapping.
@@ -297,16 +302,23 @@ export function playWelcome(parts, layout, mode = "full") {
     easing: "cubic-bezier(0.25, 0.7, 0.3, 1)",
   });
 
-  // From the middle to the page: one soft spring shared by all three, so
-  // they move as one composition coming apart, each growing smaller as it
-  // goes.
+  // From the middle to the page, line by line: the greeting sets off first,
+  // then the summary, then the check-in, each growing smaller as it goes.
   const { settle } = TIMELINE;
-  const move = { delay: settle.at, duration: settle.duration, easing: springEase(settle.stiffness) };
   const from = ({ x, y, scale }) => `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${scale.toFixed(4)})`;
   const home = "translate(0px, 0px) scale(1)";
-  run(greetingStage, [{ transform: from(layout.greeting) }, { transform: home }], move);
-  run(summaryStage, [{ transform: from(layout.summary) }, { transform: home }], move);
-  run(checkin, [{ transform: from(layout.checkin) }, { transform: home }], move);
+  [
+    [greetingStage, layout.greeting],
+    [summaryStage, layout.summary],
+    [checkin, layout.checkin],
+  ].forEach(([element, start], order) => {
+    run(element, [{ transform: from(start) }, { transform: home }], {
+      delay: settle.at + order * settle.stagger,
+      duration: settle.duration,
+      easing: ARRIVE,
+    });
+  });
+  const settled = settle.at + 2 * settle.stagger + settle.duration;
 
   const fadeIn = (element, timing) => run(element, [{ opacity: 0 }, { opacity: 1 }], {
     ...timing,
@@ -319,7 +331,7 @@ export function playWelcome(parts, layout, mode = "full") {
   // Once it is in, its opacity is written to the element and the animation
   // let go, so it doesn't hold the page as a separate layer (glass on it
   // would blur only what is inside it) while its contents come in.
-  const containerAt = settle.at + settle.duration + CONTENT_WAIT;
+  const containerAt = settled + CONTENT_WAIT;
   const containerFade = fadeIn(container, { delay: containerAt, duration: TIMELINE.container.duration });
   containerFade?.finished.then(() => {
     containerFade.commitStyles();
