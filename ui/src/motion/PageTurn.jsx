@@ -17,8 +17,8 @@ const CONTENT = { at: 180, spread: 420, gap: 60, duration: 600 };
  * passes the newest value to the exiting page through `custom`), quickly and
  * not far enough to read as a page flip; it is inert while it leaves. The
  * new page then comes in the way the day's welcome ends: its surfaces fade
- * in still blank, and what is on them is uncovered group by group, left to
- * right, in reading order. The first page, when the notebook opens, simply
+ * in still blank, and what is on them is uncovered group by group from the
+ * top of the page down. The first page, when the notebook opens, simply
  * shows (or is brought in by the welcome).
  *
  * Only the page leaves: the cards and notes on it stay as they are while it

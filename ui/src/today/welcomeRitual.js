@@ -21,8 +21,8 @@ import { revealContent } from "../motion/contentReveal.js";
  *      names and actions, and the tally, come in as they near it.
  *   6. A moment after the last of them has settled, the rest of the page
  *      fades in, its cards and slips still blank; then what is on them is
- *      uncovered, group by group in reading order, each wiping in from the
- *      left.
+ *      uncovered, group by group from the top of the page down, each
+ *      wiping in from its top edge.
  *
  * The paper under it all never moves. The full welcome is for the first
  * opening of the day; later openings get the brief one, the same scene
@@ -243,7 +243,7 @@ export function measureWelcome({ greetingStage, greeting, summaryStage, summaryT
  * `checkin` are carried from the middle to their places, while `greeting`
  * takes the arc in and its `greetingLetters` appear one by one; `chrome` is the notebook around the page (the
  * header's names and actions) and `tally` the header's counts; `container`
- * is the rest of the page and `groups` what is on it, in reading order.
+ * is the rest of the page and `groups` what is on it, from the top down.
  * Returns `finished` (settles when it has played), `skip` (plays the rest
  * quickly) and `cancel` (removes it at once).
  */
@@ -340,7 +340,7 @@ export function playWelcome(parts, layout, mode = "full") {
     containerFade.cancel();
   }, () => {});
 
-  // Then what is on it, group by group in reading order (contentReveal.js).
+  // Then what is on it, group by group from the top down (contentReveal.js).
   animations.push(...revealContent(groups, {
     at: containerAt + TIMELINE.container.duration * CONTENT_OVERLAP,
     spread: TIMELINE.groups.spread,

@@ -2,9 +2,9 @@
  * Bringing a page's content in after its surfaces. A page arrives in two
  * stages: first its surfaces (the glass cards and panels, the slips of
  * paper) appear blank, then what is written on them, and on the paper
- * between them, is uncovered group by group in reading order, each group
- * fading in as it is revealed from its left edge. Nothing is moved or
- * scaled, so text and controls are never distorted. Charts come in their
+ * between them, is uncovered group by group from the top of the page down,
+ * each group fading in as it is revealed from its top edge. Nothing is moved
+ * or scaled, so text and controls are never distorted. Charts come in their
  * own way, as they would be drawn: a column chart's bars rise one after
  * another, and a stacked bar fills from its left end while its percentages
  * count up. Used when the notebook turns to a page (PageTurn.jsx) and at the
@@ -25,6 +25,9 @@ const EASE = "cubic-bezier(0.25, 0.8, 0.3, 1)";
 // within `CHART_SPREAD`.
 const BAR_GAP = 70;
 const CHART_SPREAD = 420;
+// Groups whose tops are at most this far apart sit on one line, and are
+// uncovered left to right.
+const LINE_SLACK = 8;
 
 /*
  * The days' bars of a column chart (Progress, Reviews), rising one after
@@ -118,7 +121,7 @@ function fillBar(bar, delay, duration) {
   return [fill];
 }
 
-// Content that comes in its own way, rather than wiped in from the left.
+// Content that comes in its own way, rather than wiped in from the top.
 const CHARTS = [
   { match: ".progress-rhythm-plot", reveal: riseBars },
   { match: ".progress-mastery-bar", reveal: fillBar },
@@ -131,12 +134,37 @@ function contentOf(surface) {
 }
 
 /*
- * The content groups under `root`, in reading order (the order of the page,
- * which is also the order of a stacked layout). A surface is looked into and
- * its own content taken; a block holding surfaces or charts is looked into;
- * a chart is a group of its own, as is any other block. Nothing a reader
- * can't see counts, nor anything set aside (inert, like the period a chart
- * isn't showing).
+ * `groups` from the top of the page down, the ones level with each other
+ * left to right. Columns side by side so come in together, line by line,
+ * rather than one whole column after the other.
+ */
+function inPageOrder(groups) {
+  const placed = groups
+    .map((group) => ({ group, box: group.getBoundingClientRect() }))
+    .sort((first, second) => first.box.top - second.box.top);
+  const lines = [];
+
+  for (const entry of placed) {
+    const line = lines.at(-1);
+
+    if (line && entry.box.top - line[0].box.top <= LINE_SLACK) {
+      line.push(entry);
+    } else {
+      lines.push([entry]);
+    }
+  }
+
+  return lines.flatMap((line) => line
+    .sort((first, second) => first.box.left - second.box.left)
+    .map((entry) => entry.group));
+}
+
+/*
+ * The content groups under `root`, from the top of the page down. A surface
+ * is looked into and its own content taken; a block holding surfaces or
+ * charts is looked into; a chart is a group of its own, as is any other
+ * block. Nothing a reader can't see counts, nor anything set aside (inert,
+ * like the period a chart isn't showing).
  */
 export function contentGroups(root) {
   const groups = [];
@@ -161,14 +189,14 @@ export function contentGroups(root) {
   };
 
   if (root) visit(root);
-  return groups;
+  return inPageOrder(groups);
 }
 
-// A group wiped in from its left edge as it fades in; the room around it
+// A group wiped in from its top edge down as it fades in; the room around it
 // lets focus rings and small shadows show once it is in.
 function wipeIn(group, delay, duration) {
   return [group.animate([
-    { offset: 0, opacity: 0, clipPath: `inset(-12px ${group.offsetWidth + 12}px -12px -12px)` },
+    { offset: 0, opacity: 0, clipPath: `inset(-12px -12px ${group.offsetHeight + 12}px -12px)` },
     { offset: 0.6, opacity: 1 },
     { offset: 1, opacity: 1, clipPath: "inset(-12px -12px -12px -12px)" },
   ], { delay, duration, easing: EASE, fill: "both" })];
