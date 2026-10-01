@@ -1,0 +1,323 @@
+/*
+ * Today's header (TodayHeader.jsx): a greeting set in an italic serif, a
+ * line saying what is waiting, and this week's check-in on a strip of paper
+ * laid under them. Colours come from the theme, so the strip follows the
+ * paper and ink the reader has chosen.
+ */
+
+.today-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px 40px;
+}
+
+.today-title {
+  min-width: 0;
+  /* The welcome scales it from its top left corner (welcomeRitual.js). */
+  transform-origin: 0 0;
+}
+
+.today-greeting {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: clamp(40px, 4.4vw, 56px);
+  font-style: italic;
+  font-weight: 380;
+  letter-spacing: -0.012em;
+  line-height: 1.04;
+}
+
+/* One piece of text, so the welcome can carry it along its arc. */
+.today-greeting-line {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.today-greeting-name {
+  color: var(--accent);
+}
+
+.today-summary {
+  max-width: 46ch;
+  margin: 14px 0 0;
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.today-summary strong,
+.today-letter.is-strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Letter by letter (the welcome): each word is a window the letters rise
+   into from below, cut level with the foot of its line. */
+.today-summary-letters {
+  font-kerning: none;
+}
+
+.today-word {
+  display: inline-block;
+  overflow-x: visible;
+  overflow-y: clip;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.today-letter {
+  display: inline-block;
+  vertical-align: top;
+}
+
+.today-tally {
+  display: flex;
+  flex: none;
+  gap: 28px;
+  margin: 0 0 4px;
+}
+
+.today-tally > div {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.today-tally dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.today-tally dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/*
+ * The check-in: a strip of paper cut a little unevenly, laid a fraction off
+ * straight, with a faint grain and a close shadow where it meets the page.
+ * The paper and what is printed on it are separate layers, so the welcome
+ * can uncover one and fade in the other.
+ */
+.today-checkin {
+  --slip: color-mix(in oklab, var(--paper-raised) 95%, var(--accent) 5%);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .33 0 0 0 0 .3 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+
+  position: relative;
+  isolation: isolate;
+  width: fit-content;
+  max-width: 100%;
+  margin: 24px 0 40px;
+}
+
+.checkin-paper {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  filter:
+    drop-shadow(0 1px 0.5px color-mix(in srgb, var(--shade) 20%, transparent))
+    drop-shadow(0 5px 9px color-mix(in srgb, var(--shade) 7%, transparent));
+}
+
+.checkin-sheet {
+  position: absolute;
+  inset: 0;
+  background:
+    var(--grain),
+    linear-gradient(176deg, color-mix(in oklab, var(--slip), white 35%), var(--slip) 42%);
+  clip-path: polygon(
+    0.2% 1.6%, 14% 0.5%, 37% 1.3%, 61% 0.2%, 83% 1.1%, 99.7% 0.4%,
+    100% 47%, 99.5% 98.2%, 76% 99.4%, 52% 98.6%, 27% 100%, 0.4% 98.8%,
+    0% 51%
+  );
+  rotate: -0.35deg;
+}
+
+:root[data-paper-tone="dark"] .today-checkin {
+  --slip: color-mix(in oklab, var(--paper-raised) 92%, var(--accent) 8%);
+}
+
+:root[data-paper-tone="dark"] .checkin-sheet {
+  background:
+    var(--grain),
+    linear-gradient(176deg, color-mix(in oklab, var(--slip), white 6%), var(--slip) 42%);
+}
+
+.checkin-info {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  padding: 12px 26px 12px 20px;
+}
+
+/* The date, pressed on like a stamp. */
+.checkin-stamp {
+  margin: 0;
+  padding: 4px 8px 3px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  border-radius: 3px;
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+  line-height: 1.3;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.checkin-days {
+  display: flex;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checkin-days li {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  width: 16px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.checkin-days li.is-today {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.checkin-mark {
+  display: grid;
+  width: 16px;
+  height: 14px;
+  place-items: center;
+  color: var(--accent);
+}
+
+/* A pencil dot for a day without reviews. */
+.checkin-mark:not(.is-done)::before {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--pencil);
+  content: "";
+}
+
+.checkin-days li.is-today .checkin-mark:not(.is-done)::before {
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+}
+
+.checkin-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.checkin-figures strong {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hairlines between the stamp, the week and the figures, on one line. */
+.checkin-days,
+.checkin-figures {
+  position: relative;
+}
+
+.checkin-days::before,
+.checkin-figures::before {
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: -12px;
+  width: 1px;
+  background: color-mix(in srgb, var(--pencil) 45%, transparent);
+  content: "";
+}
+
+/*
+ * While the welcome plays (TodayPage's data-welcome), everything starts
+ * unseen: the greeting faint, the letters below their lines, the paper
+ * rolled up and its print blank, and the rest of the page waiting. The
+ * welcome's animations take over from these on the first frame.
+ */
+.today-page[data-welcome] .today-greeting-line,
+.today-page[data-welcome] .checkin-info,
+.today-page[data-welcome] .today-tally,
+.today-page[data-welcome] > :not(.today-header, .today-checkin) {
+  opacity: 0;
+}
+
+.today-page[data-welcome] .today-letter {
+  transform: translateY(112%);
+}
+
+.today-page[data-welcome] .checkin-paper {
+  clip-path: inset(0 100% 0 0);
+}
+
+@media (max-width: 760px) {
+  .today-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .today-tally > div {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 559px) {
+  .today-greeting {
+    font-size: clamp(34px, 9.5vw, 40px);
+  }
+
+  .today-summary {
+    font-size: 16.5px;
+  }
+
+  .today-checkin {
+    width: auto;
+    margin-bottom: 32px;
+  }
+
+  .checkin-info {
+    gap: 10px 16px;
+    padding: 12px 16px;
+  }
+
+  .checkin-days {
+    gap: 6px;
+  }
+
+  .checkin-days::before,
+  .checkin-figures::before {
+    display: none;
+  }
+
+  .checkin-figures {
+    flex-basis: 100%;
+  }
+}

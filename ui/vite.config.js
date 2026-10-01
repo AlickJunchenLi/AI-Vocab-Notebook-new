@@ -6,12 +6,13 @@ import react from '@vitejs/plugin-react'
  * Without a hint, a browser only asks for a font once the script that needs
  * it has downloaded and run, so the fonts would queue up behind the script.
  * These preload links let them download alongside it. Only the Latin files
- * of the faces the cover and the page open with are preloaded; the others
+ * of the faces the cover, the page and Today's greeting open with are preloaded; the others
  * (Latin Extended, Cyrillic) are still fetched only if a page needs them.
  */
 const FIRST_FONTS = [
   /dm-sans-latin-(400|500|600)-normal-.*\.woff2$/,
   /caveat-latin-wght-normal-.*\.woff2$/,
+  /newsreader-latin-opsz-italic-.*\.woff2$/,
 ]
 
 function preloadFirstFonts() {

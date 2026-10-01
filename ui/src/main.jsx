@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { LazyMotion, domAnimation } from 'motion/react'
 import '@fontsource-variable/caveat'
+import '@fontsource-variable/newsreader/opsz-italic.css'
 import '@fontsource/dm-sans/latin-400.css'
 import '@fontsource/dm-sans/latin-500.css'
 import '@fontsource/dm-sans/latin-600.css'
@@ -24,6 +25,8 @@ const FACES = [
   '500 1em "DM Sans"',
   '600 1em "DM Sans"',
   '600 1em "Caveat Variable"',
+  // Today's greeting, which the welcome measures before it moves it.
+  'italic 380 1em "Newsreader Variable"',
 ]
 
 function whenFontsReady() {

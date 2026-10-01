@@ -1,44 +1,5 @@
-/* Today: two glass cards laid on the page, a note and the week written on it. */
-
-.today-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.today-date {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 15px;
-}
-
-.today-tally {
-  display: flex;
-  gap: 28px;
-  margin: 0;
-}
-
-.today-tally > div {
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  gap: 2px;
-}
-
-.today-tally dt {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.today-tally dd {
-  margin: 0;
-  color: var(--ink);
-  font-size: 24px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
+/* Today: two glass cards laid on the page and a note written on it. The
+   header and this week's check-in are in today/todayHeader.css. */
 
 .today-spread {
   display: grid;
@@ -51,8 +12,7 @@
   padding: 26px 28px 18px;
 }
 
-.today-review-head h2,
-.today-week h2 {
+.today-review-head h2 {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
@@ -227,68 +187,6 @@
   margin-top: 44px;
 }
 
-.today-week-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 20px;
-  margin: 12px 0 18px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.today-week-summary strong {
-  margin-right: 4px;
-  color: var(--ink);
-  font-size: 20px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.today-days {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
-  max-width: 340px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.today-days li {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.today-days li.is-today > span:first-child {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.day-box {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 1.5px solid var(--pencil);
-  border-radius: 7px;
-  background: var(--paper);
-  color: var(--accent);
-}
-
-.day-box.is-done {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  background: var(--accent-soft);
-}
-
-.today-days li.is-today .day-box {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
 .today-recent {
   margin-top: 44px;
 }
@@ -363,16 +261,6 @@
 }
 
 @media (max-width: 760px) {
-  .today-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 18px;
-  }
-
-  .today-tally > div {
-    align-items: flex-start;
-  }
-
   .today-review > .liquid-glass-content,
   .today-featured > .liquid-glass-content {
     padding: 22px 20px 18px;

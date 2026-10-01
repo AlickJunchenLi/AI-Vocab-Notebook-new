@@ -255,6 +255,7 @@
   /* One short reading order, with delays capped well below a quarter second. */
   .page-header,
   .today-header,
+  .today-checkin,
   .library-controls,
   .practice-session-panel,
   .library-empty-state,
@@ -264,7 +265,10 @@
   }
 
   .page-header,
-  .today-header { --motion-distance: 4px; }
+  .today-header,
+  .today-checkin { --motion-distance: 4px; }
+  /* The day's welcome brings the header in itself (today/welcomeRitual.js). */
+  :is(.today-header, .today-checkin)[data-welcomed] { animation: none; }
   /* Fill runs backwards only: a lasting transform would make the controls a
      stacking context and trap the Sort and Language menus beneath the words. */
   .library-controls {
@@ -439,11 +443,6 @@
 
   .practice-session-item-reviewed .practice-session-number .icon {
     animation: notebook-tick 280ms var(--motion-pen) backwards;
-  }
-
-  .today-days .is-done .icon {
-    animation: notebook-tick 300ms var(--motion-pen) backwards;
-    animation-delay: calc(60ms + var(--motion-index, 0) * 25ms);
   }
 
   .app-toast-icon .icon {

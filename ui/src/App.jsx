@@ -29,6 +29,7 @@ import {
   whenPageReady,
 } from "./lazyParts.js";
 import { loadTourStatus, saveTourSeen } from "./tour/tourSteps.js";
+import { loadReaderName, loadWelcome } from "./today/welcome.js";
 import { HandwritingContext, loadHandwriting, saveHandwriting } from "./motion/handwriting.js";
 import { mockEntries } from "./data/mockEntries.js";
 import { applyTheme, syncThemeColor } from "./theme/applyTheme.js";
@@ -77,6 +78,11 @@ function getMasteryFromAssessment(assessment) {
 function App() {
   const [view, setView] = useState(() => ({ page: getPageFromHash(), turn: 0 }));
   const activePage = view.page;
+  // The day's first opening on Today plays the welcome (today/); leaving
+  // Today, or reaching its end, puts it away until tomorrow.
+  const [welcome, setWelcome] = useState(() => loadWelcome(getPageFromHash()));
+  const finishWelcome = useCallback(() => setWelcome(false), []);
+  const [readerName] = useState(loadReaderName);
   // The latest page asked for; an earlier one whose file arrives later is
   // not turned to.
   const pageRequest = useRef(0);
@@ -86,6 +92,7 @@ function App() {
     const request = ++pageRequest.current;
     const turn = () => {
       if (pageRequest.current === request) {
+        if (page !== "today") setWelcome(false);
         setView(turnTo(page));
         then?.();
       }
@@ -133,7 +140,9 @@ function App() {
     }
   });
 
-  const [isOpening, setIsOpening] = useState(shouldOpenNotebook);
+  // The closed cover opens the notebook on every other visit; the welcome
+  // takes its place on the first of the day.
+  const [isOpening, setIsOpening] = useState(() => !welcome && shouldOpenNotebook());
   const finishOpening = useCallback(() => setIsOpening(false), []);
   // "new" until the tour has been taken or its invitation turned down.
   const [tourStatus, setTourStatus] = useState(loadTourStatus);
@@ -444,6 +453,9 @@ function App() {
                       showTourInvite={tourStatus === "new" && !isTourOpen}
                       onStartTour={() => setIsTourOpen(true)}
                       onDismissTour={putTourAway}
+                      readerName={readerName}
+                      welcome={welcome}
+                      onWelcomeDone={finishWelcome}
                     />
                   ) : null}
 

@@ -88,6 +88,8 @@
   /* Only the words you collect are handwritten. Caveat has no CJK glyphs, so
      Chinese words fall back to a brush-style Kai face. */
   --font-hand: "Caveat Variable", "Kaiti SC", "STKaiti", "KaiTi", cursive;
+  /* Today's greeting: an italic serif with display optical sizes. */
+  --font-serif: "Newsreader Variable", "Newsreader", Georgia, "Songti SC", serif;
 
   /* Easing. Movement settles out of a quick start; colour and fades ease in
      and out, so nothing snaps from one state to the next. */
