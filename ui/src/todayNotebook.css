@@ -181,9 +181,6 @@
 }
 
 .today-lower {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr);
-  gap: 28px;
   margin-top: 44px;
 }
 
@@ -246,8 +243,7 @@
 }
 
 @media (max-width: 1000px) {
-  .today-spread,
-  .today-lower {
+  .today-spread {
     grid-template-columns: minmax(0, 1fr);
   }
 
