@@ -14,7 +14,12 @@
 
 .today-title {
   min-width: 0;
-  /* The welcome scales it from its top left corner (welcomeRitual.js). */
+}
+
+/* The welcome carries these from the middle of the window, scaling each from
+   its top left corner (welcomeRitual.js). */
+.today-greeting,
+.today-summary {
   transform-origin: 0 0;
 }
 
@@ -260,13 +265,16 @@
 /*
  * While the welcome plays (TodayPage's data-welcome), everything starts
  * unseen: the greeting faint, the letters below their lines, the paper
- * rolled up and its print blank, and the rest of the page waiting. The
- * welcome's animations take over from these on the first frame.
+ * rolled up and its print blank, and the rest of the page waiting, with the
+ * notebook around it (the header's names and actions, the footer) quiet.
+ * Only the paper shows. The welcome's animations take over from these on
+ * the first frame.
  */
 .today-page[data-welcome] .today-greeting-line,
 .today-page[data-welcome] .checkin-info,
 .today-page[data-welcome] .today-tally,
-.today-page[data-welcome] > :not(.today-header, .today-checkin) {
+.today-page[data-welcome] > :not(.today-header, .today-checkin),
+.notebook-app:has(.today-page[data-welcome]) :is(.top-menu > *, .notebook-footer) {
   opacity: 0;
 }
 

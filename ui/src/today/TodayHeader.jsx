@@ -85,7 +85,7 @@ export default function TodayHeader({
   onWelcomeDone,
 }) {
   const headerRef = useRef(null);
-  const titleRef = useRef(null);
+  const greetingLineRef = useRef(null);
   const greetingRef = useRef(null);
   const summaryRef = useRef(null);
   const tallyRef = useRef(null);
@@ -127,16 +127,20 @@ export default function TodayHeader({
       }
 
       const parts = {
-        title: titleRef.current,
+        greetingStage: greetingLineRef.current,
         greeting: greetingRef.current,
+        summaryStage: summaryRef.current,
+        summaryText: summaryRef.current.querySelector(".today-summary-letters"),
         letters: [...summaryRef.current.querySelectorAll(".today-letter")],
         checkin: checkinRef.current,
         paper: paperRef.current,
         info: infoRef.current,
         rest: [...page.querySelectorAll(":scope > :not(.today-header, .today-checkin)")],
+        // The notebook around the page stays quiet until the header is set.
+        chrome: [...document.querySelectorAll(".top-menu > *, .notebook-footer")],
         tally: tallyRef.current,
       };
-      const layout = measureWelcome({ ...parts, page, summary: summaryRef.current.lastElementChild }, welcome);
+      const layout = measureWelcome(parts);
 
       ritual = playWelcome(parts, layout, welcome);
       if (welcome === "full") saveWelcomeSeen();
@@ -163,8 +167,8 @@ export default function TodayHeader({
   return (
     <>
       <header ref={headerRef} className="today-header" data-welcomed={lettered || undefined}>
-        <div ref={titleRef} className="today-title">
-          <h1 id="today-page-title" className="today-greeting">
+        <div className="today-title">
+          <h1 ref={greetingLineRef} id="today-page-title" className="today-greeting">
             <span ref={greetingRef} className="today-greeting-line">
               {greeting}
               {name ? <>, <span className="today-greeting-name">{name}</span></> : null}.

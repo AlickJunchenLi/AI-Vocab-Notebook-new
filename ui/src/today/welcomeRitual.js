@@ -1,51 +1,59 @@
 import { LAYOUT_EASE } from "../motion/useSmoothLayout.js";
 
 /*
- * The welcome: the notebook opens onto a nearly empty page and the day's
- * header is written onto it in four overlapping beats.
+ * The welcome: the notebook opens onto a bare page, and in the middle of it
+ * the day's header is set out as a small composition, which then moves up
+ * into the page and becomes its header.
  *
  *   1. The greeting drifts in along an arc above the page, tilted and faint
  *      at first, its shadow on the paper closing in as it lands.
  *   2. The summary beneath it rises out of its line, letter by letter.
  *   3. A strip of paper is laid under them, and this week's check-in is
  *      printed onto it.
- *   4. All three glide up into the page's header, and the rest of the page
- *      comes in beneath them once they have mostly cleared it; the tally,
- *      which sits between them on a narrow screen, comes in last.
+ *   4. The finished composition rests for a moment.
+ *   5. Its three parts travel to their places: the greeting and summary up
+ *      into the header, growing smaller and moving to the left, and the
+ *      check-in to its place below them. The rest of the notebook (the page
+ *      names and actions, the tally, the page itself) comes in as they near
+ *      it, and the paper under it all never moves.
  *
- * That is the full welcome, for the first opening of the day. Every later
- * opening gets the brief one: the same beats, quicker and overlapping more,
- * written straight into the header without the larger setting first.
+ * The full welcome is for the first opening of the day; later openings get
+ * the brief one, the same scene played quicker.
  *
  * Everything is already in its final place in the layout; the welcome only
- * moves, fades and clips it there, so nothing on the page shifts when it
- * ends. Times are in milliseconds from the start; `tilt` is how far the
- * greeting starts turned clockwise.
+ * moves, scales, fades and clips it there, so nothing on the page shifts
+ * when it ends and there is only ever one of each thing on screen. Times
+ * are in milliseconds from the start; `tilt` is how far the greeting starts
+ * turned clockwise.
  */
 const TIMELINES = {
   full: {
     tilt: 10,
-    greeting: { at: 80, duration: 1150 },
-    letters: { at: 740, spread: 440, duration: 560 },
-    paper: { at: 1300, duration: 660 },
-    info: { at: 1580, duration: 440 },
-    settle: { at: 1980, duration: 800 },
-    rest: { at: 2280, duration: 620, stagger: 50 },
-    tally: { at: 2500, duration: 400 },
+    greeting: { at: 100, duration: 1150 },
+    letters: { at: 720, spread: 440, duration: 560 },
+    paper: { at: 1220, duration: 640 },
+    info: { at: 1500, duration: 420 },
+    // The composition is complete at about 1.9s and rests until the move.
+    settle: { at: 2380, duration: 900 },
+    rest: { at: 2700, duration: 620, stagger: 50 },
+    chrome: { at: 2700, duration: 600 },
+    tally: { at: 2950, duration: 400 },
   },
   brief: {
     tilt: 6,
     greeting: { at: 40, duration: 760 },
     letters: { at: 300, spread: 260, duration: 440 },
-    paper: { at: 520, duration: 480 },
-    info: { at: 720, duration: 320 },
-    settle: null,
-    rest: { at: 600, duration: 520, stagger: 40 },
-    tally: { at: 760, duration: 340 },
+    paper: { at: 540, duration: 480 },
+    info: { at: 740, duration: 320 },
+    settle: { at: 1260, duration: 760 },
+    rest: { at: 1500, duration: 520, stagger: 40 },
+    chrome: { at: 1500, duration: 500 },
+    tally: { at: 1680, duration: 340 },
   },
 };
-// Skipping plays what is left this many times faster, so it still ends softly.
-const SKIP_RATE = 6;
+// Skipping plays what is left this many times faster: the final layout in a
+// fraction of a second, still arriving softly rather than snapping.
+const SKIP_RATE = 10;
 const ARC_STEPS = 48;
 
 // A cubic-bezier easing as a function, for curves sampled in script.
@@ -146,58 +154,68 @@ function greetingFrames(dx, dy, startTilt) {
   });
 }
 
+const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+
 /*
  * Where the welcome sets things out, worked out from where they finally
- * rest: for the full welcome, the greeting and summary a little larger, and
- * the group of them with the check-in placed a little above the middle of
- * the window, left edges where they will stay; the brief one leaves them in
- * place. The arc starts no further right than the page has room for.
+ * rest. The greeting, the summary and the check-in are stacked in the middle
+ * of the window, each centred on its own: the greeting larger, the summary a
+ * touch larger, the check-in as it is. Each part's move is a translation and
+ * a scale from the top left corner of its own box (the CSS transform-origin
+ * of .today-greeting and .today-summary), which it unwinds to nothing in its
+ * place in the header. The arc starts no further right than the window has
+ * room for.
  */
-export function measureWelcome({ page, title, greeting, summary, checkin }, mode = "full") {
+export function measureWelcome({ greetingStage, greeting, summaryStage, summaryText, checkin }) {
   const view = { width: window.innerWidth, height: window.innerHeight };
   const compact = view.width < 560;
-  const menu = document.querySelector(".top-menu")?.getBoundingClientRect().bottom ?? 0;
-  const pageBox = page.getBoundingClientRect();
-  const titleBox = title.getBoundingClientRect();
-  const checkinBox = checkin.getBoundingClientRect();
-  const greetingWidth = greeting.getBoundingClientRect().width;
-  const textWidth = Math.max(greetingWidth, summary.getBoundingClientRect().width, 1);
-  const scale = Math.min(Math.max((pageBox.right - titleBox.left - 8) / textWidth, 1), compact ? 1.1 : 1.28);
-  const gap = compact ? 26 : 40;
-  const groupHeight = titleBox.height * scale + gap + checkinBox.height;
-  const top = menu + 16;
-  const room = view.height - top - 16;
-  const groupTop = top + Math.max(0, (room - groupHeight) * 0.42);
-  const spare = (pageBox.right - (titleBox.left + greetingWidth * scale)) / scale - 12;
+  const line = greetingStage.getBoundingClientRect();
+  const text = greeting.getBoundingClientRect();
+  const block = summaryStage.getBoundingClientRect();
+  const words = summaryText.getBoundingClientRect();
+  const strip = checkin.getBoundingClientRect();
+  const room = view.width - (compact ? 32 : 96);
+  const greetingScale = clamp(room / Math.max(text.width, 1), 1, compact ? 1.12 : 1.32);
+  const summaryScale = clamp(room / Math.max(words.width, 1), 1, compact ? 1 : 1.06);
+  const [nearGap, farGap] = compact ? [10, 26] : [14, 36];
+  const greetingHeight = line.height * greetingScale;
+  const summaryHeight = block.height * summaryScale;
+  const height = greetingHeight + nearGap + summaryHeight + farGap + strip.height;
+  // A little above the true middle, where a composition looks centred.
+  const top = Math.max(16, (view.height - height) / 2 - view.height * 0.03);
+  const middle = view.width / 2;
 
-  if (mode === "brief") {
-    return {
-      scale: 1,
-      titleShift: 0,
-      checkinShift: 0,
-      arcX: Math.min(Math.max(spare, 16), compact ? 32 : 48),
-      arcY: compact ? 18 : 26,
-      paperWidth: checkin.offsetWidth,
-    };
-  }
+  // How far to move a box so the text it holds, scaled, is centred at `top`.
+  const centre = (box, inner, scale, at) => ({
+    x: middle - (inner.width * scale) / 2 - box.left - (inner.left - box.left) * scale,
+    y: at - box.top,
+    scale,
+  });
+
+  const summaryTop = top + greetingHeight + nearGap;
+  const checkinTop = summaryTop + summaryHeight + farGap;
+  const spare = (view.width - (middle + (text.width * greetingScale) / 2)) / greetingScale - 12;
 
   return {
-    scale,
-    titleShift: Math.max(0, groupTop - titleBox.top),
-    checkinShift: Math.max(0, groupTop + titleBox.height * scale + gap - checkinBox.top),
-    arcX: Math.min(Math.max(spare, 24), compact ? 56 : 104),
-    arcY: compact ? 40 : 64,
+    greeting: centre(line, text, greetingScale, top),
+    summary: centre(block, words, summaryScale, summaryTop),
+    checkin: centre(strip, strip, 1, checkinTop),
+    arcX: clamp(spare, 24, compact ? 48 : 104),
+    arcY: compact ? 36 : 60,
     paperWidth: checkin.offsetWidth,
   };
 }
 
 /*
- * Plays the welcome ("full" or "brief") on the header's parts; `rest` is the
- * rest of the page, brought in at the end, and `tally` the header's counts.
- * Returns `finished` (settles when it has played), `skip` (plays the rest
- * quickly) and `cancel` (removes it at once).
+ * Plays the welcome ("full" or "brief"). `greetingStage` and `summaryStage`
+ * carry the greeting's line and the summary to and from the middle, while
+ * `greeting` itself takes the arc; `rest` is the rest of the page, `chrome`
+ * the notebook around it (the header's names and actions, the footer), and
+ * `tally` the header's counts. Returns `finished` (settles when it has
+ * played), `skip` (plays the rest quickly) and `cancel` (removes it at once).
  */
-export function playWelcome({ title, greeting, letters, checkin, paper, info, rest, tally }, layout, mode = "full") {
+export function playWelcome(parts, layout, mode = "full") {
+  const { greetingStage, greeting, summaryStage, letters, checkin, paper, info, rest, chrome, tally } = parts;
   const TIMELINE = TIMELINES[mode] ?? TIMELINES.full;
   const animations = [];
   const run = (element, keyframes, options) => {
@@ -239,17 +257,28 @@ export function playWelcome({ title, greeting, letters, checkin, paper, info, re
     easing: "cubic-bezier(0.25, 0.7, 0.3, 1)",
   });
 
-  if (TIMELINE.settle) {
-    const settle = { delay: TIMELINE.settle.at, duration: TIMELINE.settle.duration, easing: LAYOUT_EASE };
-    run(title, [{ transform: `translateY(${layout.titleShift}px) scale(${layout.scale})` }, { transform: "translateY(0) scale(1)" }], settle);
-    run(checkin, [{ transform: `translateY(${layout.checkinShift}px)` }, { transform: "translateY(0)" }], settle);
-  }
+  // From the middle to the header: one gentle ease-out shared by all three,
+  // so they move as one composition coming apart into the page.
+  const settle = { delay: TIMELINE.settle.at, duration: TIMELINE.settle.duration, easing: LAYOUT_EASE };
+  const from = ({ x, y, scale }) => `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+  run(greetingStage, [{ transform: from(layout.greeting) }, { transform: "translate(0px, 0px) scale(1)" }], settle);
+  run(summaryStage, [{ transform: from(layout.summary) }, { transform: "translate(0px, 0px) scale(1)" }], settle);
+  run(checkin, [{ transform: from(layout.checkin) }, { transform: "translate(0px, 0px) scale(1)" }], settle);
 
+  // The notebook comes in around them as they near their places.
   rest.forEach((element, index) => {
     run(element, [{ opacity: 0, transform: "translateY(12px)" }, { opacity: 1, transform: "translateY(0)" }], {
       delay: TIMELINE.rest.at + index * TIMELINE.rest.stagger,
       duration: TIMELINE.rest.duration,
       easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    });
+  });
+
+  chrome.forEach((element) => {
+    run(element, [{ opacity: 0 }, { opacity: 1 }], {
+      delay: TIMELINE.chrome.at,
+      duration: TIMELINE.chrome.duration,
+      easing: "cubic-bezier(0.25, 0.7, 0.3, 1)",
     });
   });
 
