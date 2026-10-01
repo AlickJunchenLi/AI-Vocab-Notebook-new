@@ -113,33 +113,49 @@ export default function TodayHeader({
 
     const header = headerRef.current;
     const page = header.parentElement;
-    const parts = {
-      title: titleRef.current,
-      greeting: greetingRef.current,
-      letters: [...summaryRef.current.querySelectorAll(".today-letter")],
-      checkin: checkinRef.current,
-      paper: paperRef.current,
-      info: infoRef.current,
-      rest: [...page.querySelectorAll(":scope > :not(.today-header, .today-checkin)")],
-      tally: tallyRef.current,
-    };
-    const layout = measureWelcome({ ...parts, page, summary: summaryRef.current.lastElementChild });
-    const ritual = playWelcome(parts, layout);
+    let ritual = null;
     let ended = false;
-    const skip = () => ritual.skip();
+    const skip = () => ritual?.skip();
 
-    saveWelcomeSeen();
+    // A page opened in a background tab draws nothing, but its animations
+    // still run out; the welcome waits until it can be seen, and only then
+    // counts as the day's.
+    function start() {
+      if (ritual || document.visibilityState === "hidden") {
+        return;
+      }
+
+      const parts = {
+        title: titleRef.current,
+        greeting: greetingRef.current,
+        letters: [...summaryRef.current.querySelectorAll(".today-letter")],
+        checkin: checkinRef.current,
+        paper: paperRef.current,
+        info: infoRef.current,
+        rest: [...page.querySelectorAll(":scope > :not(.today-header, .today-checkin)")],
+        tally: tallyRef.current,
+      };
+      const layout = measureWelcome({ ...parts, page, summary: summaryRef.current.lastElementChild });
+
+      ritual = playWelcome(parts, layout);
+      saveWelcomeSeen();
+      document.removeEventListener("visibilitychange", start);
+      ritual.finished.then(() => {
+        if (!ended) onWelcomeDone?.();
+      }, () => {});
+    }
+
+    start();
+    document.addEventListener("visibilitychange", start);
     SKIP_ON.forEach((type) => window.addEventListener(type, skip, { capture: true, passive: true }));
     window.addEventListener("resize", skip);
-    ritual.finished.then(() => {
-      if (!ended) onWelcomeDone?.();
-    }, () => {});
 
     return () => {
       ended = true;
+      document.removeEventListener("visibilitychange", start);
       SKIP_ON.forEach((type) => window.removeEventListener(type, skip, { capture: true }));
       window.removeEventListener("resize", skip);
-      ritual.cancel();
+      ritual?.cancel();
     };
   }, [welcome, onWelcomeDone]);
 
