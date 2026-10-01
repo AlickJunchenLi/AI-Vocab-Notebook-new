@@ -29,6 +29,13 @@ function greetingFor(date) {
   return hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 }
 
+// The greeting as runs of text, the reader's name set apart in the ink.
+function greetingRuns(greeting, name) {
+  return name
+    ? [{ text: `${greeting}, ` }, { text: name, mark: "today-greeting-name" }, { text: "." }]
+    : [{ text: `${greeting}.` }];
+}
+
 // The summary as runs of text, the count set apart so it can stand out.
 function summaryFor(wordCount, dueCount) {
   if (wordCount === 0) {
@@ -41,7 +48,7 @@ function summaryFor(wordCount, dueCount) {
 
   return [
     { text: "You have " },
-    { text: String(dueCount), strong: true },
+    { text: String(dueCount), mark: "is-strong" },
     { text: ` ${dueCount === 1 ? "word" : "words"} ready to review today.` },
   ];
 }
@@ -55,12 +62,39 @@ function toWords(runs) {
       if (char === " ") {
         if (words.at(-1).length > 0) words.push([]);
       } else {
-        words.at(-1).push({ char, strong: Boolean(run.strong) });
+        words.at(-1).push({ char, mark: run.mark });
       }
     }
   }
 
   return words.filter((word) => word.length > 0);
+}
+
+/*
+ * A line set letter by letter for the welcome, which moves each letter on
+ * its own: the whole text once for assistive technology, and the letters,
+ * hidden from it, in words that wrap as the text would.
+ */
+function Lettered({ runs, className, wordClass, letterClass }) {
+  return (
+    <>
+      <span className="sr-only">{runs.map((run) => run.text).join("")}</span>
+      <span className={className} aria-hidden="true">
+        {toWords(runs).map((word, wordIndex) => (
+          <Fragment key={wordIndex}>
+            {wordIndex > 0 ? " " : null}
+            <span className={wordClass}>
+              {word.map((letter, index) => (
+                <span key={index} className={letter.mark ? `${letterClass} ${letter.mark}` : letterClass}>
+                  {letter.char}
+                </span>
+              ))}
+            </span>
+          </Fragment>
+        ))}
+      </span>
+    </>
+  );
 }
 
 function checkinLine(wordCount, weekTotal, streak) {
@@ -116,7 +150,6 @@ export default function TodayHeader({
   const now = new Date();
   const greeting = greetingFor(now);
   const runs = summaryFor(wordCount, dueCount);
-  const sentence = runs.map((run) => run.text).join("");
   const weekTotal = activity.reduce((sum, count) => sum + count, 0);
   const language = document.documentElement.lang || undefined;
   const stamp = new Intl.DateTimeFormat(language, { weekday: "short", day: "numeric", month: "short" }).format(now);
@@ -147,6 +180,7 @@ export default function TodayHeader({
         greeting: greetingRef.current,
         summaryStage: summaryRef.current,
         summaryText: summaryRef.current.querySelector(".today-summary-letters"),
+        greetingLetters: [...greetingRef.current.querySelectorAll(".today-greeting-letter")],
         letters: [...summaryRef.current.querySelectorAll(".today-letter")],
         checkin: checkinRef.current,
         paper: paperRef.current,
@@ -190,31 +224,26 @@ export default function TodayHeader({
         <div className="today-title">
           <h1 ref={greetingLineRef} id="today-page-title" className="today-greeting">
             <span ref={greetingRef} className="today-greeting-line">
-              {greeting}
-              {name ? <>, <span className="today-greeting-name">{name}</span></> : null}.
+              {lettered ? (
+                <Lettered
+                  runs={greetingRuns(greeting, name)}
+                  className="today-greeting-letters"
+                  wordClass="today-greeting-word"
+                  letterClass="today-greeting-letter"
+                />
+              ) : (
+                <>
+                  {greeting}
+                  {name ? <>, <span className="today-greeting-name">{name}</span></> : null}.
+                </>
+              )}
             </span>
           </h1>
           <p ref={summaryRef} className="today-summary">
             {lettered ? (
-              <>
-                <span className="sr-only">{sentence}</span>
-                <span className="today-summary-letters" aria-hidden="true">
-                  {toWords(runs).map((word, wordIndex) => (
-                    <Fragment key={wordIndex}>
-                      {wordIndex > 0 ? " " : null}
-                      <span className="today-word">
-                        {word.map((letter, index) => (
-                          <span key={index} className={letter.strong ? "today-letter is-strong" : "today-letter"}>
-                            {letter.char}
-                          </span>
-                        ))}
-                      </span>
-                    </Fragment>
-                  ))}
-                </span>
-              </>
+              <Lettered runs={runs} className="today-summary-letters" wordClass="today-word" letterClass="today-letter" />
             ) : (
-              runs.map((run, index) => (run.strong ? <strong key={index}>{run.text}</strong> : run.text))
+              runs.map((run, index) => (run.mark ? <strong key={index}>{run.text}</strong> : run.text))
             )}
           </p>
         </div>

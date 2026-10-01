@@ -5,8 +5,10 @@ import { springEase } from "../motion/useSmoothLayout.js";
  * the day's header is set out large, as a small composition, which then
  * moves up into the page and becomes its header.
  *
- *   1. The greeting drifts in along an arc above the page, tilted and faint
- *      at first, its shadow on the paper closing in as it lands.
+ *   1. The greeting sets off from the top left of the page, where the
+ *      writing starts, tilted, and drifts along an arc above the page to its
+ *      place in the middle, its shadow on the paper closing in as it lands;
+ *      its letters appear one by one, left to right, as it travels.
  *   2. The summary beneath it rises out of its line, letter by letter.
  *   3. A strip of paper is laid under them, and this week's check-in is
  *      printed onto it.
@@ -32,28 +34,30 @@ import { springEase } from "../motion/useSmoothLayout.js";
 const TIMELINES = {
   full: {
     tilt: 10,
-    greeting: { at: 100, duration: 1150 },
-    letters: { at: 720, spread: 440, duration: 560 },
-    paper: { at: 1220, duration: 700 },
-    info: { at: 1520, duration: 440 },
-    // Complete at about 2s, and read until the move begins.
-    settle: { at: 3580, duration: 1700, stiffness: 4.6 },
-    chrome: { at: 4600, duration: 700 },
-    tally: { at: 4850, duration: 450 },
-    container: { duration: 450 },
-    groups: { spread: 700, duration: 560 },
+    greeting: { at: 100, duration: 1700 },
+    greetingLetters: { at: 100, spread: 900, duration: 650 },
+    letters: { at: 1400, spread: 440, duration: 560 },
+    paper: { at: 1950, duration: 700 },
+    info: { at: 2250, duration: 440 },
+    // Complete at about 2.7s, and read until the move begins.
+    settle: { at: 4320, duration: 1700, stiffness: 4.6 },
+    chrome: { at: 5340, duration: 700 },
+    tally: { at: 5590, duration: 450 },
+    container: { duration: 700 },
+    groups: { spread: 700, duration: 1000 },
   },
   brief: {
-    tilt: 6,
-    greeting: { at: 40, duration: 760 },
-    letters: { at: 300, spread: 260, duration: 440 },
-    paper: { at: 540, duration: 500 },
-    info: { at: 760, duration: 320 },
-    settle: { at: 1300, duration: 900, stiffness: 5.5 },
-    chrome: { at: 1800, duration: 450 },
-    tally: { at: 1950, duration: 350 },
-    container: { duration: 350 },
-    groups: { spread: 450, duration: 460 },
+    tilt: 8,
+    greeting: { at: 40, duration: 1000 },
+    greetingLetters: { at: 40, spread: 500, duration: 450 },
+    letters: { at: 760, spread: 260, duration: 440 },
+    paper: { at: 980, duration: 500 },
+    info: { at: 1180, duration: 320 },
+    settle: { at: 1700, duration: 900, stiffness: 5.5 },
+    chrome: { at: 2200, duration: 450 },
+    tally: { at: 2350, duration: 350 },
+    container: { duration: 700 },
+    groups: { spread: 450, duration: 1000 },
   },
 };
 // The page waits this long after the header has settled before it appears,
@@ -91,12 +95,11 @@ function cubicBezier(x1, y1, x2, y2) {
 const glide = cubicBezier(0.16, 1, 0.3, 1);
 const easeOut = (power) => (t) => 1 - (1 - t) ** power;
 const levelling = easeOut(3);
-const brightening = easeOut(2);
 
 /*
- * The greeting's path, from above and to the right of where it rests: it
- * sweeps down and to the left, steeply at first, then flattens and comes in
- * level, so its last approach is horizontal. Positions are measured along
+ * The greeting's path, from where it sets off (`dx` across, `dy` up from
+ * where it rests): it sweeps down and across, steeply at first, then
+ * flattens and comes in level, so its last approach is horizontal. Positions are measured along
  * the curve's length, so the path's shape and the speed along it are set
  * independently.
  */
@@ -142,6 +145,7 @@ function arc(dx, dy) {
   };
 }
 
+// The greeting's whole line on its arc; its letters fade in on their own.
 function greetingFrames(dx, dy, startTilt) {
   const along = arc(dx, dy);
 
@@ -149,14 +153,13 @@ function greetingFrames(dx, dy, startTilt) {
     const t = step / ARC_STEPS;
     const travelled = glide(t);
     const { x, y } = along(travelled);
-    // Level a little before it lands, and fully visible well before that.
+    // Level a little before it lands.
     const tilt = startTilt * (1 - levelling(Math.min(1, t / 0.82)));
     // Held above the paper, it casts a soft shadow that draws in under it
     // and fades as it comes down onto the page.
     const height = 1 - travelled;
     return {
       offset: t,
-      opacity: brightening(Math.min(1, t / 0.5)),
       transform: `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${tilt.toFixed(3)}deg)`,
       textShadow: `0 ${(14 * height).toFixed(2)}px ${(18 * height + 0.01).toFixed(2)}px color-mix(in srgb, var(--shade) ${(20 * height).toFixed(2)}%, transparent)`,
     };
@@ -174,7 +177,8 @@ const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
  * height). Each part's move is a translation and a scale from the top left
  * corner of its own box (the CSS transform-origin of .today-greeting,
  * .today-summary and .today-checkin), which it unwinds to nothing in its
- * place on the page. The arc starts no further right than there is room.
+ * place on the page. The greeting's arc sets off from the top left of the
+ * page: where its letters finally sit, at the head of the writing column.
  */
 export function measureWelcome({ greetingStage, greeting, summaryStage, summaryText, checkin }) {
   const view = { width: window.innerWidth, height: window.innerHeight };
@@ -211,14 +215,18 @@ export function measureWelcome({ greetingStage, greeting, summaryStage, summaryT
 
   const summaryTop = top + line.height * scale.greeting + nearGap;
   const checkinTop = summaryTop + block.height * scale.summary + farGap;
-  const spare = (view.width - (middle + (text.width * scale.greeting) / 2)) / scale.greeting - 12;
+  // From the top left, in the greeting's own (scaled) units; always a little
+  // way across, so the arc keeps its curve when the greeting fills the width.
+  const restLeft = middle - (text.width * scale.greeting) / 2;
+  const restTop = top + (text.top - line.top) * scale.greeting;
+  const across = (text.left - restLeft) / scale.greeting;
 
   return {
     greeting: centre(line, text, scale.greeting, top),
     summary: centre(block, words, scale.summary, summaryTop),
     checkin: centre(strip, strip, scale.checkin, checkinTop),
-    arcX: clamp(spare, 24, compact ? 48 : 104),
-    arcY: compact ? 36 : 60,
+    arcX: Math.abs(across) < 16 ? -16 : across,
+    arcY: Math.max(0, (restTop - text.top) / scale.greeting),
     paperWidth: checkin.offsetWidth,
   };
 }
@@ -226,14 +234,14 @@ export function measureWelcome({ greetingStage, greeting, summaryStage, summaryT
 /*
  * Plays the welcome ("full" or "brief"). `greetingStage`, `summaryStage` and
  * `checkin` are carried from the middle to their places, while `greeting`
- * itself takes the arc; `chrome` is the notebook around the page (the
+ * takes the arc in and its `greetingLetters` appear one by one; `chrome` is the notebook around the page (the
  * header's names and actions) and `tally` the header's counts; `container`
  * is the rest of the page and `groups` what is on it, in reading order.
  * Returns `finished` (settles when it has played), `skip` (plays the rest
  * quickly) and `cancel` (removes it at once).
  */
 export function playWelcome(parts, layout, mode = "full") {
-  const { greetingStage, greeting, summaryStage, letters, checkin, paper, info, chrome, tally, container, groups } = parts;
+  const { greetingStage, greeting, greetingLetters, summaryStage, letters, checkin, paper, info, chrome, tally, container, groups } = parts;
   const TIMELINE = TIMELINES[mode] ?? TIMELINES.full;
   const animations = [];
   const run = (element, keyframes, options) => {
@@ -247,6 +255,19 @@ export function playWelcome(parts, layout, mode = "full") {
     delay: TIMELINE.greeting.at,
     duration: TIMELINE.greeting.duration,
     easing: "linear",
+  });
+
+  // As it travels, its letters appear one after another, left to right,
+  // each fading in as it rises a little into its place in the line.
+  const letterGap = greetingLetters.length > 1
+    ? TIMELINE.greetingLetters.spread / (greetingLetters.length - 1)
+    : 0;
+  greetingLetters.forEach((letter, index) => {
+    run(letter, [{ opacity: 0, transform: "translateY(0.3em)" }, { opacity: 1, transform: "translateY(0)" }], {
+      delay: TIMELINE.greetingLetters.at + index * letterGap,
+      duration: TIMELINE.greetingLetters.duration,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    });
   });
 
   // A short wave from left to right, however long the sentence.

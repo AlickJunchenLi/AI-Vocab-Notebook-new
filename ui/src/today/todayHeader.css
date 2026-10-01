@@ -35,10 +35,26 @@
   line-height: 1.04;
 }
 
-/* One piece of text, so the welcome can carry it along its arc. */
+/* The greeting's box, which the welcome measures and centres. */
 .today-greeting-line {
   display: inline-block;
   max-width: 100%;
+}
+
+/* Letter by letter (the welcome): each letter travels on its own, so the
+   words are not clipped, and kerning is left off so the letters sit as the
+   text would whichever way it is set. */
+.today-greeting-letters {
+  font-kerning: none;
+}
+
+.today-greeting-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.today-greeting-letter {
+  display: inline-block;
 }
 
 .today-greeting-name {
@@ -265,13 +281,13 @@
 
 /*
  * While the welcome plays (TodayPage's data-welcome), everything starts
- * unseen: the greeting faint, the letters below their lines, the paper
- * rolled up and its print blank, and the rest of the page waiting, with the
+ * unseen: the greeting's letters faint, the summary's below their lines,
+ * the paper rolled up and its print blank, and the rest of the page waiting, with the
  * notebook around it (the header's names and actions, the footer) quiet.
  * Only the paper shows. The welcome's animations take over from these on
  * the first frame.
  */
-.today-page[data-welcome] .today-greeting-line,
+.today-page[data-welcome] .today-greeting-letter,
 .today-page[data-welcome] .checkin-info,
 .today-page[data-welcome] .today-tally,
 .today-page[data-welcome] > :not(.today-header, .today-checkin),
