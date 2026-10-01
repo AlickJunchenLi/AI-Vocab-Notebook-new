@@ -2,9 +2,10 @@
  * Bringing a page's content in after its surfaces. A page arrives in two
  * stages: first its surfaces (the glass cards and panels, the slips of
  * paper) appear blank, then what is written on them, and on the paper
- * between them, is uncovered group by group from the top of the page down,
- * each group fading in as it is revealed from its top edge. Nothing is moved
- * or scaled, so text and controls are never distorted. Charts come in their
+ * between them, is uncovered group by group from the top left of the page to
+ * the bottom right, each group fading in as it is revealed from its left
+ * edge. Nothing is moved or scaled, so text and controls are never
+ * distorted. Charts come in their
  * own way, as they would be drawn: a column chart's bars rise one after
  * another, and a stacked bar fills from its left end while its percentages
  * count up. Used when the notebook turns to a page (PageTurn.jsx) and at the
@@ -121,12 +122,17 @@ function fillBar(bar, delay, duration) {
   return [fill];
 }
 
-// Content that comes in its own way, rather than wiped in from the top.
+// Content that comes in its own way, rather than wiped in from the left.
 const CHARTS = [
   { match: ".progress-rhythm-plot", reveal: riseBars },
   { match: ".progress-mastery-bar", reveal: fillBar },
 ];
 const CHART = CHARTS.map((entry) => entry.match).join(", ");
+
+// Blocks that are lists on the page rather than one piece of writing (the
+// Library's word list and the controls above it): each row in them comes in
+// at its own place in the order.
+const LIST = ".library-collection, .library-controls, .word-list";
 
 function contentOf(surface) {
   const entry = SURFACES.find((candidate) => surface.matches(candidate.surface));
@@ -134,9 +140,10 @@ function contentOf(surface) {
 }
 
 /*
- * `groups` from the top of the page down, the ones level with each other
- * left to right. Columns side by side so come in together, line by line,
- * rather than one whole column after the other.
+ * `groups` by where they are on the page: top left first, then along to the
+ * right, then down, so the bottom right is last. Columns side by side so
+ * come in together, line by line, rather than one whole column after the
+ * other.
  */
 function inPageOrder(groups) {
   const placed = groups
@@ -160,11 +167,11 @@ function inPageOrder(groups) {
 }
 
 /*
- * The content groups under `root`, from the top of the page down. A surface
- * is looked into and its own content taken; a block holding surfaces or
- * charts is looked into; a chart is a group of its own, as is any other
- * block. Nothing a reader can't see counts, nor anything set aside (inert,
- * like the period a chart isn't showing).
+ * The content groups under `root`, top left to bottom right. A surface is
+ * looked into and its own content taken; a list, or a block holding
+ * surfaces or charts, is looked into; a chart is a group of its own, as is
+ * any other block. Nothing a reader can't see counts, nor anything set aside
+ * (inert, like the period a chart isn't showing).
  */
 export function contentGroups(root) {
   const groups = [];
@@ -180,7 +187,7 @@ export function contentGroups(root) {
       } else if (child.matches(SURFACE)) {
         const content = contentOf(child);
         if (content) visit(content);
-      } else if (child.querySelector(`${SURFACE}, ${CHART}`)) {
+      } else if (child.matches(LIST) || child.querySelector(`${SURFACE}, ${CHART}`)) {
         visit(child);
       } else {
         groups.push(child);
@@ -192,11 +199,11 @@ export function contentGroups(root) {
   return inPageOrder(groups);
 }
 
-// A group wiped in from its top edge down as it fades in; the room around it
+// A group wiped in from its left edge as it fades in; the room around it
 // lets focus rings and small shadows show once it is in.
 function wipeIn(group, delay, duration) {
   return [group.animate([
-    { offset: 0, opacity: 0, clipPath: `inset(-12px -12px ${group.offsetHeight + 12}px -12px)` },
+    { offset: 0, opacity: 0, clipPath: `inset(-12px ${group.offsetWidth + 12}px -12px -12px)` },
     { offset: 0.6, opacity: 1 },
     { offset: 1, opacity: 1, clipPath: "inset(-12px -12px -12px -12px)" },
   ], { delay, duration, easing: EASE, fill: "both" })];

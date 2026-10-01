@@ -21,8 +21,8 @@ import { revealContent } from "../motion/contentReveal.js";
  *      names and actions, and the tally, come in as they near it.
  *   6. A moment after the last of them has settled, the rest of the page
  *      fades in, its cards and slips still blank; then what is on them is
- *      uncovered, group by group from the top of the page down, each
- *      wiping in from its top edge.
+ *      uncovered, group by group from the top left of the page to the
+ *      bottom right, each wiping in from the left.
  *
  * The paper under it all never moves. The full welcome is for the first
  * opening of the day; later openings get the brief one, the same scene
