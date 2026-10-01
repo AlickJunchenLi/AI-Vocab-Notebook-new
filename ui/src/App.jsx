@@ -16,7 +16,6 @@ import "./libraryNotebook.css";
 import "./studyNotebook.css";
 import PageTurn from "./motion/PageTurn.jsx";
 import PageFrame from "./motion/PageFrame.jsx";
-import NotebookBinding from "./components/NotebookBinding.jsx";
 import {
   AddWordModal,
   DeleteConfirmModal,
@@ -439,7 +438,6 @@ function App() {
         />
 
         <div className="notebook-book">
-          <NotebookBinding />
           <PageFrame page={activePage}>
             <AnimatePresence mode="wait" initial={false} custom={view.turn}>
               <PageTurn className="page-transition" id="main-content" tabIndex={-1} key={activePage} turn={view.turn}>

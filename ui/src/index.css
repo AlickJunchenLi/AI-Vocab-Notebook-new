@@ -2,10 +2,9 @@
  * Colour themes. Each theme is an ink and a paper stock to go with it:
  *   --theme-hue / --theme-hue-2 / --theme-chroma  the ink, a companion hue for
  *     the glass, and a chroma scale that keeps the ink inside the sRGB gamut;
- *   --paper-hue / --paper-chroma  the paper, desk, pencil and shadows. The
- *     paper sits close to the ink's hue but not on it, the way a notebook's
- *     pages are tinted to suit its ink, and pale hues like pink are kept a
- *     little quieter.
+ *   --paper-hue / --paper-chroma  the paper, pencil and shadows. Every stock
+ *     is a warm, natural paper, leaning a little towards its ink: ivory under
+ *     blue, rose under lavender, blush under pink, vellum under green.
  * Every colour below is an oklch() value built from these, in light and dark.
  * The selectors are not tied to :root so a theme swatch can carry its own hue.
  */
@@ -14,36 +13,36 @@
   --theme-hue: 285;
   --theme-hue-2: 230;
   --theme-chroma: 1;
-  /* Lilac paper on a dusty violet desk; aubergine in the dark. */
-  --paper-hue: 298;
-  --paper-chroma: 1;
+  /* A rosy ivory; warm plum-charcoal in the dark. */
+  --paper-hue: 58;
+  --paper-chroma: 0.62;
 }
 
 [data-theme="blue"] {
   --theme-hue: 258;
   --theme-hue-2: 218;
   --theme-chroma: 0.9;
-  /* Cool blue-grey, like an exercise book; deep navy in the dark. */
-  --paper-hue: 245;
-  --paper-chroma: 1;
+  /* Ivory, the classic stock for blue ink; warm charcoal in the dark. */
+  --paper-hue: 82;
+  --paper-chroma: 0.62;
 }
 
 [data-theme="pink"] {
   --theme-hue: 350;
   --theme-hue-2: 315;
   --theme-chroma: 1;
-  /* A warm blush; plum in the dark. */
-  --paper-hue: 8;
-  --paper-chroma: 0.85;
+  /* A warm blush; deep rose-brown in the dark. */
+  --paper-hue: 42;
+  --paper-chroma: 0.62;
 }
 
 [data-theme="green"] {
   --theme-hue: 158;
   --theme-hue-2: 196;
   --theme-chroma: 0.75;
-  /* Sage; forest in the dark. */
-  --paper-hue: 138;
-  --paper-chroma: 0.9;
+  /* Vellum; olive-black in the dark. */
+  --paper-hue: 98;
+  --paper-chroma: 0.62;
 }
 
 /*
@@ -67,8 +66,9 @@
 }
 
 /*
- * Design tokens. The desk, the paper and the pencil are tints of the theme's
- * paper hue, and the ink is its one strong colour. Text is tinted towards the
+ * Design tokens. The paper and the pencil are tints of the theme's paper
+ * hue, and the ink is its one strong colour. The page is the whole window:
+ * --canvas is now only a slightly deeper shade of it, for wells and tracks. Text is tinted towards the
  * paper too, so it sits in the page instead of on it. Glass is a clearer,
  * cooler slab laid on the paper, so it reads as a different material from
  * the page under it. Shadows are tinted with the paper hue, never grey.
@@ -96,12 +96,18 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
 
-  --canvas: oklch(87% calc(0.036 * var(--paper-tint)) var(--paper-hue));
-  --paper: oklch(95% calc(0.024 * var(--paper-tint)) var(--paper-hue));
-  --paper-raised: oklch(97.5% calc(0.014 * var(--paper-tint)) var(--paper-hue));
+  --canvas: oklch(90.5% calc(0.034 * var(--paper-tint)) var(--paper-hue));
+  --paper: oklch(96.2% calc(0.024 * var(--paper-tint)) var(--paper-hue));
+  --paper-raised: oklch(98.3% calc(0.012 * var(--paper-tint)) var(--paper-hue));
   --paper-rule: oklch(58% calc(0.08 * var(--paper-tint)) var(--paper-hue) / 0.24);
-  --paper-edge: oklch(84.5% calc(0.034 * var(--paper-tint)) var(--paper-hue));
+  /* The dot grid printed on the page, just there. */
+  --paper-dot: oklch(52% calc(0.05 * var(--paper-tint)) var(--paper-hue) / 0.3);
+  --paper-edge: oklch(85.5% calc(0.034 * var(--paper-tint)) var(--paper-hue));
   --margin-line: oklch(62% calc(0.12 * var(--theme-saturation)) 25 / 0.3);
+  /* The thread of the sewn binding, dyed to match the ink. */
+  --thread: color-mix(in oklab, var(--accent) 34%, var(--paper));
+  /* The paper's grain: fine fibres, felt more than seen. */
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .36 0 0 0 0 .32 0 0 0 0 .26 0 0 0 .055 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --pencil: oklch(66% calc(0.035 * var(--paper-tint)) var(--paper-hue));
   --ink: oklch(27% calc(0.028 * var(--paper-tint)) var(--paper-hue));
   --ink-soft: oklch(37% calc(0.028 * var(--paper-tint)) var(--paper-hue));
@@ -164,6 +170,7 @@
   --paper: oklch(26.5% calc(0.032 * var(--paper-tint)) var(--paper-hue));
   --paper-raised: oklch(30% calc(0.034 * var(--paper-tint)) var(--paper-hue));
   --paper-rule: oklch(80% calc(0.05 * var(--paper-tint)) var(--paper-hue) / 0.12);
+  --paper-dot: oklch(82% calc(0.04 * var(--paper-tint)) var(--paper-hue) / 0.16);
   --paper-edge: oklch(38.5% calc(0.036 * var(--paper-tint)) var(--paper-hue));
   --margin-line: oklch(70% calc(0.1 * var(--theme-saturation)) 25 / 0.22);
   --pencil: oklch(58% calc(0.036 * var(--paper-tint)) var(--paper-hue));
@@ -217,10 +224,12 @@
   box-sizing: border-box;
 }
 
+/* The window is the notebook's page: paper from edge to edge, its grain
+   scrolling with it. */
 html {
   min-width: 320px;
   min-height: 100%;
-  background: var(--canvas);
+  background: var(--paper-grain), var(--paper);
   scroll-behavior: smooth;
   /* Room for the scrollbar is kept even when a page is short enough not to
      need one, or a dialog stops the page scrolling, so the notebook never
@@ -235,7 +244,6 @@ body {
   min-height: 100dvh;
   margin: 0;
   overflow-x: hidden;
-  background: var(--canvas);
   color: var(--ink);
   font-family: var(--font-ui);
 }

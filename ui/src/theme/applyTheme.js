@@ -73,16 +73,16 @@ function write(root, state) {
 let scratch = null;
 
 /*
- * The browser's own bars (the mobile address bar, for one) take the desk
- * colour. <meta name="theme-color"> wants a plain colour, so the desk's
- * oklch() is resolved on a probe and read back from a one-pixel canvas.
+ * The browser's own bars (the mobile address bar, for one) take the paper's
+ * colour, so the page runs on into them. <meta name="theme-color"> wants a
+ * plain colour, so the paper's oklch() is resolved on a probe and read back from a one-pixel canvas.
  */
 export function syncThemeColor() {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (!meta || !document.body) return;
   const probe = document.createElement("span");
   probe.hidden = true;
-  probe.style.color = "var(--canvas)";
+  probe.style.color = "var(--paper)";
   document.body.append(probe);
   const colour = getComputedStyle(probe).color;
   probe.remove();

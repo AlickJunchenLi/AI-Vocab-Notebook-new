@@ -206,7 +206,8 @@ function TopMenu({
                   <Switch
                     checked={ruledPaper}
                     onChange={onToggleRuling}
-                    label="Ruled lines"
+                    label="Page lines"
+                    hint="The dot grid, and the lines you write notes on"
                   />
                   <Switch
                     checked={handwriting}

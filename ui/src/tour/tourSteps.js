@@ -61,7 +61,7 @@ export const TOUR_STEPS = [
     target: [".tour-toggle"],
     scrollTop: true,
     title: "Come back any time",
-    body: "This button opens the tour again. Appearance, beside it, changes the ink, the paper and the ruled lines.",
+    body: "This button opens the tour again. Appearance, beside it, changes the ink, the paper and the lines on the page.",
   },
 ];
 

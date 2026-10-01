@@ -25,13 +25,57 @@
   line-height: 1.1;
 }
 
+/*
+ * The notebook fills the window: one page, printed and bound, that scrolls
+ * like a long sheet. Along its left edge the page bends into a sewn binding;
+ * a margin line runs down beside it, and the writing area to its right
+ * carries a faint dot grid. Everything sits on this one surface, which never
+ * moves: pages, cards and the day's welcome come and go on top of it.
+ *
+ *   --spine      the bound edge, with its stitches and the fold's shadow
+ *   --margin-x   where the margin line runs
+ *   --content-x  where the writing starts, a little to its right
+ */
 .app {
   --app-pad-top: 22px;
+  --spine: 30px;
+  --margin-x: clamp(64px, 6vw, 96px);
+  --content-x: calc(var(--margin-x) + clamp(30px, 3.2vw, 48px));
+  --content-max: 1240px;
+  --page-pad-right: clamp(24px, 4vw, 56px);
 
   min-height: 100dvh;
-  padding: var(--app-pad-top) 40px 48px;
+  padding: var(--app-pad-top) 0 48px;
   overflow: clip;
-  background: var(--canvas);
+}
+
+/* The bound edge: the page curving into the gutter, and the thread that
+   holds it, stitched at an even pitch all the way down. */
+.notebook-app::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 auto 0 0;
+  width: var(--spine);
+  background:
+    repeating-linear-gradient(transparent 0 7px, var(--thread) 7px 16px, transparent 16px 26px)
+      calc(var(--spine) * 0.45) 0 / 1.5px 100% no-repeat,
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--shade) 11%, transparent),
+      color-mix(in srgb, var(--shade) 3%, transparent) 60%,
+      transparent);
+  pointer-events: none;
+}
+
+/* The margin line, and the dot grid across the writing area beside it. */
+.notebook-app::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 0 var(--margin-x);
+  border-left: 1px solid var(--margin-line);
+  background: radial-gradient(circle, var(--paper-dot) 0.85px, transparent 1.3px) 11px 11px / 24px 24px;
+  pointer-events: none;
 }
 
 /*
@@ -65,10 +109,10 @@
   top: 12px;
 }
 
-/* Header: the brand, the page tabs that clip onto the notebook, and actions.
-   It stays at the top of the window as the page scrolls, so the tabs and Add
-   word are always in reach. It takes over the app's top padding, so its desk
-   coloured backing reaches the top of the window once it sticks. */
+/* Header: the brand, the page names and actions, at the head of the page.
+   It stays at the top of the window as the page scrolls, so the pages and
+   Add word are always in reach. It takes over the app's top padding, so its
+   band of paper reaches the top of the window once it sticks. */
 
 .top-menu {
   position: sticky;
@@ -76,20 +120,22 @@
   z-index: 30;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  align-items: end;
+  align-items: center;
   gap: 24px;
-  width: min(1240px, 100%);
-  margin: calc(-1 * var(--app-pad-top)) auto 0;
-  padding: var(--app-pad-top) 4px 0;
+  max-width: calc(var(--content-x) + var(--content-max) + var(--page-pad-right));
+  margin: calc(-1 * var(--app-pad-top)) 0 0;
+  padding: var(--app-pad-top) var(--page-pad-right) 10px var(--content-x);
 }
 
-/* The desk behind the header, full width, so the page slides under it. */
+/* The blank band at the head of the page, which the writing slides under.
+   It reaches the window's right edge and stops at the margin line, so the
+   binding and the margin run on unbroken beside it. */
 .top-menu::before {
   content: "";
   position: absolute;
   z-index: -1;
-  inset: 0 calc(50% - 50vw);
-  background: var(--canvas);
+  inset: 0 calc(100% - 100vw) 0 calc(var(--margin-x) + 1px);
+  background: var(--paper-grain), var(--paper);
   pointer-events: none;
 }
 
@@ -102,7 +148,7 @@
   content: "";
   position: absolute;
   z-index: -1;
-  inset: 0 calc(50% - 50vw);
+  inset: 0 calc(100% - 100vw) 0 calc(var(--margin-x) + 1px);
   box-shadow:
     0 1px 0 var(--paper-edge),
     0 10px 18px -14px color-mix(in srgb, var(--shade) 45%, transparent);
@@ -123,8 +169,8 @@
   }
 }
 
-/* While the closed cover lies on the notebook, the tabs tuck under it as
-   before; the header only rises above the page once the notebook is open. */
+/* While the closed cover lies on the notebook, the header tucks under it;
+   it only rises above the page once the notebook is open. */
 .notebook-app:has(.notebook-opening) .top-menu {
   z-index: auto;
 }
@@ -159,11 +205,12 @@
   letter-spacing: -0.02em;
 }
 
+/* The page names, printed along the head of the page; the open one is
+   underlined in ink. */
 .primary-nav {
   display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  margin-bottom: -1px;
+  align-items: center;
+  gap: 2px;
 }
 
 .nav-item {
@@ -172,16 +219,14 @@
   min-height: 44px;
   align-items: center;
   gap: 8px;
-  padding: 0 20px;
-  border: 1px solid var(--paper-edge);
-  border-bottom: 0;
-  border-radius: 10px 10px 0 0;
-  background: color-mix(in srgb, var(--paper) 45%, var(--canvas));
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 500;
-  transform: translateY(4px);
-  transition: transform 240ms var(--ease-soft), background-color 240ms var(--ease-soft), color 240ms var(--ease-soft);
+  transition: background-color 240ms var(--ease-soft), color 240ms var(--ease-soft);
 }
 
 .nav-item .icon {
@@ -189,28 +234,32 @@
 }
 
 .nav-item:hover {
-  background: color-mix(in srgb, var(--paper) 80%, var(--canvas));
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   color: var(--ink);
-  transform: translateY(2px);
 }
 
 .nav-item.active {
-  z-index: 1;
-  background: var(--paper);
   color: var(--ink);
   font-weight: 600;
-  transform: none;
 }
 
-/* The active tab runs straight into the page below it. */
-.nav-item.active::after {
+.nav-item::after {
   content: "";
   position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
+  right: 16px;
+  bottom: 7px;
+  left: 16px;
   height: 2px;
-  background: var(--paper);
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleX(0.4);
+  transition: opacity 240ms var(--ease-soft), transform 320ms var(--ease-out);
+}
+
+.nav-item.active::after {
+  opacity: 1;
+  transform: none;
 }
 
 .header-actions {
@@ -445,110 +494,38 @@
 
 /* The notebook */
 
-/* The notebook keeps its rings and cover to itself (isolation), so the sticky
-   header passes over them. It is at least as tall as the window, so moving
-   between short and long pages doesn't move its bottom edge on screen. */
+/* The column the pages are written in, to the right of the margin. It is at
+   least as tall as the window, so moving between short and long pages
+   doesn't move the footer on screen. */
 .notebook-book {
   position: relative;
-  isolation: isolate;
-  width: min(1240px, 100%);
-  min-height: max(720px, calc(100dvh - var(--app-pad-top) - 92px));
-  margin: 0 auto;
-  padding: 44px 52px 0 92px;
-  border: 1px solid var(--paper-edge);
-  border-radius: 6px 8px 8px 6px;
-  background: var(--paper);
-  box-shadow:
-    2px 3px 0 -1px var(--paper),
-    2px 3px 0 0 var(--paper-edge),
-    4px 6px 0 -1px var(--paper),
-    4px 6px 0 0 var(--paper-edge),
-    var(--shadow-paper);
+  max-width: calc(var(--content-x) + var(--content-max) + var(--page-pad-right));
+  min-height: max(640px, calc(100dvh - var(--app-pad-top) - 96px));
+  padding: 30px var(--page-pad-right) 0 var(--content-x);
 }
 
 .notebook-app[data-ruled="false"] {
   --paper-rule: transparent;
-}
-
-/* The margin line. */
-.notebook-book::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 60px;
-  width: 1px;
-  background: var(--margin-line);
-  pointer-events: none;
-}
-
-/* The rings pass through the cover too, so they sit above it. Like a real
-   spiral binding they keep a fixed pitch, and a longer page simply has more
-   of them (NotebookBinding.jsx counts how many fit). */
-.notebook-binding {
-  --ring-pitch: 84px;
-  --ring-height: 10px;
-
-  position: absolute;
-  z-index: 36;
-  top: 56px;
-  bottom: 64px;
-  left: -13px;
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--ring-pitch) - var(--ring-height));
-  pointer-events: none;
-}
-
-.notebook-binding i {
-  position: relative;
-  display: block;
-  flex: none;
-  width: 28px;
-  height: var(--ring-height);
-  border: 1.5px solid #8f928a;
-  border-radius: 6px;
-  background: linear-gradient(#c9cbc3, #9a9e94 55%, #c2c4bb);
-  box-shadow: 0 1px 2px rgb(40 40 32 / 0.2);
-}
-
-/* The punched hole each ring passes through. */
-.notebook-binding i::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  top: -3px;
-  right: -3px;
-  width: 10px;
-  height: 14px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--canvas) 70%, #000);
-  opacity: 0.35;
-}
-
-:root[data-paper-tone="dark"] .notebook-binding i {
-  border-color: #5f645a;
-  background: linear-gradient(#7c8176, #535850 55%, #767b70);
+  --paper-dot: transparent;
 }
 
 /*
- * Opening the notebook. The closed cover rests on the page for a moment, long
- * enough to read its title, then fades away to show today's page. It sits
- * above the page tabs and below the rings, which run through it.
+ * Opening the notebook. The closed cover fills the window, as the page under
+ * it does, and rests for a moment, long enough to read its title, then fades
+ * away to show today's page. Its hinge is scored beside the binding.
  */
 .notebook-opening {
-  --crease: 57px;
+  --crease: var(--spine);
   /* How long the cover rests, then how long it takes to fade. */
   --cover-delay: 450ms;
   --cover-time: 450ms;
 
-  position: absolute;
-  inset: -1px;
+  position: fixed;
+  inset: 0;
   z-index: 35;
   overflow: hidden;
-  border-radius: 6px 8px 8px 6px;
   background:
-    /* The scored fold beside the rings. */
+    /* The scored hinge beside the binding. */
     linear-gradient(90deg,
       transparent var(--crease),
       rgb(0 0 0 / 0.22) var(--crease) calc(var(--crease) + 1px),
@@ -1313,15 +1290,7 @@ kbd {
   .app {
     --app-pad-top: 20px;
 
-    padding: var(--app-pad-top) 24px 36px;
-  }
-
-  .notebook-book {
-    padding: 38px 36px 0 72px;
-  }
-
-  .notebook-book::before {
-    left: 46px;
+    padding-bottom: 36px;
   }
 
   .appearance-toggle span,
@@ -1360,10 +1329,16 @@ kbd {
 }
 
 @media (max-width: 760px) {
+  /* On a phone the page keeps its full width: a narrower binding, the
+     margin close to it, and the writing given the rest. */
   .app {
     --app-pad-top: 16px;
+    --spine: 14px;
+    --margin-x: 24px;
+    --content-x: 38px;
+    --page-pad-right: 16px;
 
-    padding: var(--app-pad-top) 14px 28px;
+    padding-bottom: 28px;
   }
 
   .primary-nav {
@@ -1376,38 +1351,19 @@ kbd {
     justify-content: center;
     gap: 6px;
     padding: 0 6px;
-    font-size: 13px;
+    font-size: 13.5px;
+  }
+
+  .nav-item::after {
+    right: 22%;
+    left: 22%;
   }
 
   .notebook-book {
     min-height: 560px;
-    padding: 28px 18px 0 36px;
+    padding-top: 22px;
   }
 
-  .notebook-book::before {
-    left: 24px;
-  }
-
-  .notebook-binding {
-    --ring-pitch: 76px;
-    --ring-height: 8px;
-
-    top: 44px;
-    left: -9px;
-  }
-
-  .notebook-binding i {
-    width: 20px;
-  }
-
-  .notebook-binding i::after {
-    width: 8px;
-    height: 11px;
-  }
-
-  .notebook-opening {
-    --crease: 38px;
-  }
 
   .opening-label {
     padding: 22px 18px 18px;

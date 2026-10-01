@@ -4,7 +4,8 @@ import { LAYOUT_EASE } from "../motion/useSmoothLayout.js";
  * The welcome: once a day, the notebook opens onto a nearly empty page and
  * the day's header is written onto it in four overlapping beats.
  *
- *   1. The greeting drifts in along an arc, tilted and faint at first.
+ *   1. The greeting drifts in along an arc above the page, tilted and faint
+ *      at first, its shadow on the paper closing in as it lands.
  *   2. The summary beneath it rises out of its line, letter by letter.
  *   3. A strip of paper is laid under them, and this week's check-in is
  *      printed onto it.
@@ -113,13 +114,18 @@ function greetingFrames(dx, dy) {
 
   return Array.from({ length: ARC_STEPS + 1 }, (_, step) => {
     const t = step / ARC_STEPS;
-    const { x, y } = along(glide(t));
+    const travelled = glide(t);
+    const { x, y } = along(travelled);
     // Level a little before it lands, and fully visible well before that.
     const tilt = TILT * (1 - levelling(Math.min(1, t / 0.82)));
+    // Held above the paper, it casts a soft shadow that draws in under it
+    // and fades as it comes down onto the page.
+    const height = 1 - travelled;
     return {
       offset: t,
       opacity: brightening(Math.min(1, t / 0.5)),
       transform: `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) rotate(${tilt.toFixed(3)}deg)`,
+      textShadow: `0 ${(14 * height).toFixed(2)}px ${(18 * height + 0.01).toFixed(2)}px color-mix(in srgb, var(--shade) ${(20 * height).toFixed(2)}%, transparent)`,
     };
   });
 }

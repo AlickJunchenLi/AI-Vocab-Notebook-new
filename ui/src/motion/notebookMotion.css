@@ -224,10 +224,6 @@
   to { transform: translateX(-50%) scaleY(1); }
 }
 
-@keyframes ring-in {
-  from { opacity: 0; transform: translateY(-6px); }
-}
-
 /* A tick, written from its short stroke to its long one. */
 @keyframes notebook-tick {
   from { clip-path: inset(0 100% 0 0); }
@@ -242,14 +238,9 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* The notebook grows or shrinks to the new page instead of jumping, and
-     a ring added as it grows drops into place. */
+  /* The page grows or shrinks to the new page instead of jumping. */
   .page-frame[data-turning] {
     transition: height 560ms var(--motion-grow);
-  }
-
-  .notebook-binding i {
-    animation: ring-in 340ms var(--motion-ease) backwards;
   }
 
   /* One short reading order, with delays capped well below a quarter second. */
